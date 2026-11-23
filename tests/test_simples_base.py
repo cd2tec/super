@@ -906,29 +906,44 @@ class TestValidacaoNomenclatura(ComBase):
         self.assertEqual(sb.sigla_dfe_por_normalizada("CT-e Simplificado"), "CTESIMPLIFICADO")
 
 
-@ancorado_na("V0073")
 class TestNomenclaturaNaBaseReal(ComBase):
-    """As mesmas regras contra a V0073, sem simulação, com os ids dessa base (como nos testes da Receita).
+    """As mesmas regras contra a base real da skill, sem simulação.
 
-    Em outra base os testes são pulados: as regras seguem nos testes com simulação acima e na conferência."""
+    Os ids das classificações vêm da base pelo código. Os testes que dependem de NCM, NBS ou vínculo de
+    uma versão (os casos dos testes da Receita na V0073) levam a âncora; os outros valem em qualquer base."""
+
+    def id_de(self, codigo):
+        return self.base.classificacao_cbs_ibs(codigo, DATA)["id"]
 
     def test_existe_ncm_e_nbs_pela_vigencia(self):
-        self.assertTrue(self.base.existe_ncm("10062010", DATA))
+        ncm = self.base._con.execute("SELECT NCM_CD FROM NCM WHERE length(NCM_CD) = 8 ORDER BY NCM_CD").fetchall()
+        self.assertTrue(any(self.base.existe_ncm(n, DATA) for (n,) in ncm))
         self.assertFalse(self.base.existe_ncm("99999999", DATA))
-        self.assertTrue(self.base.existe_nbs("122012000", DATA))
         self.assertFalse(self.base.existe_nbs("1", DATA))
+        nbs = [n for (n,) in self.base._con.execute("SELECT NBS_CD FROM NBS WHERE length(NBS_CD) = 9 ORDER BY NBS_CD")
+               if self.base.existe_nbs(n, DATA)]
+        self.assertTrue(nbs)
+        self.assertFalse(self.base.existe_nbs(nbs[0], date(1900, 1, 1)))
+
+    @ancorado_na("V0073")
+    def test_existe_ncm_e_nbs_pela_vigencia_na_v0073(self):
+        self.assertTrue(self.base.existe_ncm("10062010", DATA))
+        self.assertTrue(self.base.existe_nbs("122012000", DATA))
         self.assertFalse(self.base.existe_nbs("122012000", date(2020, 1, 1)))
 
     def test_classificacao_cbs_ibs(self):
         classificacao = self.base.classificacao_cbs_ibs("200003", DATA)
-        self.assertEqual((classificacao["id"], classificacao["codigo"], classificacao["nomenclatura"]),
-                         (14, "200003", "NCM"))
+        id_na_base = self.base._con.execute(
+            "SELECT CLTR_ID FROM CLASSIFICACAO_TRIBUTARIA WHERE CLTR_CD = '200003' AND CLTR_NOMENCLATURA = 'NCM'").fetchall()
+        self.assertIn((classificacao["id"],), id_na_base)
+        self.assertEqual((classificacao["codigo"], classificacao["nomenclatura"]), ("200003", "NCM"))
         with self.assertRaises(sb.ClassificacaoTributariaNaoEncontradaException) as erro:
             self.base.classificacao_cbs_ibs("999999", DATA)
         self.assertEqual(str(erro.exception),
                          "Classificação tributária não encontrada para código 999999 e data "
                          "2027-03-15 (CBS e IBS)")
 
+    @ancorado_na("V0073")
     def test_determinar_nomenclatura(self):
         esperado = {
             ("200003", "NFe"): "NCM", ("200003", "NFSe"): "SEM", ("200003", "CTe"): "SEM",
@@ -945,6 +960,7 @@ class TestNomenclaturaNaBaseReal(ComBase):
     def _validar(self, sigla, id_classificacao, codigo, ncm, nbs, modo=sb.MODO_PERMISSIVO):
         self.base.validar_nomenclatura(sigla, id_classificacao, codigo, ncm, nbs, DATA, TRIBUTOS, modo)
 
+    @ancorado_na("V0073")
     def test_validacao_completa_nfe_com_classificacao_de_ncm(self):
         self._validar("NFe", 14, "200003", "10062010", None)
         casos = (("02074300", None, sb.NcmNaoVinculadaException),  # NCM com exceção vigente
@@ -956,26 +972,30 @@ class TestNomenclaturaNaBaseReal(ComBase):
             with self.assertRaises(erro, msg=(ncm, nbs)):
                 self._validar("NFe", 14, "200003", ncm, nbs)
 
+    @ancorado_na("V0073")
     def test_validacao_completa_nfse_misto(self):
         with self.assertRaises(sb.NomenclaturaObrigatoriaNaoInformadaException):
             self._validar("NFSe", 55, "200044", None, None)
         with self.assertRaises(sb.NbsNaoVinculadaException):
             self._validar("NFSe", 55, "200044", None, "122012000")
 
+    @ancorado_na("V0073")
     def test_validacao_fora_do_trio_por_modo(self):
         with self.assertRaises(sb.NomenclaturaNaoPermitidaTipoDfeException):
             self._validar("CTe", 14, "200003", "10062010", None, sb.MODO_RIGIDO)
         self._validar("NFCom", 14, "200003", "10062010", None, sb.MODO_PERMISSIVO)
 
     def test_validar_ncm_e_nbs_aplicavel(self):
-        self.assertIs(self.base.validar_ncm("123", 1, "000001", DATA, TRIBUTOS), True)
-        self.assertIs(self.base.validar_ncm("12345678", 1, "000001", DATA, TRIBUTOS), True)
+        geral, cesta, servico = self.id_de("000001"), self.id_de("200003"), self.id_de("200028")
+        self.assertIs(self.base.validar_ncm("123", geral, "000001", DATA, TRIBUTOS), True)
+        self.assertIs(self.base.validar_ncm("12345678", geral, "000001", DATA, TRIBUTOS), True)
         with self.assertRaises(sb.NcmCompletoNaoInformadoException):
-            self.base.validar_ncm("123", 14, "200003", DATA, TRIBUTOS)
-        self.assertIs(self.base.validar_nbs("123", 1, "000001", DATA, TRIBUTOS), True)
+            self.base.validar_ncm("123", cesta, "200003", DATA, TRIBUTOS)
+        self.assertIs(self.base.validar_nbs("123", geral, "000001", DATA, TRIBUTOS), True)
         with self.assertRaises(sb.NbsCompletoNaoInformadoException):
-            self.base.validar_nbs("123", 39, "200028", DATA, TRIBUTOS)
+            self.base.validar_nbs("123", servico, "200028", DATA, TRIBUTOS)
 
+    @ancorado_na("V0073")
     def test_predicados_de_vinculo_do_ncm(self):
         # 02074300 é exceção da linha genérica 0207 da classificação 14, e não há outra linha livre.
         self.assertTrue(self.base.tem_ncm_aplicavel("02074300", 14, DATA))
@@ -986,10 +1006,11 @@ class TestNomenclaturaNaBaseReal(ComBase):
         self.assertFalse(self.base.tem_ncm_aplicavel_para_classificacao(1, DATA))
 
     def test_tipo_dfe_da_classificacao_traz_a_sigla(self):
-        tipos = self.base.tipo_dfe_classificacao(14, DATA)
+        cesta = self.id_de("200003")
+        tipos = self.base.tipo_dfe_classificacao(cesta, DATA)
         siglas = {sb.normalizar_sigla(t["tipoDfe"]["sigla"]) for t in tipos}
         self.assertIn("NFE", siglas)
-        self.assertEqual(self.base.tipo_dfe_classificacao(14, date(2025, 1, 1)), [])
+        self.assertEqual(self.base.tipo_dfe_classificacao(cesta, date(2025, 1, 1)), [])
 
 
 class TestConsultasDaSugestao(ComBase):

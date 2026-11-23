@@ -225,13 +225,14 @@ class SugestaoTest(unittest.TestCase):
         self.assertEqual(ncm, "10063021")
         self.assertEqual(len(avisos), 1)
 
-    @ancorado_na("V0073")
-    def test_remedio_vem_como_conferir_e_com_a_regra_geral_por_ultimo(self):
-        r = self.sugerir("30049099")
+    def test_dica_vem_como_conferir_e_com_a_regra_geral_por_ultimo(self):
+        # na V0073 a amostra é um remédio (dica 200032); aqui vem do primeiro NCM que recebe uma dica do perfil
+        dicas = {c for d in sugestao.PERFIL["dicas"] for c in d["codigos"]}
+        ncm = next(n for n in self.amostra.vigentes() if dicas & set(self.amostra.codigos(n)))
+        r = self.sugerir(ncm)
         codigos = self.codigos(r)
-        self.assertIn("200032", codigos)
         self.assertEqual(codigos[-1], "000001")
-        dica = next(s for s in r["sugestoes"] if s["cClassTrib"] == "200032")
+        dica = next(s for s in r["sugestoes"] if s["cClassTrib"] in dicas)
         self.assertIn("confirme com o contador", dica["motivo"])
 
     @ancorado_na("V0073")

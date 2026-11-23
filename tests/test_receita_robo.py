@@ -86,9 +86,38 @@ class ClassificarTest(unittest.TestCase):
         u = upstream(commit_migr="a" * 40)
         self.assertEqual(robo.classificar(META, u, ["flyway/sqlite.conf"], CONFIG), "nada")
 
-    def test_commit_novo_da_calculadora_sem_versao_nova_e_nada(self):
+    def test_mesma_versao_com_outro_commit_nunca_publica(self):
+        # tag movida: não é nada e não é tabela, é falha
         u = upstream(commit_calc="b" * 40)
-        self.assertEqual(robo.classificar(META, u, ["src/main/java/X.java"], CONFIG), "nada")
+        with self.assertRaises(robo.MudancaInvalida):
+            robo.classificar(META, u, ["src/main/java/X.java"], CONFIG)
+
+    def test_mesma_versao_mesmo_commit_e_nada(self):
+        self.assertEqual(robo.classificar(META, upstream(versao="v" + META["calculadora"]["versao"]), ["pom.xml"], CONFIG),
+                         "nada")
+
+    def test_versao_para_tras_nunca_publica(self):
+        # releases/latest segue a marca de "latest" e a data, não a ordem das versões
+        u = upstream(versao="1.0.1", commit_calc="b" * 40)
+        with self.assertRaises(robo.MudancaInvalida) as erro:
+            robo.classificar(META, u, ["pom.xml"], CONFIG)
+        self.assertIn("anterior", str(erro.exception))
+        with self.assertRaises(robo.MudancaInvalida):
+            robo.classificar(META, upstream(versao="1.0.2-sem-numero!", commit_calc="b" * 40), [], CONFIG)
+        with self.assertRaises(robo.MudancaInvalida):
+            robo.classificar(META, upstream(versao="x", commit_calc="b" * 40), [], CONFIG)
+
+    def test_versao_maior_compara_por_numero(self):
+        u = upstream(versao="1.0.10", commit_calc="b" * 40)
+        self.assertEqual(robo.classificar({**META, "calculadora": {**META["calculadora"], "versao": "1.0.9"}},
+                                          u, ["pom.xml"], CONFIG), "release-sem-codigo")
+
+    def test_partes_da_versao_como_no_calc(self):
+        self.assertEqual(robo.partes_da_versao("v1.0.2"), (1, 0, 2))
+        self.assertEqual(robo.partes_da_versao("1.0.0"), (1,))
+        self.assertEqual(robo.partes_da_versao("1.0.3-rc1"), (1, 0, 3))
+        self.assertIsNone(robo.partes_da_versao("abc"))
+        self.assertLess(robo.partes_da_versao("1.0.9"), robo.partes_da_versao("1.0.10"))
 
 
 class DecidirTest(unittest.TestCase):
@@ -209,9 +238,10 @@ class AplicarPublicacaoTest(unittest.TestCase):
         self.assertLess(changelog.index(f"## {nova}"), changelog.index(f"## {self.versao}"))
         secao = changelog.split(f"## {nova}", 1)[1].split(f"## {self.versao}", 1)[0]
         for agulha in ("cbs-ibs-simples", META["base"]["versao"], "V0074", "12.100", "02/12/2026", "`ccccccc`",
-                       "A conta não mudou"):
+                       "O código de cálculo não mudou", "o resultado pode mudar"):
             self.assertIn(agulha, secao, agulha)
-        self.assertNotIn("código de cálculo", secao)
+        # a base mudou: a conta pode dar outro resultado, então o texto não diz que ela não mudou
+        self.assertNotIn("A conta não mudou", secao)
         self.assertNotRegex(secao, f"[{EM}{EN}]")
 
     def test_meta_vai_para_o_meta_json_a_base_e_as_esperadas(self):
@@ -235,6 +265,19 @@ class AplicarPublicacaoTest(unittest.TestCase):
         self.assertNotRegex(secao, f"[{EM}{EN}]")
         texto_tabelas = robo.texto_changelog(META, self.meta_nova(), "tabelas", nova)
         self.assertNotEqual(texto_tabelas, robo.texto_changelog(META, meta, "release-sem-codigo", nova))
+
+    def test_release_sem_codigo_com_a_mesma_base_diz_que_a_conta_nao_mudou(self):
+        meta = json.loads(json.dumps(META))
+        meta["calculadora"] = {**META["calculadora"], "versao": "1.0.3", "commit": "e" * 40}
+        meta["conferencia"] = {"data": "2026-12-02", "casos": 12013, "iguais": 12013}
+        texto = robo.texto_changelog(META, meta, "release-sem-codigo", "0.6.1")
+        self.assertIn("A conta não mudou.", texto)
+        self.assertIn(f"segue na {META['base']['versao']}", texto)
+        mudou = json.loads(json.dumps(meta))
+        mudou["base"]["hash"] = "sha256:" + "9" * 64
+        texto = robo.texto_changelog(META, mudou, "release-sem-codigo", "0.6.1")
+        self.assertNotIn("A conta não mudou", texto)
+        self.assertIn("com conteúdo novo", texto)
 
     def test_cli_publicar_conta_a_mudanca_a_partir_da_meta_do_comeco(self):
         # No workflow o meta.json em disco já é o da base nova quando o publicar roda.
@@ -333,7 +376,7 @@ class CliDetectarDecidirTest(unittest.TestCase):
         self.detectar(upstream(commit_migr="a" * 40), ["flyway/sql/manutencao/V0074__x.sql"])
         saida = self.decidir("--ramo", "refs/heads/outro")
         self.assertIn("acao=terminar", saida)
-        self.assertIn("na main seria publicar", saida)
+        self.assertIn("na main a ação seria publicar", saida)
 
     def test_meta_mudou_no_meio_nao_age(self):
         self.detectar(upstream(commit_migr="a" * 40), ["flyway/sql/manutencao/V0074__x.sql"])
@@ -449,6 +492,283 @@ class CompararBasesTest(unittest.TestCase):
     def test_diferentes(self):
         self.assertTrue(robo.comparar_bases(self.base([1, 2]), self.base([1, 3]), CONFIG["hash_ignorar_colunas"]))
         self.assertTrue(robo.comparar_bases(self.base([1], extra="NOVA"), self.base([1]), CONFIG["hash_ignorar_colunas"]))
+
+
+def rodar_cli_com_saida(args):
+    """Roda a linha de comando com um $GITHUB_OUTPUT de verdade e devolve (código, stdout, linhas da saída)."""
+    with tempfile.TemporaryDirectory() as pasta:
+        arquivo = Path(pasta) / "github_output"
+        arquivo.write_text("", encoding="utf-8")
+        ambiente = {**{k: v for k, v in os.environ.items() if k != "GITHUB_OUTPUT"}, "GITHUB_OUTPUT": str(arquivo)}
+        saida = io.StringIO()
+        with mock.patch.dict(os.environ, ambiente, clear=True), contextlib.redirect_stdout(saida), \
+                contextlib.redirect_stderr(io.StringIO()):
+            codigo = robo.main(args)
+        return codigo, saida.getvalue(), arquivo.read_text(encoding="utf-8").splitlines()
+
+
+class SaidaTest(unittest.TestCase):
+    def test_recusa_quebra_de_linha_nul_e_chave_desconhecida(self):
+        for valor in ("terminar\npr=$(id)", "terminar\r", "terminar\0"):
+            with self.assertRaises(ValueError):
+                robo._saida(acao=valor)
+        with self.assertRaises(ValueError):
+            robo._saida(motivo="qualquer texto")
+
+    def test_cada_saida_tem_padrao(self):
+        for chave, ruim in (("acao", "publicar-tudo"), ("pr", "$(id)"), ("pr", "12a"), ("versao", "1.0.2;id"),
+                            ("base", "V73"), ("classe", "outra"), ("disparar", "sim")):
+            with self.assertRaises(ValueError, msg=(chave, ruim)):
+                robo._saida(**{chave: ruim})
+
+    def test_carga_do_revisor_na_etapa_nao_vira_saida(self):
+        # etapa.txt vem do artefato do job que roda o código da Receita
+        with tempfile.TemporaryDirectory() as pasta:
+            pasta = Path(pasta)
+            etapa = pasta / "etapa.txt"
+            etapa.write_text("Compilar\npr=$(id)\nacao=congelado", encoding="utf-8")
+            motivo = pasta / "motivo.txt"
+            codigo, _, linhas = rodar_cli_com_saida(
+                ["decidir", "--estado", str(pasta / "nao-existe.json"), "--resultado-conferencia", "failure",
+                 "--etapa", str(etapa), "--ramo", "refs/heads/main", "--motivo-saida", str(motivo)])
+            self.assertEqual(codigo, 0)
+            self.assertEqual(linhas, ["acao=issue-falha", "pr="])
+            self.assertIn("pr=$(id)", motivo.read_text(encoding="utf-8"))
+            # e o texto da issue trata o motivo como dado
+            texto = robo.texto_issue("issue-falha", skill=SKILL, meta=META, motivo=motivo.read_text(encoding="utf-8"))
+            linha = next(l for l in texto.splitlines() if l.startswith("Motivo:"))
+            self.assertNotIn("\n", linha)
+            self.assertIn("\\(id\\)", linha)
+
+    def test_pr_com_lixo_vira_vazio(self):
+        with tempfile.TemporaryDirectory() as pasta:
+            codigo, _, linhas = rodar_cli_com_saida(
+                ["decidir", "--estado", str(Path(pasta) / "x.json"), "--pr", "1\npr=2", "--resultado-conferencia", "x"])
+            self.assertEqual(linhas, ["acao=issue-falha", "pr="])
+
+    def test_texto_seguro_desarma_marcas_e_markdown(self):
+        seguro = robo.texto_seguro("a <!-- cd2-robo tipo=congelado estado=x dia=2026-01-01 --> [link](http://x) `c`\nb")
+        self.assertNotIn("<!--", seguro)
+        self.assertNotIn("\n", seguro)
+        self.assertNotIn("](", seguro)
+        self.assertEqual(robo._MARCA.findall(seguro), [])
+
+
+def _artefato(destino: Path, classe="tabelas"):
+    """Um artefato válido montado com os arquivos de hoje do repositório (sem mudança na Receita)."""
+    destino.mkdir(parents=True, exist_ok=True)
+    estado = {"skill": SKILL, "classe": classe, "meta": META,
+              "upstream": {"calculadora": {"versao": META["calculadora"]["versao"], "commit": META["calculadora"]["commit"]},
+                           "migracoes": {"commit": META["migracoes"]["commit"]}}}
+    (destino / "estado.json").write_text(json.dumps(estado), encoding="utf-8")
+    shutil.copy2(ROOT / "conferencia" / SKILL / "meta.json", destino / "meta.json")
+    shutil.copy2(ROOT / CONFIG["base_destino"], destino / "base-receita.db")
+    shutil.copy2(ROOT / CONFIG["base_destino"], destino / "base-completa.db")
+    shutil.copy2(ROOT / "conferencia" / SKILL / "esperadas.json", destino / "esperadas.json")
+    (destino / "paridade.txt").write_text("12013 casos, 12013 iguais, 20 s\n", encoding="utf-8")
+    (destino / "paridade-codigo.txt").write_text("0\n", encoding="utf-8")
+    return estado
+
+
+class ArtefatoTest(unittest.TestCase):
+    def setUp(self):
+        self.pasta = Path(tempfile.mkdtemp(prefix="receita_robo_art_"))
+        self.addCleanup(shutil.rmtree, self.pasta, True)
+        self.estado = _artefato(self.pasta)
+
+    def problemas(self):
+        return robo.validar_artefato(ROOT, SKILL, self.pasta)[1]
+
+    def test_artefato_bom_passa(self):
+        self.assertEqual(self.problemas(), [])
+
+    def test_base_com_linha_mudada_nao_tem_o_hash_do_meta(self):
+        con = sqlite3.connect(self.pasta / "base-receita.db")
+        con.execute("UPDATE PERCENTUAL_REDUCAO SET PERE_VALOR = PERE_VALOR + 1 WHERE rowid = 1")
+        con.commit()
+        con.close()
+        self.assertTrue(any("hash" in p for p in self.problemas()))
+
+    def test_meta_diferente_da_cd2_meta(self):
+        meta = json.loads(json.dumps(META))
+        meta["base"]["data"] = "2026-01-01"
+        (self.pasta / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
+        self.assertTrue(any("CD2_META" in p for p in self.problemas()))
+
+    def test_valores_fora_do_padrao(self):
+        for troca in (lambda e: e["upstream"]["calculadora"].update(commit="$(id)"),
+                      lambda e: e["upstream"]["calculadora"].update(versao="1.0.2\nacao=publicar"),
+                      lambda e: e.update(classe="publicar"),
+                      lambda e: e.update(skill="outra")):
+            estado = json.loads(json.dumps(self.estado))
+            troca(estado)
+            (self.pasta / "estado.json").write_text(json.dumps(estado), encoding="utf-8")
+            self.assertTrue(self.problemas(), estado)
+
+    def test_meta_do_artefato_nao_pode_mexer_na_calculadora_nem_na_conferencia(self):
+        meta = json.loads(json.dumps(META))
+        meta["conferencia"]["iguais"] = 1
+        (self.pasta / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
+        self.assertTrue(any("conferencia" in p for p in self.problemas()))
+
+    def test_arquivo_grande_demais_ou_faltando(self):
+        (self.pasta / "paridade-codigo.txt").write_text("0" * 50, encoding="utf-8")
+        self.assertTrue(any("paridade-codigo.txt" in p for p in self.problemas()))
+        (self.pasta / "esperadas.json").unlink()
+        self.assertTrue(any("falta esperadas.json" in p for p in self.problemas()))
+
+    def test_esperadas_com_id_estranho(self):
+        esperadas = json.loads((self.pasta / "esperadas.json").read_text(encoding="utf-8"))
+        esperadas["casos"][0]["id"] = "<!-- cd2-robo -->"
+        (self.pasta / "esperadas.json").write_text(json.dumps(esperadas), encoding="utf-8")
+        self.assertTrue(any("esperadas" in p for p in self.problemas()))
+
+
+class ReconferirTest(unittest.TestCase):
+    def estado(self, classe="tabelas", migr="a" * 40, versao=None, calc=None):
+        return {"skill": SKILL, "classe": classe, "meta": META,
+                "upstream": {"calculadora": {"versao": versao or META["calculadora"]["versao"],
+                                             "commit": calc or META["calculadora"]["commit"]},
+                             "migracoes": {"commit": migr}}}
+
+    def test_igual_ao_artefato_passa(self):
+        estado = self.estado()
+        compare = {"files": [{"filename": "flyway/sql/manutencao/V0074__x.sql"}, {"filename": "README.md"}]}
+        self.assertEqual(robo.reconferir(META, CONFIG, estado, estado["upstream"], None, compare), [])
+
+    def test_estado_da_receita_diferente_do_artefato(self):
+        estado = self.estado()
+        api = json.loads(json.dumps(estado["upstream"]))
+        api["migracoes"]["commit"] = "b" * 40
+        self.assertTrue(robo.reconferir(META, CONFIG, estado, api, None, {"files": []}))
+
+    def test_classe_diferente_da_do_artefato(self):
+        # o artefato diz "tabelas", mas a comparação não mexe em flyway/sql
+        estado = self.estado()
+        problemas = robo.reconferir(META, CONFIG, estado, estado["upstream"], None, {"files": [{"filename": "README.md"}]})
+        self.assertTrue(any("classe" in p for p in problemas))
+
+    def test_artefato_que_esconde_src_main(self):
+        estado = self.estado(classe="release-sem-codigo", migr=META["migracoes"]["commit"], versao="1.0.3", calc="c" * 40)
+        compare = {"files": [{"filename": "pom.xml"}, {"filename": "src/main/java/X.java"}]}
+        self.assertTrue(robo.reconferir(META, CONFIG, estado, estado["upstream"], compare, None))
+
+    def test_comparacao_cortada_so_confirma_regra(self):
+        estado = self.estado(classe="release-sem-codigo", migr=META["migracoes"]["commit"], versao="1.0.3", calc="c" * 40)
+        compare = {"files": [{"filename": f"docs/{i}.md"} for i in range(300)]}
+        problemas = robo.reconferir(META, CONFIG, estado, estado["upstream"], compare, None)
+        self.assertTrue(any("300" in p for p in problemas))
+
+    def test_versao_para_tras_e_falha(self):
+        estado = self.estado(classe="release-sem-codigo", migr=META["migracoes"]["commit"], versao="1.0.1", calc="c" * 40)
+        problemas = robo.reconferir(META, CONFIG, estado, estado["upstream"], {"files": []}, None)
+        self.assertTrue(any("anterior" in p for p in problemas))
+
+    def test_cli_reconferir_com_artefato_e_api(self):
+        with tempfile.TemporaryDirectory() as pasta:
+            pasta = Path(pasta)
+            _artefato(pasta / "art", classe="nada")
+            motivo = pasta / "motivo.txt"
+            codigo, _, _ = rodar_cli_com_saida(
+                ["reconferir", "--skill", SKILL, "--artefato", str(pasta / "art"), "--tag", META["calculadora"]["versao"],
+                 "--commit-calc", META["calculadora"]["commit"], "--commit-migr", META["migracoes"]["commit"],
+                 "--motivo-saida", str(motivo)])
+            self.assertEqual(codigo, 0)
+            codigo, _, linhas = rodar_cli_com_saida(
+                ["reconferir", "--skill", SKILL, "--artefato", str(pasta / "art"), "--tag", META["calculadora"]["versao"],
+                 "--commit-calc", "d" * 40, "--commit-migr", META["migracoes"]["commit"], "--motivo-saida", str(motivo)])
+            self.assertEqual((codigo, linhas), (1, []))
+            self.assertIn("API do GitHub", motivo.read_text(encoding="utf-8"))
+
+
+REPO = "cd2tec/super"
+ROBO = {"login": "app/github-actions", "is_bot": True}
+GENTE = {"login": "alguem", "is_bot": False}
+TITULO_PR = robo.titulo("pr-regra", SKILL)
+
+
+def pr(numero, **trocas):
+    base = {"number": numero, "title": TITULO_PR, "headRefName": f"receita/{SKILL}-1.0.3", "isCrossRepository": False,
+            "headRepository": {"name": "super"}, "headRepositoryOwner": {"login": "cd2tec"}, "author": ROBO}
+    base.update(trocas)
+    return base
+
+
+class QuemERoboTest(unittest.TestCase):
+    def test_pr_de_fora_nao_congela_nem_recebe_comentario(self):
+        prs = [pr(1, isCrossRepository=True, headRepositoryOwner={"login": "estranho"}, author=GENTE),
+               pr(2, author=GENTE),
+               pr(3, headRefName="main"),
+               pr(4, headRepository={"name": "outro"}),
+               pr(5, title=TITULO_PR + " "),
+               pr(6)]
+        self.assertEqual(robo.pr_do_robo(prs, TITULO_PR, REPO), 6)
+        self.assertIsNone(robo.pr_do_robo(prs[:5], TITULO_PR, REPO))
+        self.assertIsNone(robo.pr_do_robo("lixo", TITULO_PR, REPO))
+
+    def test_issue_so_do_robo(self):
+        titulo_issue = robo.titulo("issue-gpt", SKILL)
+        issues = [{"number": 7, "title": titulo_issue, "author": GENTE},
+                  {"number": 8, "title": titulo_issue, "author": {"login": "github-actions"}}]
+        self.assertEqual(robo.issue_do_robo(issues, titulo_issue), 8)
+        self.assertIsNone(robo.issue_do_robo(issues[:1], titulo_issue))
+
+    def test_marcas_de_fora_nao_contam(self):
+        up = TextosTest.UP
+        marca = robo.marca("congelado", up, "2026-12-02")
+        comentarios = {"comments": [{"author": GENTE, "body": marca}]}
+        corpos = robo.corpos_do_robo(comentarios)
+        self.assertEqual(corpos, [])
+        self.assertTrue(robo.deve_comentar(corpos, "congelado", up, "2026-12-02"))
+        comentarios["comments"].append({"author": {"login": "github-actions[bot]"}, "body": marca})
+        self.assertFalse(robo.deve_comentar(robo.corpos_do_robo(comentarios), "congelado", up, "2026-12-02"))
+
+    def test_versao_no_ar_so_do_corpo_do_robo(self):
+        with tempfile.TemporaryDirectory() as pasta:
+            pasta = Path(pasta)
+            corpo = pasta / "corpo.json"
+            corpo.write_text(json.dumps({"author": GENTE, "body": "<!-- cd2-robo no-ar=0.0.1 -->"}), encoding="utf-8")
+            saida = pasta / "saida.md"
+            rodar_cli(["texto", "--tipo", "issue-gpt", "--skill", SKILL, "--versao-nova", "0.6.1",
+                       "--versao-anterior", "0.6.0", "--corpo-atual", str(corpo), "--saida", str(saida)])
+            self.assertIn("no-ar=0.6.0", saida.read_text(encoding="utf-8"))
+            corpo.write_text(json.dumps({"author": ROBO, "body": "<!-- cd2-robo no-ar=0.5.9 -->"}), encoding="utf-8")
+            rodar_cli(["texto", "--tipo", "issue-gpt", "--skill", SKILL, "--versao-nova", "0.6.1",
+                       "--versao-anterior", "0.6.0", "--corpo-atual", str(corpo), "--saida", str(saida)])
+            self.assertIn("no-ar=0.5.9", saida.read_text(encoding="utf-8"))
+
+    def test_cli_achar(self):
+        with tempfile.TemporaryDirectory() as pasta:
+            lista = Path(pasta) / "prs.json"
+            lista.write_text(json.dumps([pr(2, author=GENTE), pr(9)]), encoding="utf-8")
+            _, _, linhas = rodar_cli_com_saida(["achar", "--tipo", "pr", "--de", "pr-regra", "--skill", SKILL,
+                                                "--lista", str(lista), "--repo", REPO])
+            self.assertEqual(linhas, ["numero=9"])
+            lista.write_text(json.dumps([pr(2, author=GENTE)]), encoding="utf-8")
+            _, _, linhas = rodar_cli_com_saida(["achar", "--tipo", "pr", "--de", "pr-regra", "--skill", SKILL,
+                                                "--lista", str(lista), "--repo", REPO])
+            self.assertEqual(linhas, ["numero="])
+
+
+class ReleaseTest(unittest.TestCase):
+    def test_dispara_quando_falta_a_release_e_nada_esta_rodando(self):
+        releases = [{"tagName": "cd2-super-v0.6.0"}]
+        self.assertTrue(robo.deve_disparar_release("0.6.1", releases, [{"status": "completed"}]))
+        self.assertFalse(robo.deve_disparar_release("0.6.0", releases, []))
+        self.assertFalse(robo.deve_disparar_release("0.6.1", releases, [{"status": "in_progress"}]))
+        self.assertFalse(robo.deve_disparar_release("0.6.1", releases, [{"status": "queued"}]))
+        with self.assertRaises(ValueError):
+            robo.deve_disparar_release("0.6.1\n", releases, [])
+
+
+class TextoPrReleaseSemCodigoTest(unittest.TestCase):
+    def test_nao_diz_que_o_codigo_de_calculo_mudou(self):
+        up = TextosTest.UP
+        texto = robo.texto_pr_regra(META, up, MENOS, "", classe="release-sem-codigo")
+        self.assertNotIn("mudou o código de cálculo", texto)
+        self.assertIn("sem mudança no código de cálculo", texto)
+        self.assertTrue(texto.startswith("**As tabelas"))
+        self.assertIn("mudou o código de cálculo", robo.texto_pr_regra(META, up, MENOS, ""))
 
 
 if __name__ == "__main__":
