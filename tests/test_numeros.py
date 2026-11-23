@@ -199,6 +199,22 @@ class ComportamentoDoPortTest(unittest.TestCase):
         partes = numeros.ratear_valor(D("1.80"), [D(10), D(13), D(10)])
         self.assertEqual(textos(partes), ["0.55", "0.71", "0.54"])
 
+    def test_rateio_fecha_o_total_arredondado_com_mais_de_2_casas(self):
+        # 0,175 / 3: a soma dos quocientes de 34 digitos fica abaixo do meio centavo
+        partes = numeros.ratear_valor(D("0.175"), [D(1), D(1), D(1)])
+        self.assertEqual(textos(partes), ["0.06", "0.06", "0.06"])
+        self.assertEqual(numeros.totalizar(partes), numeros.arredondar_valor(D("0.175")))
+        sorteio = random.Random(20261117)
+        for _ in range(2000):
+            total = D(sorteio.randrange(10_000_000)).scaleb(-5)
+            pesos = [D(1 + sorteio.randrange(20)) for _ in range(1 + sorteio.randrange(8))]
+            self.assertEqual(numeros.totalizar(numeros.ratear_valor(total, pesos)),
+                             numeros.arredondar_valor(total))
+
+    def test_multiplicar_e_subtrair_nao_devolvem_zero_negativo(self):
+        self.assertEqual(str(numeros.multiplicar(D(-1), D(0))), "0")
+        self.assertEqual(str(numeros.subtrair(D("-0"), D(0))), "0")
+
     def test_contexto_global_nao_interfere(self):
         import decimal
         antes = decimal.getcontext().prec

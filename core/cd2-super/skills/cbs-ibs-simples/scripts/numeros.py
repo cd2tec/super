@@ -97,14 +97,14 @@ def multiplicar(v1, v2):
     """Multiplicação exata (sem arredondamento); None se algum operando for None."""
     if v1 is None or v2 is None:
         return None
-    return _EXATO.multiply(v1, v2)
+    return _sem_sinal_de_zero(_EXATO.multiply(v1, v2))
 
 
 def subtrair(v1, v2):
     """Subtração exata (sem arredondamento); None se algum operando for None."""
     if v1 is None or v2 is None:
         return None
-    return _EXATO.subtract(v1, v2)
+    return _sem_sinal_de_zero(_EXATO.subtract(v1, v2))
 
 
 def dividir(dividendo, divisor):
@@ -166,7 +166,11 @@ def ratear_parcelas(parcelas_exatas):
     e a soma das parcelas devolvidas é igual ao total.
     """
     parcelas_exatas = list(parcelas_exatas)
-    total = arredondar_valor(totalizar(parcelas_exatas))
+    return _distribuir(parcelas_exatas, arredondar_valor(totalizar(parcelas_exatas)))
+
+
+def _distribuir(parcelas_exatas, total):
+    """Trunca cada parcela no centavo e reparte os centavos que faltam para fechar `total`."""
     parcelas = []
     restos = []
     distribuido = Decimal(0)
@@ -191,26 +195,29 @@ def ratear_parcelas(parcelas_exatas):
 def ratear_valor(total, pesos):
     """Reparte `total` entre as parcelas proporcionais a `pesos`, fechando o total.
 
-    Cada parcela exata é total x peso / soma dos pesos (divisão de 34 dígitos). O arredondamento
-    e a distribuição dos centavos seguem ratear_parcelas. None em `total` ou `pesos` devolve None.
+    Cada parcela exata é total x peso / soma dos pesos (divisão de 34 dígitos). As parcelas
+    devolvidas somam sempre arredondar_valor(total), para qualquer total: o total é arredondado
+    uma vez e entra direto no rateio, em vez de ser recalculado pela soma dos quocientes (que
+    pode ficar logo abaixo de um meio centavo em que o total cai exato). Os centavos são
+    distribuídos como em ratear_parcelas. None em `total` ou `pesos` devolve None.
     """
     if total is None or pesos is None:
         return None
     pesos = list(pesos)
     soma = totalizar(pesos)
     exatas = [dividir(multiplicar(total, peso), soma) for peso in pesos]
-    return ratear_parcelas(exatas)
+    return _distribuir(exatas, arredondar_valor(total))
 
 
 # --- Formatação para apresentação -----------------------------------------------------
 
 def formatar_moeda(v):
-    """Valor monetário com exatamente 2 casas decimais (ex.: "804.37")."""
+    """Valor monetário com exatamente 2 casas decimais (ex.: "804.37"). Recebe valor não nulo."""
     return format(_arredondar(v, ESCALA_VALOR), "f")
 
 
 def formatar_aliquota(v):
-    """Alíquota com 2 a 4 casas: arredonda a 4, tira zeros à direita e garante o mínimo de 2.
+    """Alíquota (valor não nulo) com 2 a 4 casas: arredonda a 4, tira zeros à direita e garante o mínimo de 2.
 
     Exemplos: 0.2080 vira "0.208", 0.2000 vira "0.20", 60.0000 vira "60.00".
     """
@@ -221,7 +228,7 @@ def formatar_aliquota(v):
 
 
 def formatar_quantidade(v):
-    """Quantidade: inteiro quando possível, senão 4 casas decimais HALF_EVEN."""
+    """Quantidade (valor não nulo): inteiro quando possível, senão 4 casas decimais HALF_EVEN."""
     if _ARREDONDA.normalize(v).as_tuple().exponent >= 0:
         return str(int(v))
     return format(_arredondar(v, ESCALA_QUANTIDADE), "f")
