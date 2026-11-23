@@ -129,10 +129,10 @@ class WorkflowTest(unittest.TestCase):
             for linha in bloco.splitlines():
                 if re.search(r"(^|\s)(mvn|java)\s", linha) and "docker run" not in bloco:
                     self.fail(f"código da Receita fora de contêiner: {linha.strip()}")
-        montagens = re.findall(r'-v "([^"]+):', text)
+        montagens = [m.split(":")[0] for m in re.findall(r'-v "([^"]+)"', text)]
         self.assertTrue(montagens)
         for origem in montagens:
-            self.assertTrue(origem.startswith("$ISOL/"), origem)
+            self.assertTrue(origem.startswith("$ISOL/") or origem in ("$JAR", "$BANCO"), origem)
         self.assertIn("ISOL: /tmp/receita-isolada", text)
         self.assertIn(":/app/calculadora/db/calculadora-pro.db:ro", text)
         self.assertIn("--network receita-oficial", text)
@@ -140,6 +140,32 @@ class WorkflowTest(unittest.TestCase):
         self.assertIn('-p "127.0.0.1:$PORTA:$PORTA"', text)
         # contêineres desligados antes de a pasta dos resultados receber arquivos
         self.assertLess(text.index("name: Desligar os contêineres"), text.index("name: Guardar o que o job agir precisa"))
+
+    def test_produto_do_build_so_passa_se_for_arquivo_comum_da_pasta(self):
+        # Docker segue link simbólico na origem de um -v, e o cp também: nada do build é usado sem conferir
+        for bloco in run_blocks(wf("conferencia-receita.yml")):
+            usa = re.findall(r'"\$ISOL/produtos/[^"$]+"', bloco)
+            self.assertEqual(usa, [], f"produto do build usado sem passar pela conferência: {usa}")
+            if "$(produto " in bloco:
+                self.assertIn("produto() {", bloco)
+                self.assertIn('[ -L "$p" ]', bloco)
+                self.assertIn('[ ! -f "$p" ]', bloco)
+                self.assertIn('realpath "$ISOL/produtos"', bloco)
+            for variavel in ("JAR", "BANCO"):
+                if f'"${variavel}' in bloco or f'"${variavel}:' in bloco:
+                    self.assertRegex(bloco, rf"{variavel}=\$\(produto [a-z.-]+\)")
+        text = wf("conferencia-receita.yml")
+        self.assertEqual(text.count("-c core.symlinks=false"), 2)
+        self.assertEqual(len(re.findall(r"diff -z --no-renames --name-only", text)), 2)
+        self.assertNotRegex(text, r"diff --no-renames --name-only")
+
+    def test_agir_le_o_meta_do_commit_do_comeco(self):
+        text = wf("conferencia-receita.yml")
+        agir = text[text.index("\n  agir:"):text.index("\n  manter:")]
+        self.assertIn("fetch-depth: 0", agir)
+        self.assertIn('git show "$GITHUB_SHA:conferencia/$SKILL/meta.json"', agir)
+        self.assertIn("--meta-do-comeco", agir)
+        self.assertIn('decidir --skill "$SKILL"', agir)
 
     def test_fora_da_main_nada_escreve(self):
         escreve = re.compile(r"gh (issue|pr) (create|edit|comment)|git push|gh workflow (run|enable)|gh api -X PUT")

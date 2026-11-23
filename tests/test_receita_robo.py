@@ -709,7 +709,7 @@ class QuemERoboTest(unittest.TestCase):
     def test_issue_so_do_robo(self):
         titulo_issue = robo.titulo("issue-gpt", SKILL)
         issues = [{"number": 7, "title": titulo_issue, "author": GENTE},
-                  {"number": 8, "title": titulo_issue, "author": {"login": "github-actions"}}]
+                  {"number": 8, "title": titulo_issue, "author": {"login": "github-actions", "is_bot": True}}]
         self.assertEqual(robo.issue_do_robo(issues, titulo_issue), 8)
         self.assertIsNone(robo.issue_do_robo(issues[:1], titulo_issue))
 
@@ -720,7 +720,7 @@ class QuemERoboTest(unittest.TestCase):
         corpos = robo.corpos_do_robo(comentarios)
         self.assertEqual(corpos, [])
         self.assertTrue(robo.deve_comentar(corpos, "congelado", up, "2026-12-02"))
-        comentarios["comments"].append({"author": {"login": "github-actions[bot]"}, "body": marca})
+        comentarios["comments"].append({"author": {"login": "github-actions[bot]", "is_bot": True}, "body": marca})
         self.assertFalse(robo.deve_comentar(robo.corpos_do_robo(comentarios), "congelado", up, "2026-12-02"))
 
     def test_versao_no_ar_so_do_corpo_do_robo(self):
@@ -737,6 +737,14 @@ class QuemERoboTest(unittest.TestCase):
                        "--versao-anterior", "0.6.0", "--corpo-atual", str(corpo), "--saida", str(saida)])
             self.assertIn("no-ar=0.5.9", saida.read_text(encoding="utf-8"))
 
+    def test_login_do_robo_sem_is_bot_nao_conta(self):
+        titulo_issue = robo.titulo("issue-gpt", SKILL)
+        for autor in ({"login": "github-actions", "is_bot": False}, {"login": "github-actions"},
+                      {"login": "app/github-actions", "is_bot": "true"}):
+            self.assertIsNone(robo.issue_do_robo([{"number": 1, "title": titulo_issue, "author": autor}], titulo_issue), autor)
+            self.assertIsNone(robo.pr_do_robo([pr(2, author=autor)], TITULO_PR, REPO), autor)
+            self.assertEqual(robo.corpos_do_robo([{"author": autor, "body": "x"}]), [])
+
     def test_cli_achar(self):
         with tempfile.TemporaryDirectory() as pasta:
             lista = Path(pasta) / "prs.json"
@@ -748,6 +756,103 @@ class QuemERoboTest(unittest.TestCase):
             _, _, linhas = rodar_cli_com_saida(["achar", "--tipo", "pr", "--de", "pr-regra", "--skill", SKILL,
                                                 "--lista", str(lista), "--repo", REPO])
             self.assertEqual(linhas, ["numero="])
+
+
+class Rodada2Test(unittest.TestCase):
+    def test_texto_seguro_quebra_url_e_mencao(self):
+        seguro = robo.texto_seguro("veja https://exemplo.invalido/x, http://a.b, www.c.d, @fulano e a@b.com")
+        self.assertNotRegex(seguro, r"@[A-Za-z0-9]")
+        self.assertNotIn("://", seguro)
+        self.assertNotRegex(seguro, r"(?i)www\.")
+        # continua legível: só caracteres de largura zero foram somados
+        self.assertIn("fulano", seguro)
+        self.assertIn("exemplo.invalido/x", seguro)
+        texto = robo.texto_issue("issue-falha", skill=SKILL, meta=META, motivo="@alguem veja https://x.invalido")
+        linha = next(l for l in texto.splitlines() if l.startswith("Motivo:"))
+        self.assertNotRegex(linha, r"@[A-Za-z0-9]")
+        self.assertNotIn("://", linha)
+
+    def test_paridade_com_numero_absurdo_e_none(self):
+        self.assertIsNone(robo.ler_paridade("99999999999999999999 casos, 99999999999999999999 iguais, 1 s\n", 0))
+        self.assertIsNone(robo.ler_paridade(f"{robo.MAX_CASOS + 1} casos, {robo.MAX_CASOS + 1} iguais, 1 s\n", 0))
+        self.assertEqual(robo.ler_paridade(f"{robo.MAX_CASOS} casos, {robo.MAX_CASOS} iguais, 1 s\n", 0)["casos"],
+                         robo.MAX_CASOS)
+
+    def test_caminhos_com_acento_e_quebra_de_linha(self):
+        bruto = "src/main/java/br/Ação.java\0src/main/x\ny.java\0flyway/sql/manutencao/V0074__açaí.sql\0".encode("utf-8")
+        self.assertEqual(robo.ler_caminhos(bruto),
+                         ["src/main/java/br/Ação.java", "src/main/x\ny.java", "flyway/sql/manutencao/V0074__açaí.sql"])
+
+    def test_detectar_le_o_diff_com_nul(self):
+        with tempfile.TemporaryDirectory() as pasta:
+            pasta = Path(pasta)
+            for so_um in ("src/main/java/br/Ação.java", "src/main/x\ny.java"):
+                (pasta / "caminhos").write_bytes(f"pom.xml\0{so_um}\0".encode("utf-8"))
+                (pasta / "up.json").write_text(json.dumps(upstream(versao="1.0.3", commit_calc="b" * 40)), encoding="utf-8")
+                codigo, _, linhas = rodar_cli_com_saida(
+                    ["detectar", "--skill", SKILL, "--upstream", str(pasta / "up.json"),
+                     "--caminhos", str(pasta / "caminhos"), "--saida", str(pasta / "estado.json")])
+                self.assertEqual(codigo, 0)
+                self.assertIn("classe=regra", linhas, so_um)
+
+    def _raiz_com_meta(self, pasta, meta):
+        raiz = pasta / "raiz"
+        (raiz / "conferencia" / SKILL).mkdir(parents=True)
+        shutil.copy2(ROOT / "conferencia" / SKILL / "config.json", raiz / "conferencia" / SKILL / "config.json")
+        (raiz / "conferencia" / SKILL / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
+        return raiz
+
+    def test_main_andou_no_meio_termina_sem_issue(self):
+        with tempfile.TemporaryDirectory() as pasta:
+            pasta = Path(pasta)
+            _artefato(pasta / "art")  # estado.meta = META, o meta do commit do começo
+            agora = json.loads(json.dumps(META))
+            agora["calculadora"]["versao"] = "1.0.3"  # alguém fez merge de um PR de regra no meio
+            raiz = self._raiz_com_meta(pasta, agora)
+            comeco = pasta / "meta-do-comeco.json"
+            comeco.write_text(json.dumps(META), encoding="utf-8")
+            codigo, _, linhas = rodar_cli_com_saida(
+                ["--raiz", str(raiz), "reconferir", "--skill", SKILL, "--artefato", str(pasta / "art"),
+                 "--tag", "1.0.3", "--commit-calc", "c" * 40, "--commit-migr", "d" * 40,
+                 "--meta-do-comeco", str(comeco), "--motivo-saida", str(pasta / "motivo")])
+            self.assertEqual((codigo, linhas), (0, ["situacao=main-andou"]))
+            codigo, _, linhas = rodar_cli_com_saida(
+                ["--raiz", str(raiz), "decidir", "--skill", SKILL, "--estado", str(pasta / "art" / "estado.json"),
+                 "--paridade", str(pasta / "art" / "paridade.txt"), "--codigo", "0",
+                 "--resultado-conferencia", "success", "--ramo", "refs/heads/main"])
+            self.assertEqual(linhas, ["acao=terminar", "pr="])
+
+    def test_meta_que_nao_e_nem_o_de_agora_nem_o_do_comeco_e_falha(self):
+        with tempfile.TemporaryDirectory() as pasta:
+            pasta = Path(pasta)
+            _artefato(pasta / "art")
+            agora = json.loads(json.dumps(META))
+            agora["calculadora"]["versao"] = "1.0.3"
+            raiz = self._raiz_com_meta(pasta, agora)
+            comeco = json.loads(json.dumps(META))
+            comeco["base"]["data"] = "2001-01-01"
+            (pasta / "comeco.json").write_text(json.dumps(comeco), encoding="utf-8")
+            motivo = pasta / "motivo"
+            codigo, _, linhas = rodar_cli_com_saida(
+                ["--raiz", str(raiz), "reconferir", "--skill", SKILL, "--artefato", str(pasta / "art"),
+                 "--tag", "1.0.2", "--commit-calc", "c" * 40, "--commit-migr", "d" * 40,
+                 "--meta-do-comeco", str(pasta / "comeco.json"), "--motivo-saida", str(motivo)])
+            self.assertEqual((codigo, linhas), (1, []))
+            self.assertIn("nem o do repositório nem o do commit do começo", motivo.read_text(encoding="utf-8"))
+            # sem o meta do começo, também é falha
+            codigo, _, _ = rodar_cli_com_saida(
+                ["--raiz", str(raiz), "reconferir", "--skill", SKILL, "--artefato", str(pasta / "art"),
+                 "--tag", "1.0.2", "--commit-calc", "c" * 40, "--commit-migr", "d" * 40, "--motivo-saida", str(motivo)])
+            self.assertEqual(codigo, 1)
+
+    def test_decidir_recusa_estado_de_outra_skill(self):
+        with tempfile.TemporaryDirectory() as pasta:
+            pasta = Path(pasta)
+            _artefato(pasta / "art")
+            codigo, _, linhas = rodar_cli_com_saida(
+                ["decidir", "--skill", "outra-skill", "--estado", str(pasta / "art" / "estado.json"),
+                 "--resultado-conferencia", "success", "--ramo", "refs/heads/main"])
+            self.assertEqual(linhas, ["acao=issue-falha", "pr="])
 
 
 class ReleaseTest(unittest.TestCase):

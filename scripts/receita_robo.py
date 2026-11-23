@@ -52,6 +52,8 @@ ACOES = ("terminar", "publicar", "issue-divergencia", "pr-regra", "congelado", "
 # O GitHub recusa corpo de PR ou issue com mais de 65.536 caracteres; sobra folga para o resto.
 LIMITE_CORPO = 60000
 MAX_DIVERGENTES = 50
+# A bateria de hoje tem 12.013 casos; um número muito acima disso é saída estragada, não conferência.
+MAX_CASOS = 1_000_000
 # A API de comparação do GitHub lista no máximo 300 arquivos.
 LIMITE_ARQUIVOS_COMPARE = 300
 # Quem é o robô nas respostas do `gh` (GraphQL, REST e o prefixo que o gh põe em app).
@@ -79,6 +81,7 @@ _PADROES_SAIDA = {
     "versao": re.compile(r"^[0-9]+(\.[0-9]+){0,3}$"),
     "base": _BASE,
     "disparar": re.compile(r"^(true|false)$"),
+    "situacao": re.compile(r"^(ok|main-andou)$"),
 }
 
 # Tamanhos aceitos para o que vem no artefato.
@@ -178,7 +181,7 @@ def ler_paridade(texto: str, codigo: int) -> dict | None:
         return None
     casos, iguais = int(achou.group(1)), int(achou.group(2))
     divergentes = _DIVERGE.findall(texto)
-    if casos <= 0 or iguais > casos or len(divergentes) != casos - iguais:
+    if casos <= 0 or casos > MAX_CASOS or iguais > casos or len(divergentes) != casos - iguais:
         return None
     if not all(_ID_CASO.fullmatch(d) for d in divergentes):
         return None
@@ -406,27 +409,40 @@ def validar_artefato(raiz: Path, skill: str, pasta: Path) -> tuple[dict | None, 
     """Confere o artefato do job que roda o código da Receita antes de qualquer uso.
 
     Devolve (estado, problemas). Com problemas, nada do artefato pode ser usado."""
+    estado, problemas, _ = examinar_artefato(raiz, skill, pasta)
+    return estado, problemas
+
+
+def examinar_artefato(raiz: Path, skill: str, pasta: Path,
+                      meta_do_comeco: dict | None = None) -> tuple[dict | None, list[str], bool]:
+    """Como validar_artefato, e diz se a main andou no meio da execução: (estado, problemas, main_andou).
+
+    `meta_do_comeco` é o meta.json no commit que o job conferir usou. Se o artefato traz esse meta e a
+    main já tem outro (alguém fez merge no meio), não é falha: main_andou é True e o robô deixa para a
+    próxima execução. Meta que não é nem o de agora nem o do começo é falha."""
     raiz, pasta = Path(raiz), Path(pasta)
     problemas: list[str] = []
     config = _ler(_pasta(raiz, skill) / "config.json")
     meta_repo = _ler(_pasta(raiz, skill) / "meta.json")
     if not _tamanho_ok(pasta / "estado.json", problemas):
-        return None, problemas
+        return None, problemas, False
     try:
         estado = _ler(pasta / "estado.json")
     except ValueError:
-        return None, ["estado.json não é JSON"]
+        return None, ["estado.json não é JSON"], False
     if not isinstance(estado, dict) or set(estado) != {"skill", "classe", "meta", "upstream"}:
-        return None, ["estado.json fora do formato"]
+        return None, ["estado.json fora do formato"], False
     if estado["skill"] != skill:
         problemas.append("estado.json é de outra skill")
     if estado["classe"] not in CLASSES:
         problemas.append("classe fora do conjunto")
-    if estado["meta"] != meta_repo:
-        problemas.append("o meta.json do começo da conferência não é o do repositório")
     _validar_upstream(estado["upstream"], problemas)
+    if estado["meta"] != meta_repo:
+        if not problemas and meta_do_comeco is not None and estado["meta"] == meta_do_comeco:
+            return estado, [], True
+        problemas.append("o meta.json do artefato não é nem o do repositório nem o do commit do começo")
     if problemas or estado["classe"] == "nada":
-        return estado, problemas
+        return estado, problemas, False
 
     for nome in ("meta.json", "base-receita.db", "base-completa.db", "esperadas.json", "paridade.txt",
                  "paridade-codigo.txt"):
@@ -434,14 +450,14 @@ def validar_artefato(raiz: Path, skill: str, pasta: Path) -> tuple[dict | None, 
     if (pasta / "diff-java.txt").exists():
         _tamanho_ok(pasta / "diff-java.txt", problemas)
     if problemas:
-        return estado, problemas
+        return estado, problemas, False
     try:
         meta_nova = _ler(pasta / "meta.json")
     except ValueError:
-        return estado, ["meta.json do artefato não é JSON"]
+        return estado, ["meta.json do artefato não é JSON"], False
     _validar_meta_da_base(meta_nova, problemas)
     if problemas:
-        return estado, problemas
+        return estado, problemas, False
     # Fora base e migrações, o receita_base.py não mexe no meta.
     for chave in ("skill", "calculadora", "conferencia"):
         if meta_nova.get(chave) != meta_repo.get(chave):
@@ -481,7 +497,7 @@ def validar_artefato(raiz: Path, skill: str, pasta: Path) -> tuple[dict | None, 
     codigo = (pasta / "paridade-codigo.txt").read_text(encoding="utf-8", errors="replace").strip()
     if not re.fullmatch(r"[0-9]{1,3}", codigo):
         problemas.append("código da paridade fora do padrão")
-    return estado, problemas
+    return estado, problemas, False
 
 
 def _arquivos_do_compare(compare) -> tuple[list[str], bool]:
@@ -537,7 +553,8 @@ def reconferir(meta: dict, config: dict, estado: dict, upstream_api: dict,
 # --- quem é o robô no GitHub ---------------------------------------------------------------
 
 def _do_robo(autor) -> bool:
-    return isinstance(autor, dict) and autor.get("login") in LOGINS_DO_ROBO
+    """O bot do Actions: o login dele e `is_bot` verdadeiro (o `gh --json author` traz os dois)."""
+    return isinstance(autor, dict) and autor.get("login") in LOGINS_DO_ROBO and autor.get("is_bot") is True
 
 
 def pr_do_robo(prs: list, titulo_pr: str, repo: str) -> int | None:
@@ -588,6 +605,11 @@ def texto_seguro(texto: str, limite: int = 500) -> str:
     texto = re.sub(r"[\x00-\x1f\x7f]+", " ", str(texto or ""))
     texto = re.sub(r"\s+", " ", texto).strip()[:limite]
     texto = texto.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    # Sem menção nem link automático: o @ e o esquema da URL ganham um espaço de largura zero,
+    # que não aparece na leitura e quebra o reconhecimento do GitHub.
+    texto = texto.replace("@", "@\u200b")
+    texto = texto.replace("://", ":\u200b//")
+    texto = re.sub(r"(?i)\bwww\.", "www\u200b.", texto)
     return re.sub(r"([\\`*_\[\]{}()#+!|~-])", r"\\\1", texto)
 
 
@@ -851,6 +873,12 @@ def _paridade_dos_arquivos(args) -> dict | None:
     return ler_paridade(Path(args.paridade).read_text(encoding="utf-8", errors="replace"), codigo)
 
 
+def ler_caminhos(bruto: bytes) -> list[str]:
+    """Caminhos do `git diff -z --name-only`: separados por NUL e nunca entre aspas (o -z desliga o
+    core.quotePath), então nome com acento ou com quebra de linha chega inteiro."""
+    return [parte.decode("utf-8", errors="surrogateescape") for parte in bruto.split(b"\0") if parte]
+
+
 def _cmd_detectar(args) -> int:
     raiz = Path(args.raiz)
     meta = _ler(_pasta(raiz, args.skill) / "meta.json")
@@ -863,7 +891,7 @@ def _cmd_detectar(args) -> int:
         return 1
     caminhos = []
     if args.caminhos:
-        caminhos = [linha.strip() for linha in Path(args.caminhos).read_text(encoding="utf-8").splitlines() if linha.strip()]
+        caminhos = ler_caminhos(Path(args.caminhos).read_bytes())
     try:
         classe = classificar(meta, upstream, caminhos, config)
     except MudancaInvalida as erro:
@@ -905,7 +933,13 @@ def _cmd_esperar_oficial(args) -> int:
 
 def _cmd_reconferir(args) -> int:
     raiz = Path(args.raiz)
-    estado, problemas = validar_artefato(raiz, args.skill, Path(args.artefato))
+    meta_do_comeco = _ler(args.meta_do_comeco) if args.meta_do_comeco and Path(args.meta_do_comeco).is_file() else None
+    estado, problemas, main_andou = examinar_artefato(raiz, args.skill, Path(args.artefato), meta_do_comeco)
+    if main_andou:
+        _motivo(args, "A main mudou o meta.json no meio da execução: o robô não age em cima de estado velho e "
+                      "confere de novo na próxima execução.")
+        _saida(situacao="main-andou")
+        return 0
     if not problemas:
         meta = _ler(_pasta(raiz, args.skill) / "meta.json")
         config = _ler(_pasta(raiz, args.skill) / "config.json")
@@ -919,6 +953,7 @@ def _cmd_reconferir(args) -> int:
         _motivo(args, "Reconferir o artefato: " + "; ".join(problemas))
         return 1
     print("O artefato confere com o repositório e com a API do GitHub.")
+    _saida(situacao="ok")
     return 0
 
 
@@ -934,7 +969,16 @@ def _cmd_decidir(args) -> int:
         _saida(acao="issue-falha", pr="")
         return 0
     pr = args.pr if re.fullmatch(r"[0-9]*", args.pr or "") else ""
-    meta_agora = _ler(_pasta(Path(args.raiz), estado["skill"]) / "meta.json")
+    if args.skill and estado.get("skill") != args.skill:
+        _motivo(args, "o estado do artefato é de outra skill")
+        _saida(acao="issue-falha", pr="")
+        return 0
+    skill = args.skill or estado.get("skill", "")
+    if not re.fullmatch(r"[a-z0-9-]+", str(skill)):
+        _motivo(args, "nome de skill fora do padrão no estado do artefato")
+        _saida(acao="issue-falha", pr="")
+        return 0
+    meta_agora = _ler(_pasta(Path(args.raiz), skill) / "meta.json")
     if meta_agora != estado["meta"]:
         _motivo(args, "O meta.json mudou desde o começo da conferência: o robô não age em cima de estado velho e "
                       "confere de novo na próxima execução.")
@@ -1088,6 +1132,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--commit-migr", required=True, help="HEAD das migrações, pelo git ls-remote")
     p.add_argument("--compare-calc", help="resposta da API de comparação da calculadora")
     p.add_argument("--compare-migr", help="resposta da API de comparação das migrações")
+    p.add_argument("--meta-do-comeco", help="meta.json no commit que o job conferir usou (git show $GITHUB_SHA:...)")
     p.add_argument("--motivo-saida")
     p.set_defaults(func=_cmd_reconferir)
 
@@ -1098,6 +1143,7 @@ def main(argv: list[str] | None = None) -> int:
         p.add_argument("--codigo", help="código de saída do receita_paridade.py")
         if nome == "decidir":
             p.add_argument("--pr", default="", help="número do PR de regra do robô aberto (vazio se não há)")
+            p.add_argument("--skill", default="", help="a skill da matriz; o estado tem de ser dela")
             p.add_argument("--resultado-conferencia", default="", help="resultado do job de conferência")
             p.add_argument("--etapa", help="arquivo com a última etapa que a conferência começou")
             p.add_argument("--ramo", default="", help="GITHUB_REF; fora da main o robô só confere")

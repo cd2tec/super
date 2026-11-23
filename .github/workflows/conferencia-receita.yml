@@ -99,20 +99,23 @@ jobs:
           TAG=$(gh api "repos/$CALC_REPO/releases/latest" --jq .tag_name)
           case "$TAG" in ""|*[!A-Za-z0-9._-]*) echo "Tag fora do padrão."; exit 1;; esac
           # Clone sem blobs: o histórico basta para o diff de nomes; o checkout baixa o resto.
-          git clone --quiet --filter=blob:none "https://github.com/$CALC_REPO.git" "$RECEITA/sn"
+          # Sem links simbólicos no checkout: link vira arquivo de texto e o nosso Python nunca segue um
+          # link da Receita para fora do clone.
+          git clone --quiet --filter=blob:none -c core.symlinks=false "https://github.com/$CALC_REPO.git" "$RECEITA/sn"
           git -C "$RECEITA/sn" -c advice.detachedHead=false checkout --quiet "refs/tags/$TAG"
           CALC_DEPOIS=$(git -C "$RECEITA/sn" rev-parse HEAD)
-          git clone --quiet --filter=blob:none "https://github.com/$MIGR_REPO.git" "$RECEITA/rr"
+          git clone --quiet --filter=blob:none -c core.symlinks=false "https://github.com/$MIGR_REPO.git" "$RECEITA/rr"
           MIGR_DEPOIS=$(git -C "$RECEITA/rr" rev-parse HEAD)
           # Caminhos mudados: tudo o que mudou na calculadora e, das migrações, só o que está no caminho delas.
+          # Separados por NUL (-z): nome com acento ou com quebra de linha chega inteiro e sem aspas.
           # Commit espelhado que sumiu do histórico faz o git falhar aqui: vira issue de falha.
           : > "$SAIDA/caminhos.txt"
           if [ "$CALC_ANTES" != "$CALC_DEPOIS" ]; then
-            git -C "$RECEITA/sn" diff --no-renames --name-only "$CALC_ANTES" "$CALC_DEPOIS" >> "$SAIDA/caminhos.txt"
-            git -C "$RECEITA/sn" diff --no-renames "$CALC_ANTES" "$CALC_DEPOIS" -- "$CALC_CODIGO" > "$SAIDA/diff-java.txt"
+            git -C "$RECEITA/sn" diff -z --no-renames --name-only "$CALC_ANTES" "$CALC_DEPOIS" >> "$SAIDA/caminhos.txt"
+            git -C "$RECEITA/sn" -c core.quotePath=false diff --no-renames "$CALC_ANTES" "$CALC_DEPOIS" -- "$CALC_CODIGO" > "$SAIDA/diff-java.txt"
           fi
           if [ "$MIGR_ANTES" != "$MIGR_DEPOIS" ]; then
-            git -C "$RECEITA/rr" diff --no-renames --name-only "$MIGR_ANTES" "$MIGR_DEPOIS" -- "$MIGR_CAMINHO" >> "$SAIDA/caminhos.txt"
+            git -C "$RECEITA/rr" diff -z --no-renames --name-only "$MIGR_ANTES" "$MIGR_DEPOIS" -- "$MIGR_CAMINHO" >> "$SAIDA/caminhos.txt"
           fi
           jq -n --arg v "${TAG#v}" --arg c "$CALC_DEPOIS" --arg m "$MIGR_DEPOIS" \
             '{calculadora: {versao: $v, commit: $c}, migracoes: {commit: $m}}' > "$SAIDA/upstream.json"
@@ -145,8 +148,17 @@ jobs:
           docker run --rm --name receita-build --user "$(id -u):$(id -g)" -e HOME=/tmp \
             -v "$ISOL/rr:/rr" -v "$ISOL/sn:/sn" -v "$ISOL/m2:/m2" -v "$ISOL/produtos:/produtos" \
             "$IMAGEM" bash -euo pipefail -c "$CONSTRUIR"
-          test -s "$ISOL/produtos/calculadora-pro.db"
-          test -s "$ISOL/produtos/api-simples-nacional.jar"
+          # Produto do build só se for arquivo comum (nunca link) e de dentro da pasta de produtos.
+          produto() {
+            local p="$ISOL/produtos/$1"
+            if [ ! -f "$p" ] || [ -L "$p" ]; then echo "Produto do build fora do esperado: $1" >&2; exit 1; fi
+            case "$(realpath "$p")" in
+              "$(realpath "$ISOL/produtos")"/*) printf '%s\n' "$p" ;;
+              *) echo "Produto do build fora da pasta de produtos: $1" >&2; exit 1 ;;
+            esac
+          }
+          test -s "$(produto calculadora-pro.db)"
+          test -s "$(produto api-simples-nacional.jar)"
 
       - name: Montar a base pelo receita_base.py e comparar as duas
         if: steps.detectar.outputs.classe != 'nada'
@@ -154,7 +166,17 @@ jobs:
           set -euo pipefail
           echo "Montar a base pelo receita_base.py" > "$ETAPA"
           python3 scripts/receita_base.py --skill "$SKILL" --repo "$RECEITA/rr" --completa "$TRAB/base-completa.db"
-          cp "$ISOL/produtos/calculadora-pro.db" "$TRAB/flyway.db"
+          # Produto do build só se for arquivo comum (nunca link) e de dentro da pasta de produtos.
+          produto() {
+            local p="$ISOL/produtos/$1"
+            if [ ! -f "$p" ] || [ -L "$p" ]; then echo "Produto do build fora do esperado: $1" >&2; exit 1; fi
+            case "$(realpath "$p")" in
+              "$(realpath "$ISOL/produtos")"/*) printf '%s\n' "$p" ;;
+              *) echo "Produto do build fora da pasta de produtos: $1" >&2; exit 1 ;;
+            esac
+          }
+          BANCO=$(produto calculadora-pro.db)
+          cp "$BANCO" "$TRAB/flyway.db"
           echo "Comparar as duas bases" > "$ETAPA"
           python3 scripts/receita_robo.py comparar-bases --skill "$SKILL" \
             --flyway "$TRAB/flyway.db" --montada "$TRAB/base-completa.db"
@@ -177,10 +199,21 @@ jobs:
             exit 1
           fi
           echo "Subir a calculadora oficial" > "$ETAPA"
+          # Produto do build só se for arquivo comum (nunca link) e de dentro da pasta de produtos.
+          produto() {
+            local p="$ISOL/produtos/$1"
+            if [ ! -f "$p" ] || [ -L "$p" ]; then echo "Produto do build fora do esperado: $1" >&2; exit 1; fi
+            case "$(realpath "$p")" in
+              "$(realpath "$ISOL/produtos")"/*) printf '%s\n' "$p" ;;
+              *) echo "Produto do build fora da pasta de produtos: $1" >&2; exit 1 ;;
+            esac
+          }
+          JAR=$(produto api-simples-nacional.jar)
+          BANCO=$(produto calculadora-pro.db)
           docker run -d --name receita-oficial --network receita-oficial --dns 127.0.0.1 \
             -p "127.0.0.1:$PORTA:$PORTA" --user "$(id -u):$(id -g)" -e HOME=/tmp -w /app \
-            -v "$ISOL/produtos/api-simples-nacional.jar:/app/api.jar:ro" \
-            -v "$ISOL/produtos/calculadora-pro.db:/app/calculadora/db/calculadora-pro.db:ro" \
+            -v "$JAR:/app/api.jar:ro" \
+            -v "$BANCO:/app/calculadora/db/calculadora-pro.db:ro" \
             "$IMAGEM" java -Dspring.profiles.active=offline -jar /app/api.jar
           BASE=$(jq -er .base.versao "conferencia/$SKILL/meta.json")
           python3 scripts/receita_robo.py esperar-oficial --url "http://127.0.0.1:$PORTA/api" \
@@ -219,7 +252,9 @@ jobs:
           docker network rm receita-oficial > /dev/null 2>&1 || true
 
       - name: Guardar o que o job agir precisa
-        # Depois dos contêineres desligados: só agora a pasta dos resultados recebe arquivos.
+        # Depois dos contêineres desligados: só agora entram na pasta dos resultados as bases, as respostas
+        # oficiais e o relatório da paridade. Antes dela só chegam arquivos que o nosso código escreve
+        # no primeiro passo (etapa, caminhos, upstream, estado e diff do Java), e nenhum contêiner a monta.
         if: always()
         env:
           STATUS: ${{ job.status }}
@@ -269,8 +304,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # A ponta do ramo agora, não a do começo da execução: o decidir confere que o meta.json não mudou.
+          # A ponta do ramo agora, não a do começo da execução, com o histórico para ler o meta.json do
+          # commit que o conferir usou: se a main andou no meio, o robô não age e confere amanhã.
           ref: ${{ github.ref_name }}
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
@@ -283,6 +320,7 @@ jobs:
           path: ${{ runner.temp }}/art
 
       - name: Reconferir o artefato e a Receita
+        id: reconferir
         run: |
           set -euo pipefail
           echo "Reconferir o artefato e a Receita" > "$ETAPA"
@@ -312,7 +350,9 @@ jobs:
             gh api "repos/$MIGR_REPO/compare/$MIGR_ANTES...$MIGR" > "$RUNNER_TEMP/compare-migr.json"
             extra+=(--compare-migr "$RUNNER_TEMP/compare-migr.json")
           fi
+          git show "$GITHUB_SHA:conferencia/$SKILL/meta.json" > "$RUNNER_TEMP/meta-do-comeco.json"
           python3 scripts/receita_robo.py reconferir --skill "$SKILL" --artefato "$ART" --tag "$TAG" \
+            --meta-do-comeco "$RUNNER_TEMP/meta-do-comeco.json" \
             --commit-calc "$CALC" --commit-migr "$MIGR" ${extra[@]+"${extra[@]}"} --motivo-saida "$ETAPA"
 
       - name: Achar o PR de regra do robô
@@ -335,7 +375,7 @@ jobs:
           echo "Decidir" > "$ETAPA"
           resultado=$(head -c 20 "$ART/resultado.txt" 2>/dev/null || echo "sem-artefato")
           codigo=$(head -c 10 "$ART/paridade-codigo.txt" 2>/dev/null || true)
-          python3 scripts/receita_robo.py decidir --estado "$ART/estado.json" \
+          python3 scripts/receita_robo.py decidir --skill "$SKILL" --estado "$ART/estado.json" \
             --paridade "$ART/paridade.txt" --codigo "$codigo" --pr "$PR" \
             --resultado-conferencia "$resultado" --etapa "$ART/etapa.txt" --ramo "$RAMO" --motivo-saida "$ETAPA"
 
