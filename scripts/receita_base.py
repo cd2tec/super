@@ -29,20 +29,35 @@ ROOT = Path(__file__).resolve().parent.parent
 
 # O Flyway roda cada migração numa transação; as que abrem a sua ou mexem em
 # PRAGMA foreign_keys rodam fora dela.
-_DONA_DA_TRANSACAO = re.compile(r"^\s*(BEGIN|PRAGMA\s+foreign_keys)", re.IGNORECASE | re.MULTILINE)
+# `BEGIN` só conta como instrução (o de corpo de TRIGGER não é seguido de `;`).
+_DONA_DA_TRANSACAO = re.compile(
+    r"^[ \t]*(BEGIN(\s+(DEFERRED|IMMEDIATE|EXCLUSIVE))?(\s+TRANSACTION)?[ \t]*;|PRAGMA\s+foreign_keys\b)",
+    re.IGNORECASE | re.MULTILINE)
+_COMENTARIOS = re.compile(r"/\*.*?\*/|--[^\n]*", re.DOTALL)
+_SHA = re.compile(r"^[0-9a-f]{40}$")
 _VERSAO = re.compile(r"^V(\d+)__.*\.sql$")
+
+
+def _dona_da_transacao(sql: str) -> bool:
+    return bool(_DONA_DA_TRANSACAO.search(_COMENTARIOS.sub("", sql)))
 
 
 def _executar(con: sqlite3.Connection, arquivo: Path, em_transacao: bool) -> None:
     try:
         sql = arquivo.read_text(encoding="utf-8")
-        if em_transacao and not _DONA_DA_TRANSACAO.search(sql):
+        if em_transacao and not _dona_da_transacao(sql):
             sql = f"BEGIN;\n{sql}\nCOMMIT;"
         con.executescript(sql)
     except (sqlite3.Error, OSError, UnicodeDecodeError) as erro:
         if con.in_transaction:
             con.execute("ROLLBACK")
         raise RuntimeError(f"Falhou em {arquivo.name}: {erro}") from erro
+
+
+def _autorizador(acao, *_):
+    if acao in (sqlite3.SQLITE_ATTACH, sqlite3.SQLITE_DETACH):
+        return sqlite3.SQLITE_DENY
+    return sqlite3.SQLITE_OK
 
 
 def montar(sql_dir: Path) -> sqlite3.Connection:
@@ -66,6 +81,8 @@ def montar(sql_dir: Path) -> sqlite3.Connection:
     versoes.sort(key=lambda par: (par[0], par[1].name))
 
     con = sqlite3.connect(":memory:", isolation_level=None)
+    # O SQL vem de outro repositório: nada de abrir ou criar arquivo por ATTACH.
+    con.set_authorizer(_autorizador)
     _executar(con, antes, False)
     _executar(con, baseline[0], False)
     for _, arquivo in versoes:
@@ -171,20 +188,28 @@ def _commit_do_clone(repo: Path) -> str:
     """Lê o commit do HEAD direto dos arquivos do .git, sem rodar o git no clone."""
     git = Path(repo) / ".git"
     head = (git / "HEAD").read_text(encoding="utf-8").strip()
-    if not head.startswith("ref:"):
-        return head
-    ref = head.split(":", 1)[1].strip()
-    arquivo = git / ref
-    if arquivo.is_file():
-        return arquivo.read_text(encoding="utf-8").strip()
-    packed = git / "packed-refs"
-    if packed.is_file():
-        for linha in packed.read_text(encoding="utf-8").splitlines():
-            if linha.endswith(f" {ref}"):
-                return linha.split()[0]
-    raise RuntimeError(f"Não achei o commit de {ref} em {git}")
+    if head.startswith("ref:"):
+        ref = head.split(":", 1)[1].strip()
+        if not ref.startswith("refs/") or ".." in ref.split("/"):
+            raise RuntimeError(f"Ref inválida em {git / 'HEAD'}: {ref}")
+        commit = None
+        arquivo = git / ref
+        if arquivo.is_file():
+            commit = arquivo.read_text(encoding="utf-8").strip()
+        elif (git / "packed-refs").is_file():
+            for linha in (git / "packed-refs").read_text(encoding="utf-8").splitlines():
+                if linha.endswith(f" {ref}"):
+                    commit = linha.split()[0]
+        if commit is None:
+            raise RuntimeError(f"Não achei o commit de {ref} em {git}")
+    else:
+        commit = head
+    if not _SHA.match(commit):
+        raise RuntimeError(f"Commit inválido em {git}: {commit!r}")
+    return commit
 
 
+# O esquema de VERSAO_BASE_DADO é o mesmo nos dois repositórios da Receita (regime geral e Simples).
 def _versao_da_base(con: sqlite3.Connection) -> tuple[str, str]:
     linha = con.execute(
         "SELECT VRBD_VERSAO_BASE_DADO, VRBD_DATA FROM VERSAO_BASE_DADO ORDER BY VRBD_ID DESC LIMIT 1"

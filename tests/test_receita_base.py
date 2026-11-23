@@ -61,10 +61,54 @@ class TestMontar(CopiaDaFixture):
             receita_base.montar(self.sql)
 
     def test_migracao_que_falha_desfaz_o_que_fez(self):
-        (self.sql / "manutencao" / "V0011__ruim.sql").write_text(
-            "INSERT INTO PAI VALUES (9, 'nove');\nINSERT INTO NAO_EXISTE VALUES (1);\n", encoding="utf-8")
+        con = receita_base.montar(self.sql)
+        ruim = self.tmp / "V0011__ruim.sql"
+        ruim.write_text("INSERT INTO PAI VALUES (9, 'nove');\nINSERT INTO NAO_EXISTE VALUES (1);\n", encoding="utf-8")
+        with self.assertRaisesRegex(RuntimeError, r"V0011__ruim\.sql"):
+            receita_base._executar(con, ruim, True)
+        self.assertFalse(con.in_transaction)
+        self.assertIsNone(con.execute("SELECT 1 FROM PAI WHERE PAI_ID = 9").fetchone())
+
+    def test_migracao_com_begin_proprio_nao_ganha_outro(self):
+        (self.sql / "manutencao" / "V0011__propria.sql").write_text(
+            "BEGIN;\nINSERT INTO PAI VALUES (11, 'onze');\nCOMMIT;\n", encoding="utf-8")
+        con = receita_base.montar(self.sql)
+        self.assertEqual(con.execute("SELECT PAI_NOME FROM PAI WHERE PAI_ID = 11").fetchone()[0], "onze")
+
+    def test_migracao_com_pragma_roda_fora_da_transacao(self):
+        # PRAGMA foreign_keys não faz nada dentro de transação: o valor tem que mudar.
+        (self.sql / "manutencao" / "V0011__pragma.sql").write_text(
+            "PRAGMA foreign_keys = OFF;\nINSERT INTO ORDEM (ARQUIVO) VALUES ('V0011__pragma');\n", encoding="utf-8")
+        con = receita_base.montar(self.sql)
+        self.assertEqual(con.execute("PRAGMA foreign_keys").fetchone()[0], 0)
+
+    def test_begin_de_trigger_e_nome_com_begin_nao_contam(self):
+        trigger = ("CREATE TABLE T1 (BEGIN_DATE TEXT);\nCREATE TRIGGER TG AFTER INSERT ON T1\nBEGIN\n"
+                   "  INSERT INTO ORDEM (ARQUIVO) VALUES ('x');\nEND;\n")
+        self.assertFalse(receita_base._dona_da_transacao(trigger))
+        self.assertFalse(receita_base._dona_da_transacao("BEGIN_DATE TEXT,\nBEGIN_X;\n"))
+        self.assertFalse(receita_base._dona_da_transacao("-- BEGIN;\n/* PRAGMA foreign_keys = OFF; */\nSELECT 1;"))
+        self.assertTrue(receita_base._dona_da_transacao("begin transaction;\nSELECT 1;\ncommit;"))
+
+    def test_migracao_com_begin_de_trigger_e_falha_e_desfeita(self):
+        (self.sql / "manutencao" / "V0011__trigger.sql").write_text(
+            "CREATE TABLE T1 (BEGIN_DATE TEXT);\nCREATE TRIGGER TG AFTER INSERT ON T1\nBEGIN\n"
+            "  INSERT INTO ORDEM (ARQUIVO) VALUES ('x');\nEND;\nINSERT INTO PAI VALUES (9, 'nove');\n"
+            "INSERT INTO NAO_EXISTE VALUES (1);\n", encoding="utf-8")
+        con = sqlite3.connect(":memory:", isolation_level=None)
+        con.executescript("CREATE TABLE PAI (PAI_ID INTEGER, PAI_NOME TEXT);")
         with self.assertRaises(RuntimeError):
+            receita_base._executar(con, self.sql / "manutencao" / "V0011__trigger.sql", True)
+        self.assertIsNone(con.execute("SELECT 1 FROM PAI WHERE PAI_ID = 9").fetchone())
+        self.assertFalse(con.in_transaction)
+
+    def test_attach_e_negado_e_nao_cria_arquivo(self):
+        alvo = self.tmp / "criado.db"
+        (self.sql / "manutencao" / "V0011__attach.sql").write_text(
+            f"ATTACH DATABASE '{alvo}' AS fora;\n", encoding="utf-8")
+        with self.assertRaisesRegex(RuntimeError, r"V0011__attach\.sql"):
             receita_base.montar(self.sql)
+        self.assertFalse(alvo.exists())
 
     def test_migracao_aplicada(self):
         con = receita_base.montar(self.sql)
@@ -163,13 +207,36 @@ class TestHashIgnorandoColunas(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "NAO_EXISTE"):
             receita_base.hash_conteudo(a, ["T"], {"T": ["NAO_EXISTE"]})
 
-    def test_montagens_diferentes_so_na_data_dao_o_mesmo_hash(self):
-        con = receita_base.montar(FIXTURE)
-        outra = receita_base.montar(FIXTURE)
-        ig = {"PAI": ["PAI_NOME"]}
-        outra.execute("UPDATE PAI SET PAI_NOME = 'outro'")
-        self.assertEqual(
-            receita_base.hash_conteudo(con, ["PAI"], ig), receita_base.hash_conteudo(outra, ["PAI"], ig))
+
+class TestCommitDoClone(unittest.TestCase):
+    def clone(self, head, refs=None):
+        tmp = Path(tempfile.mkdtemp(prefix="receita_clone_"))
+        self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)
+        (tmp / ".git").mkdir()
+        (tmp / ".git" / "HEAD").write_text(head + "\n", encoding="utf-8")
+        for nome, valor in (refs or {}).items():
+            (tmp / ".git" / nome).parent.mkdir(parents=True, exist_ok=True)
+            (tmp / ".git" / nome).write_text(valor + "\n", encoding="utf-8")
+        return tmp
+
+    def test_le_sha_direto_e_por_ref(self):
+        sha = "ab" * 20
+        self.assertEqual(receita_base._commit_do_clone(self.clone(sha)), sha)
+        repo = self.clone("ref: refs/heads/main", {"refs/heads/main": sha})
+        self.assertEqual(receita_base._commit_do_clone(repo), sha)
+
+    def test_ref_fora_de_refs_ou_com_ponto_ponto_e_recusada(self):
+        for ref in ("../../x", "refs/../../x", "/etc/passwd", "heads/main"):
+            with self.assertRaisesRegex(RuntimeError, "Ref inválida"):
+                receita_base._commit_do_clone(self.clone(f"ref: {ref}"))
+
+    def test_valor_que_nao_e_sha_de_40_hex_e_recusado(self):
+        for ruim in ("zz" * 20, "ab" * 19, "ab" * 21, "ABCDEF" + "0" * 34):
+            with self.assertRaisesRegex(RuntimeError, "Commit inválido"):
+                receita_base._commit_do_clone(self.clone(ruim))
+        repo = self.clone("ref: refs/heads/main", {"refs/heads/main": "conteudo qualquer"})
+        with self.assertRaisesRegex(RuntimeError, "Commit inválido"):
+            receita_base._commit_do_clone(repo)
 
 
 class TestMeta(CopiaDaFixture):
