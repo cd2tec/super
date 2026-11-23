@@ -245,7 +245,9 @@ jobs:
       - name: Regravar as respostas oficiais gravadas
         # Toda resposta oficial gravada no repositório mora no esperadas.json: com 100%, ela é regravada
         # da calculadora oficial desta execução, antes de o agir rodar os testes.
-        if: steps.paridade.outputs.codigo == '0'
+        # Com a conferência pulada a saída fica nula, e nas expressões do GitHub nulo == '0' dá verdadeiro:
+        # por isso o passo também exige que a conferência tenha rodado e terminado.
+        if: steps.paridade.conclusion == 'success' && steps.paridade.outputs.codigo == '0'
         run: |
           set -euo pipefail
           echo "Regravar as respostas oficiais" > "$ETAPA"
