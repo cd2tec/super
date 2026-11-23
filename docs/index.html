@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Super para o varejo · CD2 Tech</title>
-<meta name="description" content="Plugin cd2-super da CD2 Tech: skills de IA para supermercados, padarias e redes do varejo alimentar. Calcula o impacto do fim da escala 6x1 e o custo real do VR/VA, gera relatórios gerenciais e um painel de varejo com o banco do ERP conectado ou com um arquivo exportado. Claude Code, Claude Cowork, Codex, ChatGPT Work e DeepSeek Harness, e em breve na GPT Store.">
+<meta name="description" content="Plugin cd2-super da CD2 Tech: skills de IA para supermercados, padarias e redes do varejo alimentar. Calcula o impacto do fim da escala 6x1, o custo real do VR/VA e a CBS e o IBS no Simples Nacional, gera relatórios gerenciais e um painel de varejo com o banco do ERP conectado ou com um arquivo exportado. Claude Code, Claude Cowork, Codex, ChatGPT Work e DeepSeek Harness, e em breve na GPT Store.">
 <meta property="og:title" content="Super para o varejo · CD2 Tech">
 <meta property="og:description" content="Skills de IA para o varejo, de graça para testar. Calculadoras, relatórios e painel com a conta conferida, com os números da sua loja.">
 <meta property="og:type" content="website">
@@ -377,7 +377,7 @@
         <li>Claude Code</li><li>Claude Cowork</li><li>Codex</li><li>ChatGPT Work</li><li>DeepSeek Harness</li><li>GPT Store em breve</li>
       </ul>
       <ul class="facts">
-        <li class="block block--deep notch-tr"><span class="stat">27</span><span class="stat-line">skills prontas: quinze rotinas do dia, duas calculadoras gratuitas da CD2, oito relatórios, um painel e uma ficha</span></li>
+        <li class="block block--deep notch-tr"><span class="stat">28</span><span class="stat-line">skills prontas: quinze rotinas do dia, três calculadoras, oito relatórios, um painel e uma ficha</span></li>
         <li class="block block--deep"><span class="stat">5</span><span class="stat-line">plataformas a partir de uma fonte só, e a GPT Store em breve</span></li>
         <li class="block block--accent notch-bl"><span class="stat">Sem prazo</span><span class="stat-line">para testar na operação da sua empresa</span></li>
       </ul>
@@ -412,8 +412,8 @@
     <div class="wrap">
       <div class="section-head">
         <span class="eyebrow">As skills</span>
-        <h2 class="heading-md">Quinze rotinas, duas calculadoras, oito relatórios, um painel e uma ficha</h2>
-        <p>As duas calculadoras têm a mesma conta do site gratuito da CD2, com os números da sua loja: leem a sua convenção coletiva ou o extrato da operadora, somam várias lojas e podem pesquisar novidades antes de calcular. Os relatórios, o painel e a ficha trabalham com os dados do seu sistema, como mostra a próxima seção.</p>
+        <h2 class="heading-md">Quinze rotinas, três calculadoras, oito relatórios, um painel e uma ficha</h2>
+        <p>Duas calculadoras têm a mesma conta do site gratuito da CD2, com os números da sua loja: leem a sua convenção coletiva ou o extrato da operadora, somam várias lojas e podem pesquisar novidades antes de calcular. A terceira faz a CBS e o IBS no Simples Nacional com a mesma conta da calculadora oficial da Receita Federal, conferida caso a caso. Os relatórios, o painel e a ficha trabalham com os dados do seu sistema, como mostra a próxima seção.</p>
       </div>
 <!-- skills:start -->
 <h3 class="skills-dept">RH</h3>
@@ -582,6 +582,13 @@
 </div>
 <h3 class="skills-dept">Fiscal</h3>
 <div class="skills-grid">
+  <article class="skill-card" id="skill-cbs-ibs-simples">
+    <p class="skill-status">disponível</p>
+    <h4>CBS e IBS no Simples Nacional</h4>
+    <p>Calcula a CBS e o IBS de uma operação do Simples Nacional com a mesma conta da calculadora oficial da Receita Federal.</p>
+    <p class="skill-rule">Base: Lei Complementar 214/2025</p>
+    <a class="skill-link" href="https://github.com/ReceitaFederal/calculadora-rtc-simples-nacional">Ver a calculadora oficial</a>
+  </article>
   <article class="skill-card" id="skill-relatorio-fiscal">
     <p class="skill-status">disponível</p>
     <h4>Relatório fiscal</h4>
@@ -630,6 +637,16 @@
               <p class="s"><b>Skill</b>Você paga R$ 1.576,67 por mês acima do permitido, ou R$ 18.920,00 por ano. São R$ 1.110,00 de taxa acima do teto e R$ 466,67 de custo do dinheiro parado. A Alelo é a que mais pesa: comece por ela.</p>
             </div>
             <p class="chat__foot">Padaria de exemplo: Alelo, Pluxee, Ticket e VR, dinheiro a 2% ao mês. <a href="https://github.com/cd2tec/super/blob/main/core/cd2-super/skills/custo-vrva/references/metodologia.md">Como calculamos</a></p>
+          </article>
+          <article class="chat" aria-label="Exemplo de conversa com a skill cbs-ibs-simples">
+            <div class="chat__bar">cbs-ibs-simples</div>
+            <div class="chat__body">
+              <p class="u"><b>Você</b>Quanto vou pagar de CBS e IBS no Simples numa venda?</p>
+              <p class="s"><b>Skill</b>Eu calculo com a mesma conta da calculadora oficial da Receita. Primeiro: é cupom do caixa (NFC-e) ou nota (NF-e)?</p>
+              <p class="gap">A skill usa 01/01/2027, quando as regras começam, mostra a lista de atividades, pede os itens e a alíquota efetiva do PGDAS, que vem do contador, e sugere a classificação pelo NCM.</p>
+              <p class="s"><b>Skill</b>Sem a alíquota do contador, este é um exemplo ilustrativo. Numa venda de R$ 1.000,00 de revenda de mercadorias, sai CBS de R$ 11,61 e IBS de R$ 0,13, R$ 11,74 no total. Com a sua alíquota, refaço a conta da sua empresa.</p>
+            </div>
+            <p class="chat__foot">Exemplo ilustrativo da documentação oficial da Receita, anexo I: CBS de 1,1612% e IBS de 0,0129%. Não é aplicativo da Receita Federal. <a href="https://github.com/cd2tec/super/blob/main/core/cd2-super/skills/cbs-ibs-simples/references/metodologia.md">Como calculamos</a></p>
           </article>
         </div>
       </div>
@@ -880,12 +897,13 @@ codex plugin add cd2-super@super</code></pre><button type="button" class="copy n
           <div class="panel__intro">
             <span class="eyebrow">Em breve</span>
             <h3 class="heading-sm">GPT Store</h3>
-            <p>Em breve na GPT Store, um GPT para cada calculadora, para quem usa o ChatGPT Plus ou o gratuito. Não vai precisar instalar nada. Os GPTs valem só para as duas calculadoras: relatórios, painel e ficha ainda não têm GPT.</p>
+            <p>Em breve na GPT Store, um GPT para cada calculadora, para quem usa o ChatGPT Plus ou o gratuito. Não vai precisar instalar nada. Os GPTs valem só para as três calculadoras: relatórios, painel e ficha ainda não têm GPT.</p>
           </div>
           <div class="panel__how">
             <ol class="steps-list">
               <li><strong>CD2 Escala 6x1</strong>, para o fim da escala 6x1.</li>
               <li><strong>CD2 VR/VA: quanto custa</strong>, para o custo do vale.</li>
+              <li><strong>CD2 CBS e IBS no Simples</strong>, para a CBS e o IBS no Simples Nacional.</li>
             </ol>
             <p>Enquanto isso, o Codex também funciona no ChatGPT Plus: veja a aba Codex.</p>
             <p class="note">O GPT não se conecta ao seu sistema. Para puxar os dados do ERP, use o plugin no Claude ou no Codex, com o Archeo. Quer saber como os GPTs são montados? Veja o <a href="https://github.com/cd2tec/super/blob/main/gpts/README.md">gpts/README.md</a>.</p>

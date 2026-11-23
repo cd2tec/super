@@ -1,6 +1,6 @@
 # Instruções para agentes neste repositório
 
-Este repositório publica o plugin `cd2-super`, da CD2 Tech, para mais de uma plataforma: Claude Code e Claude Cowork, Codex e ChatGPT Work, DeepSeek Harness e GPT Store. São vinte e sete skills de cinco tipos: duas calculadoras (cada uma leva para dentro do assistente a conta de uma calculadora gratuita da CD2), oito relatórios gerenciais `relatorio-*`, o painel `painel-varejo`, a ficha `ficha-archeo-mcp` e quinze rotinas do dia. Relatório não é painel: só o `painel-varejo` entrega painel visual, e as outras palavras ficam separadas nos textos.
+Este repositório publica o plugin `cd2-super`, da CD2 Tech, para mais de uma plataforma: Claude Code e Claude Cowork, Codex e ChatGPT Work, DeepSeek Harness e GPT Store. São vinte e oito skills de cinco tipos: três calculadoras (duas levam para dentro do assistente a conta de uma calculadora gratuita da CD2, e a `cbs-ibs-simples` leva a da calculadora oficial do Simples Nacional da Receita Federal), oito relatórios gerenciais `relatorio-*`, o painel `painel-varejo`, a ficha `ficha-archeo-mcp` e quinze rotinas do dia. Relatório não é painel: só o `painel-varejo` entrega painel visual, e as outras palavras ficam separadas nos textos.
 
 Nomes fixos: repositório `cd2tec/super`, marketplace `super`, plugin `cd2-super`. A titular é só a CD2 Tech, em todos os arquivos.
 
@@ -25,7 +25,7 @@ O CI roda o `--check` e os testes. O `--check` falha se uma cópia divergir de `
 | `core/cd2-super/kits/<kit>/` | O que vai só para as skills dos tipos que usam o kit (veja a tabela de kits abaixo). Mesma estrutura de `shared/`: `scripts/`, `references/`, `assets/` | Sim |
 | `core/cd2-super/gpts/` | `_preamble.md` comum e, por skill, `instructions.md` e `gpt.json` do GPT | Sim |
 | `core/cd2-super/plugin.core.json` | Nome e versão de referência do plugin | Sim |
-| `skills.json` | Lista das skills: nome, título, resumo, site, regra, status, `tipo`, `gpt`, `departamento` e, nas rotinas, `reaproveita`. Gera a tabela do README e os cards do site | Sim |
+| `skills.json` | Lista das skills: nome, título, resumo, site, regra, status, `tipo`, `gpt`, `departamento`, nas rotinas `reaproveita` e, na skill cujo site não é da CD2, `fonte_externa`. Gera a tabela do README e os cards do site | Sim |
 | `harnesses.json` | Plataformas do plugin (caminho, manifesto, layout e `utm_source` de cada uma) e, em `kits`, quais kits cada `tipo` recebe | Sim |
 | `plugins/<plataforma>/cd2-super/` (manifesto, `README.md`, no Claude o ícone `.claude-plugin/icon.png` e o `.mcp.json` do Archeo e, no DSH, `install.py`) | Empacotamento próprio da plataforma. O ícone do Claude é cópia de `docs/assets/icon-512.png` | Sim |
 | `plugins/<plataforma>/cd2-super/skills/` e `gpts/<skill>/` | Cópias geradas | **Não** |
@@ -41,7 +41,7 @@ Cada item do `skills.json` tem `tipo` e `gpt`. O `tipo` escolhe os kits que o sy
 
 | `tipo` | Skills | Kits | Entrega |
 |---|---|---|---|
-| `calculadora` | `fim-escala-6x1`, `custo-vrva` | `calculadora` | A conta da calculadora gratuita, em `calc.py` e `render.py` |
+| `calculadora` | `fim-escala-6x1`, `custo-vrva`, `cbs-ibs-simples` | `calculadora` | A conta da calculadora gratuita da CD2 ou, na `cbs-ibs-simples`, a da calculadora oficial da Receita, em `calc.py` e `render.py` |
 | `relatorio` | os oito `relatorio-*` | `sql`, `dados`, `relatorio` | Relatório gerencial com a prova, em `render_relatorio.py` |
 | `painel` | `painel-varejo` | `sql`, `dados` | Painel visual, em `build_dashboard.py` |
 | `ficha` | `ficha-archeo-mcp` | `sql` | Ficha de ferramenta do Archeo MCP Creator da CD2 |
@@ -57,6 +57,8 @@ O que cada kit traz:
 
 O campo `departamento` diz em que área da loja a skill aparece no README e no site, um dos nomes de `DEPARTAMENTOS` em `scripts/sync_plugins.py`, que também define a ordem das áreas. Dentro de cada área, vale a ordem do `skills.json`, da skill que mais chama a atenção para a que menos chama.
 
+O campo `fonte_externa` é opcional e booleano. Com `true`, o `site_url` da skill aponta para uma fonte que não é da CD2 (hoje, o GitHub da calculadora oficial do Simples Nacional): o README e o site levam o link sem UTM e o card diz "Ver a calculadora oficial" em vez de "Abrir a calculadora gratuita".
+
 O campo `gpt` é booleano e **vale só para calculadoras**: só as skills com `gpt: true` viram pacote de GPT, e relatório, painel e ficha ficam em `false`. O sync acusa GPT faltando em skill com `gpt: true`.
 
 ## Layouts de plataforma
@@ -71,7 +73,7 @@ Um arquivo de `shared/` ou de um kit com o mesmo caminho de um arquivo da skill 
 
 ## Somar uma calculadora nova
 
-Cada calculadora gratuita nova da CD2 ganha uma skill aqui. Esta lista vale só para calculadoras: relatório, painel e ficha seguem as seções abaixo. Em ordem:
+Cada calculadora gratuita nova da CD2 ganha uma skill aqui. Esta lista vale só para calculadoras: relatório, painel e ficha seguem as seções abaixo. Uma calculadora que espelha a da Receita Federal segue esta lista com as trocas de [Skills que espelham a calculadora da Receita](#skills-que-espelham-a-calculadora-da-receita). Em ordem:
 
 1. **Crie `core/cd2-super/skills/<nome>/`** com:
    - `SKILL.md`, com frontmatter `name` igual ao nome da pasta e `description` com as palavras que a pessoa usaria;
@@ -120,12 +122,15 @@ Os nomes `relatorio-*`, `painel-varejo` e `ficha-archeo-mcp` são fixos. Nenhum 
 
 ## Sincronia com os sites
 
-Esta seção vale para as calculadoras. As calculadoras ficam em repositórios privados da organização `cd2tec` no GitHub e nunca são citadas como fonte para quem usa a skill. A sincronia é manual, sem job no CI, para não exigir segredo num repositório público.
+Esta seção vale para as calculadoras da CD2. Elas ficam em repositórios privados da organização `cd2tec` no GitHub e nunca são citadas como fonte para quem usa a skill. A sincronia é manual, sem job no CI, para não exigir segredo num repositório público.
 
 | Skill | Site |
 |---|---|
 | `fim-escala-6x1` | https://calc-fim-escala6x1.cd2.com.br/ |
 | `custo-vrva` | https://calc-vrva.cd2.com.br/ |
+| `cbs-ibs-simples` | Nenhum site da CD2. A fonte é a calculadora oficial da Receita, no GitHub |
+
+A `cbs-ibs-simples` não tem site da CD2 e não segue esta seção: ela é sincronizada pelo robô de conferência, como diz [Skills que espelham a calculadora da Receita](#skills-que-espelham-a-calculadora-da-receita).
 
 Quando o `legal-params.json` ou o `assumptions.json` de uma calculadora mudar:
 
@@ -137,6 +142,61 @@ Quando o `legal-params.json` ou o `assumptions.json` de uma calculadora mudar:
 6. Suba a versão (patch, ou minor se a conta mudou) e escreva no `CHANGELOG.md` o que mudou na regra e a nova data de conferência.
 
 Cada skill mostra a data de conferência dos parâmetros, e a pergunta sobre novidades (etapa 3 da conversa) cobre o intervalo entre uma atualização e outra.
+
+## Skills que espelham a calculadora da Receita
+
+A `cbs-ibs-simples` porta para Python a calculadora oficial do Simples Nacional da Receita Federal (https://github.com/ReceitaFederal/calculadora-rtc-simples-nacional) e leva dentro a base montada das migrações de https://github.com/ReceitaFederal/calculadora-rtc-regime-regular. Os dois repositórios são públicos e MIT; o aviso de copyright e a licença estão no `NOTICE`. A skill não é um aplicativo da Receita Federal, e todo resultado diz isso.
+
+**A exceção ao "sem job no CI".** As calculadoras da CD2 sincronizam à mão porque a fonte é privada e um job exigiria segredo num repositório público. Aqui a fonte é pública, e por isso esta skill pode ter um job agendado, o robô de conferência, que não precisa de segredo nenhum além do `GITHUB_TOKEN` do próprio repositório. A meta é que mudança de tabela na Receita chegue à skill sem depender de alguém lembrar.
+
+**No roteiro de [Somar uma calculadora nova](#somar-uma-calculadora-nova), mudam:**
+
+- no lugar de `legal-params.json` e `assumptions.json`, a skill leva `references/base-receita.db`, e as versões ficam no `meta.json` da conferência (veja abaixo);
+- os testes são `tests/test_calc_simples.py` (o motor contra as respostas oficiais gravadas), `tests/test_render_simples.py`, `tests/test_sugestao_simples.py`, `tests/test_simples_base.py` e `tests/test_simples_cobertura.py`;
+- no `skills.json`, o `site_url` é o GitHub da Receita, sem barra no fim, com `"fonte_externa": true`;
+- o fechamento não cita site de calculadora, e a etapa 3 da conversa é o `calc.py --checar-versao`, não a pesquisa de novidades.
+
+**O que é gerado e nunca editado à mão**, tudo a partir das fontes da Receita:
+
+| Arquivo | O que é | Quem gera |
+|---|---|---|
+| `core/cd2-super/skills/cbs-ibs-simples/references/base-receita.db` | A base oficial, reduzida às tabelas de `config.json` (`tabelas` e `tabelas_da_sugestao`), com o `meta.json` dentro, na tabela `CD2_META` | `scripts/receita_base.py` |
+| `conferencia/cbs-ibs-simples/meta.json` | Versão e commit da calculadora espelhada, commit das migrações, versão e hash da base e o resultado da última conferência completa | `scripts/receita_base.py` e a conferência |
+| `conferencia/cbs-ibs-simples/esperadas.json` | As respostas oficiais de uma amostra da bateria, que os testes do dia a dia usam sem a calculadora oficial | `scripts/receita_paridade.py --gravar-esperadas` |
+
+Escritos à mão, na mesma pasta: `config.json` (tabelas, lista `ignorar` e exceções de cobertura, cada uma com o motivo), `bateria.py` (gera os casos da base) e `casos-escritos.json` (os cenários dos testes da Receita). A lista `ignorar` é curta e justificada campo a campo na `metodologia.md` da skill.
+
+**Rodar a conferência local.** Precisa de Docker, de um clone de cada repositório da Receita nas versões do `meta.json` e de alguns minutos.
+
+1. Monte a base a partir do clone das migrações. O script regrava a base da skill e o `meta.json`; com as mesmas migrações, o hash da base no `meta.json` não muda:
+
+   ```
+   python3 scripts/receita_base.py --skill cbs-ibs-simples --repo <clone de calculadora-rtc-regime-regular> --completa <base-completa.db>
+   ```
+
+2. Suba a calculadora oficial na porta 8082, compilada do clone do Simples e rodando no perfil `offline` contra a base que o Flyway oficial monta. Com os clones em `$RR` e `$SN`:
+
+   ```
+   docker run -d --name rfb-simples -p 127.0.0.1:8082:8082 -v "$RR:/rr:ro" -v "$SN:/sn:ro" maven:3-eclipse-temurin-25 bash -c "cp -r /rr /app-rr && cd /app-rr && mkdir -p calculadora/db && mvn -B -q flyway:migrate -Dflyway.configFiles=./flyway/flyway-pro.conf && cp -r /sn /app && mkdir -p /app/calculadora/db && cp calculadora/db/calculadora-pro.db /app/calculadora/db/ && cd /app && mvn -B -q clean package -DskipTests && exec java -Dspring.profiles.active=offline -jar target/api-simples-nacional.jar"
+   ```
+
+3. Compare a bateria inteira, com a base completa do passo 1 (a mesma em `CD2_BASE_COMPLETA` liga o teste de deriva da base nos testes):
+
+   ```
+   python3 scripts/receita_paridade.py --skill cbs-ibs-simples --oficial http://127.0.0.1:8082/api --completa --base-completa <base-completa.db>
+   ```
+
+   A saída diz quantos casos e quantos iguais. Só vale 100%.
+4. Com 100%, regrave a amostra dos testes: `python3 scripts/receita_paridade.py --skill cbs-ibs-simples --oficial http://127.0.0.1:8082/api --gravar-esperadas --amostra 400`. Depois rode o sync, o `--check` e os testes.
+
+**Portar uma mudança de regra.** Mudança em `src/main` do repositório do Simples é mudança de regra.
+
+1. Leia o diff do Java entre a versão espelhada e a nova e ache o método correspondente em `scripts/simples_motor.py`, `scripts/simples_base.py` ou `scripts/numeros.py` da skill. O port é método a método: o Python faz o que o Java faz, inclusive nos erros.
+2. Porte os testes novos da Receita que passam por HTTP para `casos-escritos.json`, e os que chamam serviço direto para os testes em Python.
+3. Monte a base da versão nova, rode a conferência completa até 100%, regrave as esperadas e atualize a versão da calculadora no `meta.json` com a da release nova.
+4. Atualize a `metodologia.md`, o `SKILL.md` e as instruções do GPT se citarem algo que mudou. Rode o sync, o `--check` e os testes, suba a versão (minor, porque a conta mudou) e escreva no `CHANGELOG.md` o que mudou na regra.
+
+**O robô.** O funcionamento do robô de conferência (quando ele publica sozinho, quando abre pull request ou issue e como ler o que ele abre) entra nesta seção quando o workflow chegar ao repositório. [Trecho provisório: a próxima tarefa troca esta frase.]
 
 ## Versão e release
 
@@ -152,6 +212,7 @@ Cada skill mostra a data de conferência dos parâmetros, e a pergunta sobre nov
 - Todo link para `cd2.com.br`, `archeo.cd2.com.br` e os sites das calculadoras leva `utm_source=<origem>&utm_medium=skill&utm_campaign=<campanha>`.
   - Nas skills e nas referências, escreva `utm_source={{UTM_SOURCE}}`. O sync troca o placeholder pelo `utm_source` da plataforma em `harnesses.json`: `claude`, `codex`, `deepseek` e `gpt-store`.
   - No `README.md`, `utm_source=github`. No `docs/index.html`, `utm_source=site-skills`.
+  - O GitHub da calculadora oficial da Receita, fonte da `cbs-ibs-simples`, vai sem UTM, em todo lugar.
   - A campanha (`utm_campaign`) depende de quem emite o link. O que sai de uma skill (o `SKILL.md`, as instruções do GPT da skill e as entregas do `render.py`) usa o nome da skill, em todo link: calculadora, `cd2.com.br` e Archeo. Os links do repositório como um todo usam `cd2-super`: `README.md`, `docs/index.html`, as referências de `shared/`, o `COMMERCIAL.md`, os READMEs dos pacotes e os links gerais do `_preamble.md` dos GPTs.
 - Os sites das calculadoras sempre com barra no fim: `https://calc-vrva.cd2.com.br/`.
 - WhatsApp comercial: `https://wa.me/5519982355172`, com mensagem preenchida que diz a origem. Nas skills: `Oi, vim pela skill {nome_humano} no {plataforma_humana} e quero falar sobre uso na minha empresa.` No README, "vim pelo GitHub das skills da CD2"; no site, "vim pelo site das skills da CD2".

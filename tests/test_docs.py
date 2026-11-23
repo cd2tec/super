@@ -112,11 +112,11 @@ class ReadmeTest(unittest.TestCase):
     def test_gpt_so_nas_calculadoras(self):
         skills = json.loads(read("skills.json"))
         com_gpt = {s["name"] for s in skills if s.get("gpt")}
-        self.assertEqual(com_gpt, {"fim-escala-6x1", "custo-vrva"})
+        self.assertEqual(com_gpt, {"fim-escala-6x1", "custo-vrva", "cbs-ibs-simples"})
         self.assertEqual(sorted(p.name for p in (ROOT / "gpts").iterdir() if p.is_dir()), sorted(com_gpt))
         for rel in ("README.md", "docs/index.html"):
             text = read(rel)
-            self.assertIn("só para as duas calculadoras", text, rel)
+            self.assertIn("só para as três calculadoras", text, rel)
             self.assertNotIn("um GPT para cada skill", text, rel)
 
     def test_teste_sem_prazo_nao_fala_em_periodo(self):
@@ -168,6 +168,31 @@ class ReadmeExampleTest(unittest.TestCase):
         for needle in ("7 dias abertos, 13h por dia", "Caixa: 14 pessoas, R$ 1.900,00", "5 postos",
                        "Açougue: 6 pessoas, R$ 2.600,00", "Padaria: 5 pessoas, R$ 2.200,00", "encargos de 70%"):
             self.assertIn(needle, text)
+
+    def test_simples_example_sai_da_conta_oficial(self):
+        # Exemplo oficial EXEMPLO_NFE da calculadora do Simples (tag 1.0.2), rodado pelo calc.py da skill.
+        import subprocess
+        import sys
+        operacao = {
+            "id": "op-2", "versao": "3.0.0", "data": "2027-03-15", "tpDoc": "55", "CRT": "1",
+            "aliquotasEfetivas": {"fatorR": True, "impedimentoSublimite": False,
+                                  "anexoI": {"pCBSSN": "1.1612", "pIBSSN": "0.0129"}},
+            "itens": [{"numero": 1, "cAtivSN": "01", "cClassTrib": "000001", "baseCalculo": "1000.00",
+                       "valorImpostoSeletivo": "0.00"}],
+        }
+        calc = ROOT / "core" / "cd2-super" / "skills" / "cbs-ibs-simples" / "scripts" / "calc.py"
+        saida = subprocess.run([sys.executable, str(calc)], input=json.dumps(operacao), capture_output=True,
+                               text=True, check=True)
+        total = json.loads(saida.stdout)["corpo"]["total"]
+        self.assertEqual((total["vCBSSNtot"], total["vIBSSNtot"], total["totalTributos"]), ("11.61", "0.13", "11.74"))
+        for rel in ("README.md", "docs/index.html"):
+            text = read(rel)
+            self.assertIn("CBS de R$ 11,61 e IBS de R$ 0,13, R$ 11,74 no total", text, rel)
+            self.assertIn("venda de R$ 1.000,00", text, rel)
+            self.assertIn("1,1612%", text, rel)
+            self.assertIn("0,0129%", text, rel)
+            self.assertIn("exemplo ilustrativo", text, rel)
+            self.assertIn("cbs-ibs-simples", text, rel)
 
     def test_relatorio_example_abc_numbers(self):
         # Mercearia de exemplo do README e do site: seis produtos, cortes de 80% (A) e 95% (B).
@@ -274,14 +299,15 @@ class SiteTest(unittest.TestCase):
                        "só lê", "SELECT", "Online", "Archeo MCP Creator da CD2"):
             self.assertIn(needle, section, needle)
         self.assertRegex(section, r'class="chat"')
-        # O hero e os fatos falam das vinte e sete skills, não de duas.
+        # O hero e os fatos falam das vinte e oito skills, não de duas.
         self.assertNotIn('<span class="stat">2</span>', html)
-        self.assertIn('<span class="stat">27</span>', html)
+        self.assertIn('<span class="stat">28</span>', html)
         self.assertNotRegex(html, r"(?i)dados? (nunca )?sa[ei]m? da (sua )?empresa|nada sai da")
         # Os cards gerados mostram todas e não fingem calculadora nos relatórios.
         block = html.split("<!-- skills:start -->")[1].split("<!-- skills:end -->")[0]
         self.assertEqual(block.count('class="skill-card"'), len(json.loads(read("skills.json"))))
         self.assertEqual(block.count("Abrir a calculadora gratuita"), 2)
+        self.assertEqual(block.count("Ver a calculadora oficial"), 1)
 
     def test_site_contact_and_utm(self):
         urls = [u.replace("&amp;", "&") for u in urls_in(self.html)]
@@ -326,7 +352,7 @@ class LaunchTruthTest(unittest.TestCase):
     DOCS = ("README.md", "docs/index.html")
 
     NEAR = re.compile(r"GPT Store.{0,160}?em breve|em breve.{0,160}?GPT Store", re.S | re.I)
-    GPT_NAMES = ("CD2 Escala 6x1", "CD2 VR/VA: quanto custa")
+    GPT_NAMES = ("CD2 Escala 6x1", "CD2 VR/VA: quanto custa", "CD2 CBS e IBS no Simples")
     FORBIDDEN = ("publicado pela cd2", "publicados pela cd2", "procure na gpt store")
 
     def check_gpt_store_text(self, text, rel):
@@ -435,6 +461,20 @@ class GuidesTest(unittest.TestCase):
         text = read("CHANGELOG.md")
         self.assertIn("## 0.1.0", text)
         self.assertIn("2026-11-07", text)
+
+    def test_changelog_0_6_0(self):
+        text = read("CHANGELOG.md")
+        self.assertLess(text.index("## 0.6.0"), text.index("## 0.5.0"))
+        section = text.split("## 0.6.0", 1)[1].split("## 0.5.0", 1)[0]
+        for needle in ("cbs-ibs-simples", "Receita Federal", "1.0.2", "V0073", "12.013"):
+            self.assertIn(needle, section, needle)
+
+    def test_agents_md_explica_a_skill_da_receita(self):
+        text = read("AGENTS.md")
+        for needle in ("vinte e oito skills", "três calculadoras", "cbs-ibs-simples",
+                       "Skills que espelham a calculadora da Receita", "base-receita.db", "meta.json",
+                       "esperadas.json", "receita_paridade.py", "receita_base.py", "fonte_externa"):
+            self.assertIn(needle, text, needle)
 
     def test_changelog_0_2_0(self):
         text = read("CHANGELOG.md")

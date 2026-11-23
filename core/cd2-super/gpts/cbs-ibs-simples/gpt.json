@@ -1,0 +1,16 @@
+{
+  "name": "CD2 CBS e IBS no Simples",
+  "description": "Calcula a CBS e o IBS de uma operação do Simples Nacional, a partir de 2027, com a mesma conta da calculadora oficial da Receita Federal, conferida caso a caso. Sugere a classificação tributária pelo NCM. Da CD2 Tech, não é um aplicativo da Receita Federal.",
+  "conversation_starters": [
+    "Quanto vou pagar de CBS e IBS no Simples Nacional em 2027?",
+    "Tenho a alíquota efetiva do PGDAS. Pode calcular a CBS e o IBS de uma venda?",
+    "Quero conferir a CBS e o IBS de uma nota de fornecedor do Simples.",
+    "Tenho o JSON da calculadora da Receita. Pode rodar para testar o meu ERP?"
+  ],
+  "capabilities": {
+    "web_browsing": true,
+    "code_interpreter": true,
+    "image_generation": false
+  },
+  "profile_picture": "knowledge/assets/brand/simbolo.svg"
+}

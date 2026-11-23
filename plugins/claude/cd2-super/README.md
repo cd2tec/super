@@ -1,6 +1,6 @@
 # Plugin cd2-super para Claude Code e Claude Cowork
 
-Skills da CD2 Tech para o varejo alimentar brasileiro: duas calculadoras, oito relatórios gerenciais, um painel de varejo e a ficha de ferramenta do Archeo MCP Creator da CD2. Cada uma faz a conta com um script, nunca de cabeça, e entrega o resultado com a marca CD2 Tech.
+Skills da CD2 Tech para o varejo alimentar brasileiro: três calculadoras, oito relatórios gerenciais, um painel de varejo e a ficha de ferramenta do Archeo MCP Creator da CD2. Cada uma faz a conta com um script, nunca de cabeça, e entrega o resultado com a marca CD2 Tech.
 
 > A pasta `skills/` e os arquivos `LICENSE`, `NOTICE` e `COMMERCIAL.md` deste pacote são **cópias geradas** de [`core/cd2-super`](../../../core/cd2-super). Edite lá e rode `python3 scripts/sync_plugins.py` na raiz do repositório.
 
@@ -21,6 +21,7 @@ No Claude Cowork, baixe o [`cd2-super-claude.zip`](https://github.com/cd2tec/sup
 |---|---|
 | [`fim-escala-6x1`](skills/fim-escala-6x1/SKILL.md) | Impacto do fim da escala 6x1 (EC 141/2026): pessoas a contratar, custo por mês e por ano, setores no semáforo e o que fazer primeiro, com e sem acordo coletivo |
 | [`custo-vrva`](skills/custo-vrva/SKILL.md) | Quanto o VR e o VA custam de verdade frente ao Decreto 12.712/2025: taxa acima do teto, dinheiro parado, bandeiras no semáforo e o que fazer primeiro |
+| [`cbs-ibs-simples`](skills/cbs-ibs-simples/SKILL.md) | CBS e IBS de uma operação do Simples Nacional, a partir de 2027, com a mesma conta da calculadora oficial da Receita Federal, conferida caso a caso. Sugere a classificação pelo NCM e não é um aplicativo da Receita |
 | [`relatorio-vendas`](skills/relatorio-vendas/SKILL.md) | Relatório gerencial de vendas, como a curva ABC, a carteira de clientes e as devoluções |
 | [`relatorio-estoque`](skills/relatorio-estoque/SKILL.md) | Relatório gerencial de estoque, como posição, Kardex e cobertura |
 | [`relatorio-compras`](skills/relatorio-compras/SKILL.md) | Relatório gerencial de compras, como a curva ABC de abastecimento e os pedidos pendentes |
