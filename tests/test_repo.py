@@ -114,7 +114,9 @@ class RepoTest(unittest.TestCase):
         core = json.loads(read("core/cd2-super/plugin.core.json"))
         skills = json.loads(read("skills.json"))
         harnesses = json.loads(read("harnesses.json"))
-        self.assertEqual(core["version"], "0.6.0")
+        # A versão sobe a cada publicação (à mão ou pelo robô): o que vale é a entrada do CHANGELOG.md no topo.
+        self.assertRegex(core["version"], r"^\d+\.\d+\.\d+$")
+        self.assertEqual(re.search(r"(?m)^## (\S+)$", read("CHANGELOG.md")).group(1), core["version"])
         self.assertEqual(
             {s["name"] for s in skills},
             {

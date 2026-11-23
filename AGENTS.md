@@ -130,7 +130,7 @@ Esta seção vale para as calculadoras da CD2. Elas ficam em repositórios priva
 | `custo-vrva` | https://calc-vrva.cd2.com.br/ |
 | `cbs-ibs-simples` | Nenhum site da CD2. A fonte é a calculadora oficial da Receita, no GitHub |
 
-A `cbs-ibs-simples` não tem site da CD2 e não segue esta seção: veja [Skills que espelham a calculadora da Receita](#skills-que-espelham-a-calculadora-da-receita). Ela será sincronizada pelo robô de conferência. [Trecho provisório: a próxima tarefa troca esta frase.]
+A `cbs-ibs-simples` não tem site da CD2 e não segue esta seção: veja [Skills que espelham a calculadora da Receita](#skills-que-espelham-a-calculadora-da-receita). Quem a mantém em dia é o robô de conferência, um workflow agendado descrito na mesma seção.
 
 Quando o `legal-params.json` ou o `assumptions.json` de uma calculadora mudar:
 
@@ -196,7 +196,55 @@ Escritos à mão, na mesma pasta: `config.json` (tabelas, lista `ignorar` e exce
 3. Monte a base da versão nova, rode a conferência completa até 100%, regrave as esperadas e atualize a versão da calculadora no `meta.json` com a da release nova.
 4. Atualize a `metodologia.md`, o `SKILL.md` e as instruções do GPT se citarem algo que mudou. Rode o sync, o `--check` e os testes, suba a versão (minor, porque a conta mudou) e escreva no `CHANGELOG.md` o que mudou na regra.
 
-**O robô.** O funcionamento do robô de conferência (quando ele publica sozinho, quando abre pull request ou issue e como ler o que ele abre) entra nesta seção quando o workflow chegar ao repositório. [Trecho provisório: a próxima tarefa troca esta frase.]
+**O robô de conferência.** O workflow `.github/workflows/conferencia-receita.yml` roda todo dia às 9h17 UTC (e por disparo manual), uma vez para cada pasta de `conferencia/` com `config.json`. A lógica mora em `scripts/receita_robo.py`, com testes em `tests/test_receita_robo.py`. Ele não usa segredo: só o `GITHUB_TOKEN`. Cada dia:
+
+1. **Olha a Receita.** Lê a última release do repositório do Simples e o último commit do repositório das migrações, clona os dois e lista os caminhos que mudaram desde o que está no `meta.json`. Nada mudou: termina.
+2. **Monta a base de dois jeitos**, pelo Flyway oficial e pelo `receita_base.py`, e compara o conteúdo de todas as tabelas (`receita_robo.py comparar-bases`). Diferença é defeito do montador e vira issue de falha.
+3. **Sobe a calculadora oficial** compilada da release, no perfil `offline`, e confere que `/versao` responde a versão da release e a base montada.
+4. **Roda a bateria inteira** (`receita_paridade.py --completa`) e, com 100%, grava a amostra das esperadas.
+5. **Decide**, pela tabela abaixo, e age.
+
+| O que mudou | Conferência | PR de regra aberto | O que o robô faz |
+|---|---|---|---|
+| Nada | | Não | Termina |
+| Só as tabelas (`flyway/sql`) | 100% | Não | Publica sozinho |
+| Só as tabelas | Menos de 100% | Não | Abre ou atualiza a issue de divergência |
+| Release nova sem mudança em `src/main` | 100% | Não | Publica sozinho, e o `CHANGELOG.md` diz que o código de cálculo não mudou |
+| Release nova sem mudança em `src/main` | Menos de 100% | Não | Abre o PR de regra |
+| Código de cálculo (`src/main`) | Qualquer | Não | Abre o PR de regra |
+| Código de cálculo | Qualquer | Sim | Atualiza o corpo do PR e comenta o que mais mudou |
+| Qualquer outra coisa | Qualquer | Sim | Comenta no PR que as tabelas seguem paradas, no máximo uma vez por dia |
+| Qualquer coisa | Sem resultado | Qualquer | Abre ou atualiza a issue de falha |
+
+O robô só publica quando tudo isto passa, nesta ordem: as duas bases iguais, a calculadora oficial na versão certa, a bateria inteira em 100%, o `sync_plugins.py --check` e os testes inteiros com `CD2_BASE_COMPLETA` apontando para a base completa. Publicar é: trocar a base, o `meta.json` e as esperadas, subir o patch no `plugin.core.json` e nos três manifestos, escrever a entrada no `CHANGELOG.md`, rodar o sync, fazer o commit na `main` como `github-actions[bot]`, dar push (nunca forçado), disparar `release.yml` com `gh workflow run` e abrir ou atualizar a issue única "Republicar o GPT <skill>". Publicar de novo o mesmo estado da Receita não acontece: depois da publicação, o `meta.json` já espelha a Receita e o dia seguinte é "nada". Fora da `main` (disparo manual em outro ramo), o robô confere e diz o que faria, mas não escreve nada.
+
+**Como o workflow se protege.** O código da Receita (Maven, Flyway e o JAR) roda só no job `conferir`, que só lê o repositório e não guarda credencial no checkout. Quem escreve é o job `agir`, que não roda código da Receita e recebe o resultado por artefato. Os dois não se sobrepõem (`concurrency`), e o `agir` confere que o `meta.json` não mudou desde o começo da execução; se mudou (alguém fez merge no meio), ele não age e deixa para o dia seguinte. Se o push na `main` falhar porque alguém subiu um commit no meio, a execução falha e abre a issue de falha; nada é reescrito.
+
+**Como ler o que o robô abre.** Cada título é fixo, e o robô acha o que já existe pelo título antes de abrir outro:
+
+- PR "Receita: portar a mudança de regra da <skill>", no ramo `receita/<skill>-<versão>`. Começa pelo aviso de que as tabelas estão paradas enquanto ele estiver aberto, depois o que mudou na Receita, o resultado da conferência, o diff do Java de `src/main` (cortado, com o link da comparação no GitHub, quando passa do limite do corpo de PR) e a lista do que portar. O ramo traz a base e a meta novas, com a versão da calculadora ainda na espelhada. Depois de aberto, o robô não mexe mais no ramo, que é de quem porta: só atualiza o corpo e comenta.
+- Issue "Receita: a conferência da <skill> não fechou 100%": tabelas novas que o motor não acompanha. Traz os casos que divergiram; o relatório inteiro fica no artefato `conferencia-<skill>` da execução. Feche quando a conferência voltar a 100% e o robô publicar.
+- Issue "Receita: o robô de conferência da <skill> falhou": diz a etapa em que parou e o link da execução, e ganha um comentário por dia enquanto falhar. Falha da Receita (build quebrado, repositório fora do ar) costuma passar sozinha; falha nossa (bases diferentes, `--check` ou teste quebrado) pede correção. Feche quando uma execução terminar bem.
+- Issue "Republicar o GPT <skill>": a versão do plugin que saiu e a que o GPT tem no ar. Republique pelo `gpts/README.md` e feche.
+
+**Portar a mudança de um PR de regra.** Faça o checkout do ramo do PR e siga [Portar uma mudança de regra](#skills-que-espelham-a-calculadora-da-receita) acima: o diff está no corpo do PR, a base nova já está no ramo, e o `meta.json` só precisa da versão e do commit da calculadora nova e da conferência quando ela fechar 100%. Depois de mudar o `meta.json` à mão, rode `python3 scripts/receita_robo.py meta --skill <skill>` para levar a mesma meta à base e às esperadas. O merge sobe a versão (minor) e a release sai pelo fluxo normal; no dia seguinte o robô volta a publicar tabelas sozinho.
+
+**Testes que dependem da versão da base.** Os testes da skill tiram as amostras da própria base (o primeiro NCM de uma lista, por exemplo), para continuar valendo quando o robô trocar as tabelas. Os poucos cujo sentido é o conteúdo de uma versão levam `@ancorado_na("V0073")`, de `tests/versao_da_base.py`, e são pulados com o motivo em outra base. Ao portar uma mudança de regra, reancore na base nova o que fizer sentido. Os testes de consistência (a base igual ao `meta.json`, as classificações do perfil da sugestão existindo na base) não pulam nunca: eles barram o robô de propósito.
+
+**Rodar o robô na sua máquina.** Com a calculadora oficial e os clones de [Rodar a conferência local](#skills-que-espelham-a-calculadora-da-receita), os passos são os do workflow. Escreva o `upstream.json` (`{"calculadora": {"versao", "commit"}, "migracoes": {"commit"}}`) e a lista de caminhos mudados (`git diff --no-renames --name-only` entre o commit do `meta.json` e o novo, nas migrações só dentro de `flyway/sql`), e rode:
+
+```
+python3 scripts/receita_robo.py detectar --skill cbs-ibs-simples --upstream upstream.json --caminhos caminhos.txt --saida estado.json
+python3 scripts/receita_robo.py comparar-bases --skill cbs-ibs-simples --flyway <base do Flyway> --montada <base-completa.db>
+python3 scripts/receita_robo.py esperar-oficial --url http://127.0.0.1:8082/api --versao <versão> --base <Vnnnn>
+python3 scripts/receita_robo.py decidir --estado estado.json --paridade paridade.txt --codigo <código de saída da paridade>
+```
+
+O `publicar` mexe na versão e no `CHANGELOG.md`: rode numa cópia do repositório, nunca no checkout em que você trabalha.
+
+**Disparar à mão.** Na aba Actions do GitHub, "Conferência com a Receita", "Run workflow", ou `gh workflow run conferencia-receita.yml`. Disparado da `main`, ele age como no agendamento; de outro ramo, só confere.
+
+**O agendamento não pode morrer em silêncio.** O GitHub desliga um workflow agendado depois de 60 dias sem atividade no repositório. O último job de toda execução, `manter`, roda `gh workflow enable conferencia-receita.yml` para contar como atividade e manter o agendamento ligado. Se a aba Actions disser que o workflow está desligado, ligue de novo por lá ou com `gh workflow enable conferencia-receita.yml`.
 
 ## Versão e release
 

@@ -51,6 +51,7 @@ simples_base = load_module("simples_base", SKILL / "scripts" / "simples_base.py"
 simples_motor = load_module("simples_motor", SKILL / "scripts" / "simples_motor.py")
 receita_paridade = load_module("receita_paridade", ROOT / "scripts" / "receita_paridade.py")
 calc = load_module("calc_simples", SKILL / "scripts" / "calc.py")
+ancorado_na = load_module("versao_da_base", ROOT / "tests" / "versao_da_base.py").ancorado_na
 
 Base = simples_base.Base
 ESPERADAS = receita_paridade.ler_json((PASTA_CONFERENCIA / "esperadas.json").read_text(encoding="utf-8"))
@@ -423,6 +424,13 @@ class ItensTest(ComBase):
     def test_exemplos_oficiais_batem(self):
         exemplos = {c["id"]: c for c in casos("item") if c["id"] in ("exemplo-nfe", "exemplo-nfse")}
         self.assertEqual(set(exemplos), {"exemplo-nfe", "exemplo-nfse"})
+        for id_, caso in exemplos.items():
+            with self.subTest(id_):
+                self.conferir(caso)
+
+    @ancorado_na("V0073")
+    def test_exemplos_oficiais_na_v0073(self):
+        exemplos = {c["id"]: c for c in casos("item") if c["id"] in ("exemplo-nfe", "exemplo-nfse")}
         # o exemplo da NFS-e traz um NBS que não está na base V0073: a oficial responde VSN-050
         esperado = {"exemplo-nfe": ("CALCULADO", []), "exemplo-nfse": ("INCONSISTENCIA_ENTRADA", ["VSN-050"])}
         for id_, caso in exemplos.items():
@@ -601,7 +609,9 @@ class CliTest(unittest.TestCase):
         saida = saida_json(processo)
         self.assertEqual(receita_paridade.comparar(
             caso["resposta"], {"status": saida["status"], "corpo": saida["corpo"]}, IGNORAR), [])
-        self.assertEqual(saida["versao"], {"calculadora": "1.0.2", "base": "V0073", "conferida_em": "2026-11-22"})
+        meta = json.loads((PASTA_CONFERENCIA / "meta.json").read_text(encoding="utf-8"))
+        self.assertEqual(saida["versao"], {"calculadora": meta["calculadora"]["versao"], "base": meta["base"]["versao"],
+                                           "conferida_em": meta["conferencia"]["data"]})
         self.assertNotIn("normalizacoes", saida)
 
     def test_cli_le_arquivo_e_mantem_os_valores_em_texto(self):

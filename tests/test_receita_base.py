@@ -265,7 +265,7 @@ class TestBaseDaSkill(unittest.TestCase):
         con = sqlite3.connect(f"file:{base}?mode=ro", uri=True)
         self.addCleanup(con.close)
         self.assertEqual(receita_base.hash_conteudo(con, CONFIG["tabelas"], CONFIG["hash_ignorar_colunas"]), meta["base"]["hash"])
-        self.assertEqual(meta["base"]["versao"], "V0073")
+        self.assertRegex(meta["base"]["versao"], r"^V\d{4}$")
 
     def test_base_tem_so_as_tabelas_do_config(self):
         base = ROOT / "core/cd2-super/skills/cbs-ibs-simples/references/base-receita.db"

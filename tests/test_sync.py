@@ -24,7 +24,8 @@ PLUGIN = "cd2-super"
 SKILLS = ("fim-escala-6x1", "custo-vrva")  # calculadoras com calc.py --input e render.py --result
 SIMPLES = "cbs-ibs-simples"  # calculadora que espelha a da Receita: outra linha de comando
 GPT_SKILLS = SKILLS + (SIMPLES,)
-VERSAO = "0.6.0"
+# A versão sobe a cada publicação (à mão ou pelo robô de conferência): vale a do core.
+VERSAO = json.loads((ROOT / "core" / "cd2-super" / "plugin.core.json").read_text(encoding="utf-8"))["version"]
 PLACEHOLDER = "{{" + "UTM_SOURCE" + "}}"
 EM, EN = chr(0x2014), chr(0x2013)
 EMOJI = re.compile("[\U0001F300-\U0001FAFF\u2600-\u27BF]")

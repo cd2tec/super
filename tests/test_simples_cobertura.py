@@ -376,12 +376,14 @@ class ResponderTest(unittest.TestCase):
         self.assertEqual(calculo["status"], 200)
         self.assertEqual(calculo["corpo"]["objetos"][0]["estadoItem"], "CALCULADO")
         lista = bateria.responder({"metodo": "GET", "caminho": "/calculadora/simples-nacional/atividades?data=2027-01-01"})
-        self.assertEqual((lista["status"], len(lista["corpo"])), (200, 15))
+        self.assertEqual(lista["status"], 200)
+        self.assertTrue(lista["corpo"])
         uma = bateria.responder({"metodo": "GET", "caminho": "/calculadora/simples-nacional/atividades/01?data=2027-01-01"})
         self.assertEqual(uma["corpo"]["codigo"], "01")
+        self.assertIn("01", [a["codigo"] for a in lista["corpo"]])
         erro = bateria.responder({"metodo": "GET", "caminho": bateria.CAMINHO_ERROS + "?codigo=VSN-001"})
         self.assertEqual(erro["corpo"]["codigo"], "VSN-001")
-        self.assertEqual(bateria.responder({"metodo": "GET", "caminho": "/versao"})["corpo"]["versaoDb"], "V0073")
+        self.assertEqual(bateria.responder({"metodo": "GET", "caminho": "/versao"})["corpo"]["versaoDb"], META["base"]["versao"])
         self.assertEqual(bateria.responder({"metodo": "GET", "caminho": "/nao-existe"}), {"status": 404, "corpo": None})
 
     def test_o_erro_da_consulta_leva_o_instance_com_o_prefixo_da_api(self):

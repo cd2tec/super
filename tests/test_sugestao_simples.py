@@ -36,14 +36,101 @@ def _carregar_calc():
 
 
 calc = _carregar_calc()
+_spec = importlib.util.spec_from_file_location("versao_da_base", ROOT / "tests" / "versao_da_base.py")
+versao_da_base = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(versao_da_base)
+ancorado_na = versao_da_base.ancorado_na
 
 DATA = date(2027, 3, 15)
+
+
+class Amostras:
+    """NCMs tirados da própria base, para os testes valerem com as tabelas que o robô publicar.
+
+    Os primeiros na ordem do código, sempre os mesmos para a mesma base."""
+
+    def __init__(self, base):
+        self.base = base
+        self._cache = {}
+
+    def sugerir(self, ncm, tp_doc=65):
+        return sugestao.sugerir(ncm, tp_doc, DATA, self.base)
+
+    def codigos(self, ncm):
+        return [s["cClassTrib"] for s in self.sugerir(ncm)["sugestoes"]]
+
+    def vigentes(self):
+        if "vigentes" not in self._cache:
+            self._cache["vigentes"] = [n for (n,) in self.base._con.execute(
+                "SELECT NCM_CD FROM NCM WHERE length(NCM_CD) = 8 ORDER BY NCM_CD").fetchall()
+                if self.base.existe_ncm(n, DATA)]
+        return self._cache["vigentes"]
+
+    def da_lista(self, codigo="200003"):
+        """Primeiro NCM que cai só na lista `codigo` (a sugestão é a lista e a regra geral)."""
+        chave = ("lista", codigo)
+        if chave not in self._cache:
+            self._cache[chave] = next(n for n in self.vigentes() if self.codigos(n) == [codigo, "000001"])
+        return self._cache[chave]
+
+    def inexistente(self, inicio=85171231):
+        """Primeiro código de 8 dígitos, a partir de `inicio`, que não é NCM vigente na base."""
+        n = inicio
+        while self.base.existe_ncm(f"{n:08d}", DATA):
+            n += 1
+        return f"{n:08d}"
+
+    def sete_digitos(self):
+        """Um NCM vigente que começa por zero e tem lista, escrito sem o zero."""
+        if "sete" not in self._cache:
+            self._cache["sete"] = next(n for n in self.vigentes() if n.startswith("0") and len(self.codigos(n)) > 1)
+        return self._cache["sete"]
+
+    def sete_digitos_inexistente(self):
+        """Sete dígitos que, com o zero na frente, não são NCM vigente."""
+        n = 2030000
+        while self.base.existe_ncm(f"0{n:07d}", DATA):
+            n += 1
+        return f"{n:07d}"
+
+    def no_seletivo(self, quantos=3):
+        """NCMs da lista do Imposto Seletivo sem outra lista do perfil (a sugestão é só a regra geral)."""
+        if "seletivo" not in self._cache:
+            linhas = self.base._con.execute(
+                "SELECT DISTINCT AAVP_NCM_CD FROM ALIQUOTA_AD_VALOREM_PRODUTO WHERE length(AAVP_NCM_CD) = 8 "
+                "ORDER BY AAVP_NCM_CD").fetchall()
+            self._cache["seletivo"] = [n for (n,) in linhas if self.base.existe_ncm(n, DATA)
+                                       and self.base.no_imposto_seletivo(n, DATA) and self.codigos(n) == ["000001"]]
+        return self._cache["seletivo"][:quantos]
+
+    def fora_do_seletivo(self):
+        """NCMs vigentes fora do Imposto Seletivo: um com lista e um comum."""
+        com_lista = next(n for n in self.vigentes() if len(self.codigos(n)) > 1
+                         and not self.base.no_imposto_seletivo(n, DATA))
+        comum = next(n for n in self.vigentes() if self.codigos(n) == ["000001"]
+                     and not self.base.no_imposto_seletivo(n, DATA))
+        return [com_lista, comum]
+
+    def duas_listas(self, quantos=10):
+        """NCMs que caem em duas ou mais listas do perfil."""
+        if "duas" not in self._cache:
+            listas = {c for c, p in sugestao.PERFIL["classificacoes"].items() if p["tipo"] == "lista"}
+            achados = []
+            for n in self.vigentes():
+                codigos = self.codigos(n)
+                if len([c for c in codigos if c in listas]) >= 2 and codigos[-1] == "000001":
+                    achados.append(n)
+                    if len(achados) == quantos:
+                        break
+            self._cache["duas"] = achados
+        return self._cache["duas"]
 
 
 class SugestaoTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.base = simples_base.Base()
+        cls.amostra = Amostras(cls.base)
 
     @classmethod
     def tearDownClass(cls):
@@ -56,8 +143,10 @@ class SugestaoTest(unittest.TestCase):
         return [s["cClassTrib"] for s in resultado["sugestoes"]]
 
     def test_arroz_sugere_cesta_basica(self):
-        r = self.sugerir("10063021")
-        self.assertEqual(r["ncm"], "10063021")
+        # a amostra vem da base (na V0073, o 02011000); o nome do teste vem do 10063021 que ele usava
+        ncm = self.amostra.da_lista("200003")
+        r = self.sugerir(ncm)
+        self.assertEqual(r["ncm"], ncm)
         self.assertEqual(self.codigos(r)[0], "200003")
         self.assertEqual(r["sugestoes"][0]["cst"], "200")
         self.assertIn("LC 214/2025, Art. 125", r["sugestoes"][0]["motivo"])
@@ -81,27 +170,31 @@ class SugestaoTest(unittest.TestCase):
         self.fail("nenhum NCM comum na base")
 
     def test_ncm_com_pontos(self):
-        r = self.sugerir("1006.30.21")
-        self.assertEqual(r["ncm"], "10063021")
+        ncm = self.amostra.da_lista("200003")
+        com_pontos = f"{ncm[:4]}.{ncm[4:6]}.{ncm[6:]}"
+        r = self.sugerir(com_pontos)
+        self.assertEqual(r["ncm"], ncm)
         self.assertEqual(self.codigos(r)[0], "200003")
-        self.assertTrue(any("1006.30.21" in a and "10063021" in a for a in r["avisos"]))
+        self.assertTrue(any(com_pontos in a and ncm in a for a in r["avisos"]))
 
     def test_ncm_com_sete_digitos_avisa_do_zero(self):
-        # o brief usa "2030000", mas 02030000 não existe na base V0073: o caso feliz usa 4072100
-        r = self.sugerir("4072100")
-        self.assertEqual(r["ncm"], "04072100")
-        self.assertTrue(any("zero à esquerda" in a and "04072100" in a for a in r["avisos"]))
-        self.assertIn("200014", self.codigos(r))
+        # a amostra vem da base (na V0073, o 02011000 escrito 2011000)
+        ncm = self.amostra.sete_digitos()
+        r = self.sugerir(ncm[1:])
+        self.assertEqual(r["ncm"], ncm)
+        self.assertTrue(any("zero à esquerda" in a and ncm in a for a in r["avisos"]))
+        self.assertEqual(self.codigos(r), self.amostra.codigos(ncm))
 
     def test_sete_digitos_que_nao_existem_depois_do_zero(self):
-        r = self.sugerir("2030000")
+        sete = self.amostra.sete_digitos_inexistente()
+        r = self.sugerir(sete)
         self.assertIsNone(r["ncm"])
         self.assertEqual(r["sugestoes"], [])
-        self.assertTrue(any("zero à esquerda" in a and "02030000" in a for a in r["avisos"]))
+        self.assertTrue(any("zero à esquerda" in a and "0" + sete in a for a in r["avisos"]))
         self.assertTrue(any("não encontrado" in a for a in r["avisos"]))
 
     def test_ncm_que_nao_existe(self):
-        r = self.sugerir("85171231")
+        r = self.sugerir(self.amostra.inexistente())
         self.assertIsNone(r["ncm"])
         self.assertEqual(r["sugestoes"], [])
         self.assertTrue(any("não encontrado" in a for a in r["avisos"]))
@@ -132,6 +225,7 @@ class SugestaoTest(unittest.TestCase):
         self.assertEqual(ncm, "10063021")
         self.assertEqual(len(avisos), 1)
 
+    @ancorado_na("V0073")
     def test_remedio_vem_como_conferir_e_com_a_regra_geral_por_ultimo(self):
         r = self.sugerir("30049099")
         codigos = self.codigos(r)
@@ -140,6 +234,7 @@ class SugestaoTest(unittest.TestCase):
         dica = next(s for s in r["sugestoes"] if s["cClassTrib"] == "200032")
         self.assertIn("confirme com o contador", dica["motivo"])
 
+    @ancorado_na("V0073")
     def test_duas_listas_saem_da_menor_reducao_para_a_maior(self):
         # evidência da revisão: NFC-e em 2027-03-15
         esperado = {
@@ -162,26 +257,40 @@ class SugestaoTest(unittest.TestCase):
                 self.assertIn("nunca fica abaixo do real", aviso)
                 self.assertIn("natureza do seu produto", aviso)
 
+    def test_duas_listas_na_base_da_skill_saem_da_menor_reducao_para_a_maior(self):
+        # a mesma regra da evidência acima, com amostra da base que estiver na skill
+        amostra = self.amostra.duas_listas()
+        self.assertTrue(amostra)
+        for ncm in amostra:
+            with self.subTest(ncm=ncm):
+                r = self.sugerir(ncm)
+                self.assertEqual(self.codigos(r)[-1], "000001")
+                reducoes = [int(s["reducao"]) for s in r["sugestoes"][:-1]]
+                self.assertEqual(reducoes, sorted(reducoes))
+                aviso = next(a for a in r["avisos"] if "mais de uma lista" in a)
+                self.assertIn("nunca fica abaixo do real", aviso)
+
     def test_uma_lista_so_nao_avisa_de_varias_listas(self):
-        self.assertFalse(any("mais de uma lista" in a for a in self.sugerir("10063021")["avisos"]))
+        self.assertFalse(any("mais de uma lista" in a for a in self.sugerir(self.amostra.da_lista())["avisos"]))
 
     def test_regra_geral_fica_sempre_por_ultimo_com_reducao_zero(self):
-        for ncm in ("10063021", "07108000", "30049099", "22030000"):
+        amostra = [self.amostra.da_lista(), *self.amostra.duas_listas(1), *self.amostra.no_seletivo(1),
+                   self.ncm_comum()]
+        for ncm in amostra:
             ultima = self.sugerir(ncm)["sugestoes"][-1]
             self.assertEqual((ultima["cClassTrib"], ultima["reducao"]), ("000001", "0"))
 
+    @ancorado_na("V0073")
     def test_remedio_lista_vem_antes_da_dica_e_a_dica_que_promete_mais_avisa(self):
         # como no mini app: a lista que o NCM cumpre (200030) fica na frente, a dica depois
         r = self.sugerir("30049099")
         self.assertEqual(self.codigos(r), ["200030", "200032", "200009", "000001"])
         self.assertTrue(any("200009" in a and "mais redução" in a for a in r["avisos"]))
 
+    @ancorado_na("V0073")
     def test_reducao_lida_da_base_bate_com_a_do_perfil_antigo_na_v0073(self):
         # Âncora de regressão: os valores que o perfil copiava do mini app quando as reduções eram texto fixo.
         # Só vale para a V0073. Em outra versão o teste é pulado e nunca barra uma atualização de tabelas.
-        versao = self.base.versao_base()["versao"]
-        if versao != "V0073":
-            self.skipTest(f"âncora da V0073; a base está na {versao}, a redução vem da base e não é conferida aqui")
         antigo = {"000001": 0, "200003": 100, "200014": 100, "200034": 60, "200035": 60, "200004": 100,
                   "200030": 60, "200007": 100, "200031": 60, "200033": 60, "200032": 60, "200009": 100,
                   "200013": 100}
@@ -200,12 +309,14 @@ class SugestaoTest(unittest.TestCase):
 
     def test_tabelas_atualizadas_pelo_robo_chegam_na_sugestao(self):
         # a situação do robô: a base nova traz outra versão e outra redução, e nenhum teste precisa mudar
+        ncm = self.amostra.da_lista("200003")
+        seletivo = self.amostra.no_seletivo(1)[0]
+        reducao_antes = self.sugerir(ncm)["sugestoes"][0]["reducao"]
+        cesta = self.base.classificacao_cbs_ibs("200003", DATA)["id"]
         with tempfile.TemporaryDirectory() as pasta:
             destino = Path(pasta) / "base-receita.db"
             shutil.copy(SCRIPTS.parent / "references" / simples_base.NOME_BASE, destino)
             con = sqlite3.connect(destino)
-            cesta = con.execute("SELECT CLTR_ID FROM CLASSIFICACAO_TRIBUTARIA WHERE CLTR_CD = '200003' "
-                                "AND CLTR_NOMENCLATURA = 'NCM' AND CLTR_INICIO_VIGENCIA = '2026-01-01'").fetchone()[0]
             con.execute("UPDATE PERCENTUAL_REDUCAO SET PERE_VALOR = 70 WHERE PERE_CLTR_ID = ? AND PERE_TBTO_ID = 2",
                         (cesta,))
             con.execute("UPDATE PERCENTUAL_REDUCAO SET PERE_VALOR = 40.5 WHERE PERE_CLTR_ID = ? AND PERE_TBTO_ID = 3",
@@ -215,19 +326,22 @@ class SugestaoTest(unittest.TestCase):
             con.commit()
             con.close()
             with simples_base.Base(destino) as nova:
-                r = sugestao.sugerir("10063021", 65, DATA, nova)
+                r = sugestao.sugerir(ncm, 65, DATA, nova)
                 self.assertEqual(r["sugestoes"][0]["cClassTrib"], "200003")
                 self.assertEqual(r["sugestoes"][0]["reducao"], "70")
                 self.assertEqual(r["sugestoes"][0]["reducoes"],
                                  {"cbs": "70", "ibsEstadual": "40.5", "ibsMunicipal": "100"})
                 self.assertIn("70% na CBS", r["sugestoes"][0]["motivo"])
-                self.assertIn("V9998", sugestao.sugerir("22030000", 65, DATA, nova)["imposto_seletivo"]["texto"])
+                self.assertIn("V9998", sugestao.sugerir(seletivo, 65, DATA, nova)["imposto_seletivo"]["texto"])
         # a base original continua como estava
-        self.assertEqual(self.sugerir("10063021")["sugestoes"][0]["reducao"], "100")
-        self.assertNotIn("reducoes", self.sugerir("10063021")["sugestoes"][0])
+        self.assertEqual(self.sugerir(ncm)["sugestoes"][0]["reducao"], reducao_antes)
+        self.assertNotIn("reducoes", self.sugerir(ncm)["sugestoes"][0])
 
     def test_imposto_seletivo_na_lista(self):
-        for ncm in ("22030000", "22021000", "24022000"):
+        # a amostra vem da base (na V0073, 22021000, 22030000 e 22041010)
+        amostra = self.amostra.no_seletivo(3)
+        self.assertTrue(amostra)
+        for ncm in amostra:
             with self.subTest(ncm=ncm):
                 r = self.sugerir(ncm)
                 self.assertEqual(self.codigos(r), ["000001"])
@@ -239,14 +353,19 @@ class SugestaoTest(unittest.TestCase):
                 self.assertIn("2027", seletivo["texto"])
                 self.assertIn(self.base.versao_base()["versao"], seletivo["texto"])
 
-    def test_imposto_seletivo_fora_da_lista(self):
+    @ancorado_na("V0073")
+    def test_agua_fica_fora_do_imposto_seletivo(self):
         # 22011000 (água) não está na lista que o mini app copia da Receita, ao contrário do que a revisão supôs
-        for ncm in ("22011000", "10063021"):
+        self.assertFalse(self.sugerir("22011000")["imposto_seletivo"]["na_lista"])
+
+    def test_imposto_seletivo_fora_da_lista(self):
+        for ncm in self.amostra.fora_do_seletivo():
             with self.subTest(ncm=ncm):
                 seletivo = self.sugerir(ncm)["imposto_seletivo"]
                 self.assertFalse(seletivo["na_lista"])
                 self.assertIn("não verifica o Imposto Seletivo além", seletivo["texto"])
 
+    @ancorado_na("V0073")
     def test_imposto_seletivo_vem_da_base_com_a_excecao_da_tabela(self):
         # 88021100 tem exceção cadastrada (88026000), que a base expressa em EXCECAO_AD_VALOREM_PRODUTO
         for ncm, esperado in (("88021100", True), ("88029999", True), ("22011000", False)):
@@ -255,13 +374,13 @@ class SugestaoTest(unittest.TestCase):
         self.assertTrue(self.sugerir("22030000")["imposto_seletivo"]["na_lista"])
 
     def test_sem_ncm_valido_nao_ha_imposto_seletivo(self):
-        self.assertNotIn("imposto_seletivo", self.sugerir("85171231"))
+        self.assertNotIn("imposto_seletivo", self.sugerir(self.amostra.inexistente()))
 
     def test_leitura_explica_a_ordem(self):
-        r = self.sugerir("10063021")
+        r = self.sugerir(self.amostra.da_lista())
         self.assertIn("primeira sugestão é a mais provável", r["leitura"])
         self.assertIn("000001", r["leitura"])
-        self.assertNotIn("mais provável", self.sugerir("85171231")["leitura"])
+        self.assertNotIn("mais provável", self.sugerir(self.amostra.inexistente())["leitura"])
 
     def test_texto_do_item_comum_cita_o_perfil_de_varejo(self):
         motivo = self.sugerir(self.ncm_comum())["sugestoes"][0]["motivo"]
@@ -270,12 +389,12 @@ class SugestaoTest(unittest.TestCase):
     def test_documento_fora_do_escopo_ou_data_sem_calculo(self):
         for tp_doc, data in ((57, DATA), (65, date(2026, 11, 22)), (99, DATA)):
             with self.subTest(tp_doc=tp_doc, data=data):
-                r = self.sugerir("10063021", tp_doc, data)
+                r = self.sugerir(self.amostra.da_lista(), tp_doc, data)
                 self.assertEqual(r["sugestoes"], [])
                 self.assertTrue(r["avisos"])
 
     def test_nfe_tambem_sugere(self):
-        self.assertEqual(self.codigos(self.sugerir("10063021", 55))[0], "200003")
+        self.assertEqual(self.codigos(self.sugerir(self.amostra.da_lista("200003"), 55))[0], "200003")
 
     def test_toda_sugestao_e_aceita_pela_base(self):
         sigla = self.base.sigla_tipo_dfe_vigente(self.base.tipo_dfe_calculo(65, DATA)["tipoDfeId"], DATA)
@@ -318,16 +437,22 @@ class SugestaoTest(unittest.TestCase):
                 self.assertEqual(sugestao.PERFIL["classificacoes"][codigo]["tipo"], "dica")
 
     def test_origem_e_sempre_leitura_cd2(self):
-        for ncm in ("10063021", "85171231", "", "30049099", "4072100"):
+        amostra = self.amostra
+        for ncm in (amostra.da_lista(), amostra.inexistente(), "", *amostra.duas_listas(1), amostra.sete_digitos()[1:]):
             with self.subTest(ncm=ncm):
                 self.assertEqual(self.sugerir(ncm)["origem"], "leitura-cd2")
 
     def test_formato_da_sugestao(self):
-        for s in self.sugerir("10063021")["sugestoes"]:
+        for s in self.sugerir(self.amostra.da_lista())["sugestoes"]:
             self.assertEqual(set(s), {"cClassTrib", "cst", "descricao", "reducao", "motivo"})
 
 
 class LinhaDeComandoTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        with simples_base.Base() as base:
+            cls.ncm = Amostras(base).da_lista("200003")
+
     def test_roda_de_pasta_achatada_com_a_base_ao_lado(self):
         # o pacote do GPT achata a skill numa pasta só: script e base lado a lado
         with tempfile.TemporaryDirectory() as pasta:
@@ -335,7 +460,7 @@ class LinhaDeComandoTest(unittest.TestCase):
                 shutil.copy(SCRIPTS / nome, Path(pasta) / nome)
             shutil.copy(SCRIPTS.parent / "references" / simples_base.NOME_BASE, Path(pasta) / simples_base.NOME_BASE)
             processo = subprocess.run(
-                [sys.executable, "-I", str(Path(pasta) / "sugestao.py"), "--ncm", "10063021", "--data", "2027-03-15"],
+                [sys.executable, "-I", str(Path(pasta) / "sugestao.py"), "--ncm", self.ncm, "--data", "2027-03-15"],
                 capture_output=True, text=True, cwd=pasta)
         self.assertEqual(processo.returncode, 0, processo.stderr)
         self.assertEqual(json.loads(processo.stdout)["sugestoes"][0]["cClassTrib"], "200003")
@@ -351,7 +476,8 @@ class LinhaDeComandoTest(unittest.TestCase):
         return codigo, saida.getvalue(), erro.getvalue()
 
     def test_saida_traz_o_aviso_fixo_e_a_origem(self):
-        codigo, saida, _ = self.rodar("--ncm", "1006.30.21", "--tp-doc", "65", "--data", "2027-03-15")
+        com_pontos = f"{self.ncm[:4]}.{self.ncm[4:6]}.{self.ncm[6:]}"
+        codigo, saida, _ = self.rodar("--ncm", com_pontos, "--tp-doc", "65", "--data", "2027-03-15")
         self.assertEqual(codigo, 0)
         corpo = json.loads(saida)
         self.assertEqual(corpo["aviso"], "Classificação sugerida pela CD2, confirme com o contador.")

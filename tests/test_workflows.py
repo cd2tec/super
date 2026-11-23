@@ -11,8 +11,45 @@ def wf(name):
 
 
 class WorkflowTest(unittest.TestCase):
-    def test_three_workflows_exist(self):
-        self.assertEqual(sorted(p.name for p in WF.glob("*.yml")), ["check-sync.yml", "pages.yml", "release.yml"])
+    def test_four_workflows_exist(self):
+        self.assertEqual(sorted(p.name for p in WF.glob("*.yml")),
+                         ["check-sync.yml", "conferencia-receita.yml", "pages.yml", "release.yml"])
+
+    def test_conferencia_da_receita(self):
+        text = wf("conferencia-receita.yml")
+        for needle in (
+            "cron:",
+            "workflow_dispatch:",
+            'java-version: "25"',
+            "distribution: temurin",
+            "receita_paridade.py",
+            "--completa",
+            "receita_robo.py",
+            "receita_base.py",
+            "sync_plugins.py --check",
+            "unittest discover",
+            "CD2_BASE_COMPLETA",
+            "gh workflow run release.yml",
+            "gh workflow enable",
+            "group: conferencia-receita",
+            "cancel-in-progress: false",
+            "persist-credentials: false",
+        ):
+            self.assertIn(needle, text)
+        self.assertIn('cron: "17 9 * * *"', text)
+        # Nenhum segredo além do token do próprio repositório.
+        self.assertNotIn("secrets.", text.replace("secrets.GITHUB_TOKEN", ""))
+        # Nunca reescreve história nem força push.
+        for proibido in ("--force", "push -f", "reset --hard", "rebase"):
+            self.assertNotIn(proibido, text)
+        # Permissões de escrita só no job que não roda código da Receita.
+        self.assertRegex(text, r"(?m)^permissions:\n  contents: read\n")
+        for perm in ("contents: write", "pull-requests: write", "issues: write", "actions: write"):
+            self.assertIn(perm, text)
+        # O teste completo roda antes do commit e o commit antes do push.
+        self.assertLess(text.index("sync_plugins.py --check"), text.index("git commit"))
+        self.assertLess(text.index("unittest discover"), text.index("git commit"))
+        self.assertLess(text.index("git commit"), text.index("git push origin HEAD:main"))
 
     def test_check_sync_runs_sync_tests_and_json(self):
         text = wf("check-sync.yml")

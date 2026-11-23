@@ -38,6 +38,12 @@ def load_module(name, path):
 
 
 sb = load_module("simples_base", SKILL / "scripts" / "simples_base.py")
+ancorado_na = load_module("versao_da_base", ROOT / "tests" / "versao_da_base.py").ancorado_na
+
+# As versões vêm do meta.json da conferência: o robô troca a base quando a Receita publica tabelas
+# novas, e o que estes testes conferem é que a base aberta é a que o meta.json diz.
+META = json.loads((ROOT / "conferencia" / "cbs-ibs-simples" / "meta.json").read_text(encoding="utf-8"))
+VERSAO_BASE = META["base"]["versao"]
 
 DATA = date(2027, 3, 15)
 DATA_PADRAO = date(2027, 1, 1)
@@ -63,26 +69,27 @@ class TestAbertura(unittest.TestCase):
 
     def test_versao_da_base(self):
         with sb.Base() as base:
-            self.assertEqual(base.versao_base()["versao"], "V0073")
+            self.assertEqual(base.versao_base()["versao"], VERSAO_BASE)
 
     def test_versao_da_base_traz_descricao_e_data(self):
         with sb.Base() as base:
             versao = base.versao_base()
-            self.assertEqual(versao["data"], date(2026, 11, 9))
-            self.assertIn("Classificações Tributárias", versao["descricao"])
+            self.assertEqual(versao["data"], date.fromisoformat(META["base"]["data"]))
+            self.assertIsInstance(versao["descricao"], str)
+            self.assertTrue(versao["descricao"].strip())
 
     def test_meta_vem_de_cd2_meta(self):
         with sb.Base() as base:
             meta = base.meta()
             self.assertEqual(meta["skill"], "cbs-ibs-simples")
-            self.assertEqual(meta["base"]["versao"], "V0073")
+            self.assertEqual(meta["base"]["versao"], VERSAO_BASE)
             meta["base"]["versao"] = "x"  # cópia: não mexe na instância
-            self.assertEqual(base.meta()["base"]["versao"], "V0073")
+            self.assertEqual(base.meta()["base"]["versao"], VERSAO_BASE)
 
     def test_cabecalhos_de_versao_como_na_oficial(self):
         with sb.Base() as base:
             self.assertEqual(base.cabecalhos_versao(),
-                             {"X-CALC-APP-VERSION": "1.0.2", "X-CALC-DB-VERSION": "V0073"})
+                             {"X-CALC-APP-VERSION": META["calculadora"]["versao"], "X-CALC-DB-VERSION": VERSAO_BASE})
 
     def test_acha_a_base_no_layout_achatado(self):
         # Pacote do GPT: scripts e base na mesma pasta.
@@ -92,7 +99,7 @@ class TestAbertura(unittest.TestCase):
         self.addCleanup(sys.modules.pop, "simples_base_achatado", None)
         with modulo.Base() as base:
             self.assertEqual(base.caminho.resolve(), (self.tmp / "base-receita.db").resolve())
-            self.assertEqual(base.versao_base()["versao"], "V0073")
+            self.assertEqual(base.versao_base()["versao"], VERSAO_BASE)
 
     def test_acha_a_base_no_layout_de_skill(self):
         # scripts/ ao lado de references/.
@@ -899,8 +906,11 @@ class TestValidacaoNomenclatura(ComBase):
         self.assertEqual(sb.sigla_dfe_por_normalizada("CT-e Simplificado"), "CTESIMPLIFICADO")
 
 
+@ancorado_na("V0073")
 class TestNomenclaturaNaBaseReal(ComBase):
-    """As mesmas regras contra a V0073, sem simulação."""
+    """As mesmas regras contra a V0073, sem simulação, com os ids dessa base (como nos testes da Receita).
+
+    Em outra base os testes são pulados: as regras seguem nos testes com simulação acima e na conferência."""
 
     def test_existe_ncm_e_nbs_pela_vigencia(self):
         self.assertTrue(self.base.existe_ncm("10062010", DATA))
@@ -999,6 +1009,14 @@ class TestConsultasDaSugestao(ComBase):
         finally:
             con.close()
 
+    def test_percentuais_de_reducao_tem_os_tres_tributos_em_decimal(self):
+        for codigo in ("200003", "200034"):
+            valores = self.base.percentuais_reducao(self.base.classificacao_cbs_ibs(codigo, DATA)["id"], DATA)
+            self.assertEqual(set(valores), {"cbs", "ibsUf", "ibsMun"})
+            for valor in valores.values():
+                self.assertIsInstance(valor, Decimal)
+
+    @ancorado_na("V0073")
     def test_percentuais_de_reducao_por_tributo(self):
         cesta = self.base.classificacao_cbs_ibs("200003", DATA)["id"]
         alimento = self.base.classificacao_cbs_ibs("200034", DATA)["id"]
@@ -1019,6 +1037,7 @@ class TestConsultasDaSugestao(ComBase):
         with tempfile.TemporaryDirectory() as pasta:
             destino = self.copia(pasta)
             cesta = self.base.classificacao_cbs_ibs("200003", DATA)["id"]
+            antes = self.base.percentuais_reducao(cesta, DATA)
             self.mudar(destino,
                        ("UPDATE PERCENTUAL_REDUCAO SET PERE_VALOR = 30.5 WHERE PERE_CLTR_ID = ? AND PERE_TBTO_ID = 3",
                         (cesta,)),
@@ -1026,11 +1045,12 @@ class TestConsultasDaSugestao(ComBase):
                         "WHERE PERE_CLTR_ID = ? AND PERE_TBTO_ID = 4", (cesta,)))
             with sb.Base(destino) as base:
                 valores = base.percentuais_reducao(cesta, DATA)
-                self.assertEqual(valores["cbs"], Decimal(100))
+                self.assertEqual(valores["cbs"], antes["cbs"])
                 self.assertEqual(valores["ibsUf"], Decimal("30.5"))
                 self.assertEqual(valores["ibsMun"], Decimal(0))
-                self.assertEqual(base.percentuais_reducao(cesta, date(2027, 3, 14))["ibsMun"], Decimal(100))
+                self.assertEqual(base.percentuais_reducao(cesta, date(2027, 3, 14))["ibsMun"], antes["ibsMun"])
 
+    @ancorado_na("V0073")
     def test_imposto_seletivo_na_lista_e_fora(self):
         for ncm in ("22030000", "22021000", "24022000", "87032100", "88029999"):
             with self.subTest(ncm=ncm):
@@ -1047,17 +1067,21 @@ class TestConsultasDaSugestao(ComBase):
             destino = self.copia(pasta)
             # exceção vigente para um NCM coberto por um produto da lista: sai da lista
             con = sqlite3.connect(destino)
-            produto = con.execute("SELECT AAVP_ID FROM ALIQUOTA_AD_VALOREM_PRODUTO WHERE AAVP_NCM_CD = '22030000'"
-                                  ).fetchone()[0]
+            # dois produtos da lista ad valorem (na V0073, 22021000 e 22030000): o primeiro ganha a exceção
+            alvo, outro = [n for (n,) in con.execute(
+                "SELECT DISTINCT AAVP_NCM_CD FROM ALIQUOTA_AD_VALOREM_PRODUTO WHERE length(AAVP_NCM_CD) = 8 "
+                "ORDER BY AAVP_NCM_CD").fetchall() if self.base.no_imposto_seletivo(n, DATA)][:2]
+            produto = con.execute("SELECT AAVP_ID FROM ALIQUOTA_AD_VALOREM_PRODUTO WHERE AAVP_NCM_CD = ?",
+                                  (alvo,)).fetchone()[0]
             ad_rem = con.execute("SELECT AARP_NCM_CD FROM ALIQUOTA_AD_REM_PRODUTO a JOIN ALIQUOTA_AD_REM v "
                                  "ON v.AARE_ID = a.AARP_AARE_ID WHERE v.AARE_TBTO_ID = 1").fetchone()[0]
             con.close()
             self.mudar(destino, ("INSERT INTO EXCECAO_AD_VALOREM_PRODUTO (EAVP_ID, EAVP_NCM_CD, EAVP_AAVP_ID, "
-                                 "EAVP_INICIO_VIGENCIA, EAVP_FIM_VIGENCIA) VALUES (9999, '22030000', ?, "
-                                 "'2026-01-01', NULL)", (produto,)))
+                                 "EAVP_INICIO_VIGENCIA, EAVP_FIM_VIGENCIA) VALUES (9999, ?, ?, "
+                                 "'2026-01-01', NULL)", (alvo, produto)))
             with sb.Base(destino) as base:
-                self.assertFalse(base.no_imposto_seletivo("22030000", DATA))
-                self.assertTrue(base.no_imposto_seletivo("22021000", DATA))
+                self.assertFalse(base.no_imposto_seletivo(alvo, DATA))
+                self.assertTrue(base.no_imposto_seletivo(outro, DATA))
                 self.assertTrue(base.no_imposto_seletivo(ad_rem, DATA))
 
 
