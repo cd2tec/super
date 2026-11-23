@@ -1086,8 +1086,154 @@ class ChecarVersaoTest(unittest.TestCase):
             codigo = calc.main(["--checar-versao"])
         self.assertEqual(codigo, 0)
         resposta = json.loads(saida.getvalue())
-        self.assertEqual(set(resposta), {"consultado", "ha_versao_nova", "calculadora", "mensagem"})
+        self.assertEqual(set(resposta), {"consultado", "ha_versao_nova", "ha_tabela_nova", "calculadora", "mensagem"})
         self.assertFalse(resposta["consultado"])
+
+
+class ChecarTabelasTest(unittest.TestCase):
+    """A segunda pergunta do --checar-versao: a Receita publicou tabelas novas (pasta flyway/sql)?"""
+    COMMIT = "f1eebd7ce3157423b1a6aaca7dc1d6c3395452c4"
+    META = {"calculadora": {"versao": "1.0.2"}, "migracoes": {"commit": COMMIT},
+            "base": {"versao": "V0073", "data": "2026-11-09"}, "conferencia": {"data": "2026-11-22"}}
+
+    def setUp(self):
+        self.original = calc._abrir
+        self.addCleanup(setattr, calc, "_abrir", self.original)
+        self.pedidos = []
+
+    def trocar(self, tag="1.0.2", commits=None, erro_tabelas=None):
+        def falso(pedido, timeout=None):
+            self.pedidos.append((pedido, timeout))
+            if pedido.full_url == calc.URL_VERSAO:
+                return _Resposta(json.dumps({"tag_name": tag}))
+            if erro_tabelas is not None:
+                raise erro_tabelas
+            return _Resposta(json.dumps(commits))
+        calc._abrir = falso
+
+    @staticmethod
+    def commit(sha, quando):
+        return [{"sha": sha, "commit": {"committer": {"date": quando}}}]
+
+    def test_tabelas_novas_depois_da_conferencia(self):
+        self.trocar(commits=self.commit("a" * 40, "2026-12-03T10:00:00Z"))
+        r = calc.checar_versao(self.META)
+        self.assertTrue(r["consultado"])
+        self.assertFalse(r["ha_versao_nova"])
+        self.assertTrue(r["ha_tabela_nova"])
+        self.assertIn("publicou tabelas novas", r["mensagem"])
+        self.assertIn("atualização do plugin traz", r["mensagem"])
+        self.assertIn("V0073", r["mensagem"])
+
+    def test_mesmas_tabelas(self):
+        # o próprio commit espelhado, ou um commit anterior à conferência (como o 32df719 da V0073, de 19/11)
+        for commits in (self.commit(self.COMMIT, "2026-11-19T23:05:12Z"),
+                        self.commit("32df7196356e81f2df08e6023fc2b6dbc48036d3", "2026-11-19T22:59:24Z")):
+            with self.subTest(sha=commits[0]["sha"][:7]):
+                self.trocar(commits=commits)
+                r = calc.checar_versao(self.META)
+                self.assertTrue(r["consultado"])
+                self.assertIs(r["ha_tabela_nova"], False)
+                self.assertIn("O código da calculadora na skill é o mais novo da Receita (1.0.2)", r["mensagem"])
+                self.assertIn("As tabelas em uso são as da base V0073", r["mensagem"])
+                self.assertNotIn("versão mais nova", r["mensagem"])
+                self.assertNotIn("tabelas novas", r["mensagem"])
+
+    def test_segunda_consulta_falha_e_a_primeira_vale(self):
+        for erro in (urllib.error.URLError("sem rede"), socket.timeout("lento"), None):
+            with self.subTest(erro=type(erro).__name__):
+                if erro is None:
+                    self.trocar(commits={"message": "API rate limit exceeded"})
+                else:
+                    self.trocar(erro_tabelas=erro)
+                r = calc.checar_versao(self.META)
+                self.assertTrue(r["consultado"])
+                self.assertFalse(r["ha_versao_nova"])
+                self.assertIsNone(r["ha_tabela_nova"])
+                self.assertIn("Não consegui conferir agora se a Receita publicou tabelas novas", r["mensagem"])
+
+    def test_resposta_estranha_das_tabelas_nao_vira_sim(self):
+        for commits in ([], [{"sha": "x"}], self.commit("nao-e-sha", "2027-01-01T00:00:00Z"),
+                        self.commit("b" * 40, "ontem"), self.commit("b" * 40, 3)):
+            with self.subTest(commits=commits):
+                self.trocar(commits=commits)
+                self.assertIsNone(calc.checar_versao(self.META)["ha_tabela_nova"])
+
+    def test_sem_conferencia_compara_com_a_data_da_base(self):
+        meta = {k: v for k, v in self.META.items() if k != "conferencia"}
+        self.trocar(commits=self.commit("c" * 40, "2026-11-10T00:00:00Z"))
+        self.assertTrue(calc.checar_versao(meta)["ha_tabela_nova"])
+
+    def test_primeira_falha_nao_faz_a_segunda(self):
+        def falso(pedido, timeout=None):
+            self.pedidos.append(pedido)
+            raise urllib.error.URLError("sem rede")
+        calc._abrir = falso
+        r = calc.checar_versao(self.META)
+        self.assertFalse(r["consultado"])
+        self.assertIsNone(r["ha_tabela_nova"])
+        self.assertEqual(len(self.pedidos), 1)
+
+    def test_as_duas_urls_sao_fixas_e_sem_dado_da_pessoa(self):
+        self.trocar(commits=self.commit(self.COMMIT, "2026-11-19T23:05:12Z"))
+        calc.checar_versao(self.META, prazo=2.5)
+        self.assertEqual([p.full_url for p, _ in self.pedidos], [
+            "https://api.github.com/repos/ReceitaFederal/calculadora-rtc-simples-nacional/releases/latest",
+            "https://api.github.com/repos/ReceitaFederal/calculadora-rtc-regime-regular/commits?path=flyway/sql&per_page=1"])
+        for pedido, prazo in self.pedidos:
+            self.assertIsNone(pedido.data)
+            self.assertEqual(pedido.get_header("User-agent"), "cd2-super-skill")
+            self.assertEqual(prazo, 2.5)
+
+
+class LicencaDaReceitaTest(unittest.TestCase):
+    """O aviso MIT da Receita viaja com os arquivos do port, inclusive no pacote do GPT, que não leva NOTICE."""
+    ARQUIVOS = ("numeros.py", "simples_base.py", "simples_motor.py")
+    COPYRIGHT = "Copyright (c) 2026 Receita Federal do Brasil"
+    PERMISSAO = (
+        "Permission is hereby granted, free of charge, to any person obtaining a copy "
+        "of this software and associated documentation files (the \"Software\"), to deal "
+        "in the Software without restriction, including without limitation the rights "
+        "to use, copy, modify, merge, publish, distribute, sublicense, and/or sell "
+        "copies of the Software, and to permit persons to whom the Software is "
+        "furnished to do so, subject to the following conditions: "
+        "The above copyright notice and this permission notice shall be included in all "
+        "copies or substantial portions of the Software.")
+
+    @staticmethod
+    def _cabecalho(caminho):
+        linhas = []
+        for linha in caminho.read_text(encoding="utf-8").splitlines():
+            if not linha.startswith("#"):
+                break
+            linhas.append(linha[1:].strip())
+        return " ".join(l for l in linhas if l)
+
+    def test_os_tres_arquivos_do_port_trazem_o_aviso(self):
+        conhecimento = ROOT / "gpts" / "cbs-ibs-simples" / "knowledge"
+        for nome in self.ARQUIVOS:
+            # no GPT o upload é achatado: o arquivo é achado pelo nome, em qualquer subpasta
+            copias = [SKILL / "scripts" / nome, *conhecimento.rglob(nome)]
+            self.assertEqual(len(copias), 2, nome)
+            for caminho in copias:
+                with self.subTest(arquivo=str(caminho.relative_to(ROOT))):
+                    cabecalho = self._cabecalho(caminho)
+                    self.assertIn(self.COPYRIGHT, cabecalho)
+                    self.assertIn(self.PERMISSAO, cabecalho)
+                    self.assertIn("CD2 Tech", cabecalho)
+                    self.assertIn('THE SOFTWARE IS PROVIDED "AS IS"', cabecalho)
+
+    def test_o_aviso_e_o_do_notice(self):
+        notice = " ".join((ROOT / "NOTICE").read_text(encoding="utf-8").split())
+        self.assertIn(self.COPYRIGHT, notice)
+        self.assertIn(self.PERMISSAO, notice)
+        for nome in self.ARQUIVOS:
+            self.assertIn(f"scripts/{nome}", notice)
+
+    def test_pacote_do_gpt_continua_com_no_maximo_19_arquivos(self):
+        arquivos = [p for p in (ROOT / "gpts" / "cbs-ibs-simples" / "knowledge").rglob("*") if p.is_file()]
+        self.assertLessEqual(len(arquivos), 19)
+        self.assertEqual(len({p.name for p in arquivos}), len(arquivos))
 
 
 class BaseDanificadaTest(unittest.TestCase):

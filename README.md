@@ -36,7 +36,7 @@ Funciona no [Claude Code](#claude-code), no [Claude Cowork](#claude-cowork), no 
 A regra muda e a conta da loja continua sendo sua.
 
 - **A escala 6x1 acaba em 16/12/2026.** A jornada cai de 44h para 40h sem acordo coletivo, ou até 42h com acordo, sempre com 2 folgas. Quantas pessoas você precisa contratar? Quanto isso pesa na folha? Qual setor aperta primeiro?
-- **A CBS e o IBS chegam ao Simples em 2027.** Quanto sai em cada venda depende da atividade, da classificação do produto e da alíquota efetiva que o contador apura no PGDAS. A skill faz a mesma conta da calculadora oficial da Receita, com os seus números.
+- **A CBS e o IBS chegam ao Simples em 2027.** Quanto sai em cada venda depende da atividade e da alíquota efetiva que o contador apura no PGDAS. A classificação do produto vai na nota e decide se a conta aceita o item. A skill faz a mesma conta da calculadora oficial da Receita, com os seus números.
 - **O vale tem teto de taxa.** Pelo Decreto 12.712/2025, a operadora pode cobrar no máximo 3,6% da sua loja e tem de repassar o dinheiro em até 15 dias. Muita loja ainda paga mais e espera mais, sem ver quanto isso soma no ano.
 
 Quem toca supermercado, padaria ou mercado de bairro não tem tempo para juridiquês. A skill pergunta o que importa, faz a conta num script, nunca de cabeça, e diz de quando é cada regra que usou.
@@ -216,9 +216,9 @@ flowchart LR
 
 1. **Entende quem é você.** Dono, gerente, RH, DP ou financeiro. Uma loja ou uma rede. E o formato do resultado: página visual, planilha, resumo para WhatsApp ou texto.
 2. **Oferece puxar os dados.** Se o seu sistema estiver conectado na sessão, usa e diz qual usou. Se não, mostra o [Archeo MCP Creator](https://archeo.cd2.com.br/?utm_source=github&utm_medium=skill&utm_campaign=cd2-super) e segue com os números digitados.
-3. **Pergunta sobre novidades.** Usa a regra conferida numa data que ela informa, ou pesquisa antes em fontes oficiais. A de CBS e IBS no Simples confere se a Receita publicou versão nova da calculadora.
+3. **Pergunta sobre novidades.** Usa a regra conferida numa data que ela informa, ou pesquisa antes em fontes oficiais. A de CBS e IBS no Simples confere se a Receita publicou versão nova da calculadora ou tabelas novas.
 4. **Pede só o que falta,** com exemplo, valor padrão e o porquê de cada dado.
-5. **Faz a conta no script,** a mesma da calculadora. Onde a plataforma não roda código, segue as fórmulas da metodologia e mostra a conta.
+5. **Faz a conta no script,** a mesma da calculadora. Onde a plataforma não roda código, segue as fórmulas da metodologia e mostra a conta. A de CBS e IBS no Simples não calcula sem código: a conta depende da base e do motor da Receita, e a skill diz isso.
 6. **Entrega com capricho:** o número principal em destaque, o semáforo, o que fazer primeiro e o que é só do seu caso.
 7. **Fecha** com a logo da CD2 Tech, o aviso de isenção, o link da calculadora e o nosso contato.
 
@@ -391,7 +391,7 @@ Os GPTs valem só para as três calculadoras. Relatórios, painel e ficha ainda 
 
 O GPT não se conecta ao seu sistema. Para puxar os dados do ERP, use o plugin no Claude ou no Codex, com o Archeo. Como os GPTs são montados e publicados: [`gpts/README.md`](gpts/README.md).
 
-> **Diferença entre plataformas:** no Claude, a entrega visual sai como artefato quando esse recurso existe. Nas outras, sai como arquivo HTML autocontido. Onde a plataforma não roda código, a skill avisa e segue a metodologia passo a passo, mostrando a conta.
+> **Diferença entre plataformas:** no Claude, a entrega visual sai como artefato quando esse recurso existe. Nas outras, sai como arquivo HTML autocontido. Onde a plataforma não roda código, a skill avisa e segue a metodologia passo a passo, mostrando a conta, menos a de CBS e IBS no Simples, que sem código não calcula.
 
 ## Conecte seu sistema
 

@@ -70,6 +70,7 @@ AVISO_FIXO = (
     "oficial e não é um aplicativo da Receita Federal. Confira com o seu contador."
 )
 AVISO_SUGESTAO = "Classificação sugerida pela CD2, confirme com o contador."
+EFEITO_NENHUM = "nenhum"  # efeito_no_simples da sugestao.py: mesmo tpRBSN da regra geral
 SELO_SUGESTAO = "O selo vale para a conta, não para a classificação sugerida."
 FAIXA_EXEMPLO = "Exemplo ilustrativo com alíquotas da documentação oficial. Não é a conta da sua empresa."
 TEXTO_VSN015_DATA = (
@@ -77,6 +78,7 @@ TEXTO_VSN015_DATA = (
     "Refaça a conta com uma data a partir daí."
 )
 SEM_ITEM = "Nenhum item foi calculado."
+SEM_SELO = "Sem item calculado, não há conta para o selo de conferência."
 TITULO_COMERCIAL = "Quer levar esta conta para o dia a dia da empresa?"
 TEXTO_COMERCIAL = (
     "Testar é livre. Para usar na rotina da empresa, com suporte e responsabilidade, fale com a CD2."
@@ -353,8 +355,11 @@ class _Entrega:
 
     def _sugestao(self, s: dict) -> dict:
         imposto = _dict(s.get("imposto_seletivo"))
-        return {"classificacao": self.t(s.get("cClassTrib")), "cst": self.t(s.get("cst")),
-                "descricao": self.t(s.get("descricao")), "reducao": _inteiro_ou_decimal(s.get("reducao")),
+        reducao = _inteiro_ou_decimal(s.get("reducao"))
+        return {"tem_reducao": bool(reducao) and _dec(s.get("reducao")) != 0,
+                "classificacao": self.t(s.get("cClassTrib")), "cst": self.t(s.get("cst")),
+                "descricao": self.t(s.get("descricao")), "reducao": reducao,
+                "efeito": _txt(s.get("efeito_no_simples")), "efeito_texto": self.t(s.get("efeito_texto")),
                 "is_texto": self.t(imposto.get("texto")) if imposto.get("na_lista") is True else ""}
 
     def _motivos(self, obj: dict) -> list:
@@ -390,12 +395,16 @@ class _Entrega:
         return avisos
 
     # --- selo, versão e rodapé
-    def _selo(self, com_data: bool) -> str:
-        if not self.v_calculadora and not self.v_base:
-            return ""
+    def _versoes(self) -> str:
         partes = [f"versão {self.v_calculadora}" if self.v_calculadora else "",
                   f"base {self.v_base}" if self.v_base else ""]
-        texto = "Conta igual à da calculadora oficial do Simples Nacional " + ", ".join(p for p in partes if p)
+        return ", ".join(p for p in partes if p)
+
+    def _selo(self, com_data: bool) -> str:
+        # Sem item calculado não há conta para selar: sobra só a versão (veja versao_sem_selo)
+        if not self.calculados or (not self.v_calculadora and not self.v_base):
+            return ""
+        texto = "Conta igual à da calculadora oficial do Simples Nacional " + self._versoes()
         if com_data and self.conferida:
             texto += f", conferida em {_data(self.conferida)}"
         return texto + "."
@@ -409,8 +418,14 @@ class _Entrega:
         return self._selo(False)
 
     @property
+    def versao_sem_selo(self) -> str:
+        if self.calculados or (not self.v_calculadora and not self.v_base):
+            return ""
+        return f"{SEM_SELO} Calculadora oficial do Simples Nacional {self._versoes()}."
+
+    @property
     def selo_extra(self) -> str:
-        return SELO_SUGESTAO if self.alguma_sugestao else ""
+        return SELO_SUGESTAO if self.alguma_sugestao and self.selo else ""
 
     @property
     def linha_versao_nova(self) -> str:
@@ -448,9 +463,19 @@ def _linha_sugestao(s: dict) -> str:
     texto = f"cClassTrib {s['classificacao']}" if s["classificacao"] else "classificação"
     if s["cst"]:
         texto += f" (CST {s['cst']})"
-    if s["reducao"]:
-        texto += f", redução de {s['reducao']}%"
-    return texto + (f": {s['descricao']}" if s["descricao"] else "")
+    efeito = ""
+    if s["efeito"] == EFEITO_NENHUM:
+        # Mesmo tipo de receita da regra geral: a redução é do regime regular e não muda esta conta
+        if s["tem_reducao"]:
+            texto += f", redução de {s['reducao']}% no regime regular, sem efeito nesta conta"
+    elif s["efeito"]:
+        efeito = s["efeito_texto"]
+    elif s["tem_reducao"]:
+        texto += f", redução de {s['reducao']}% no regime regular"
+    texto += f": {s['descricao']}" if s["descricao"] else ""
+    if efeito:
+        texto += ("" if texto.endswith(".") else ".") + f" {efeito}"
+    return texto
 
 
 def _extras_do_total(e: _Entrega) -> list:
@@ -658,10 +683,12 @@ def _html_avisos_operacao(e: _Entrega) -> str:
 
 
 def _html_selo(e: _Entrega) -> str:
-    partes = [t for t in (e.selo, e.selo_extra, e.linha_versao_nova) if t]
+    partes = [t for t in (e.selo or e.versao_sem_selo, e.selo_extra, e.linha_versao_nova) if t]
     if not partes:
         return ""
     paragrafos = "".join(f"<p>{esc(t)}</p>" for t in partes)
+    if not e.selo:  # nenhum item calculado: sobra só o aviso de versão nova, sem selo
+        return f'<section class="selo" aria-label="Versão da calculadora"><p class="eyebrow">VERSÃO DA CALCULADORA</p>{paragrafos}</section>'
     return f'<section class="selo" aria-label="Selo de conferência"><p class="eyebrow">CONTA CONFERIDA</p>{paragrafos}</section>'
 
 
@@ -780,9 +807,9 @@ def _render_markdown(e: _Entrega, plataforma: str) -> str:
         linhas += ["## Avisos da operação", ""] + [f"- {a}" for a in e.avisos] + [""]
     if e.normalizacoes:
         linhas += ["## O que arrumamos na entrada", ""] + [f"- {n}" for n in e.normalizacoes] + [""]
-    selo = [t for t in (e.selo, e.selo_extra, e.linha_versao_nova) if t]
+    selo = [t for t in (e.selo or e.versao_sem_selo, e.selo_extra, e.linha_versao_nova) if t]
     if selo:
-        linhas += ["## Selo de conferência", ""] + selo + [""]
+        linhas += ["## Selo de conferência" if e.selo else "## Versão da calculadora", ""] + selo + [""]
     linhas += [f"**{AVISO_FIXO}**", "", f"Fonte do código e das tabelas: [repositório da calculadora da Receita Federal]({RECEITA_URL}).", "",
                f"## {TITULO_COMERCIAL}", "", TEXTO_COMERCIAL, "",
                f"- Fale com a CD2 no WhatsApp: {links['whatsapp']}", f"- Conheça a CD2: {links['cd2']}",
@@ -818,7 +845,8 @@ def _whatsapp_partes(e: _Entrega, nivel: int) -> list:
         t = e.total
         partes += [(f"CBS: {_brl(t['vCBSSNtot'])}", True), (f"IBS: {_brl(t['vIBSSNtot'])}", True)]
         if _dec(t.get("totalTributos")) is not None:
-            partes.append((f"Total: {_brl(t['totalTributos'])}", False))
+            # Com observação ("o total não inclui..."), o total precisa estar no texto
+            partes.append((f"Total: {_brl(t['totalTributos'])}", bool(e.observacoes)))
         partes.append((_corta(e.contagem, 80) + ".", False))
     partes += [(o, True) for o in _whatsapp_observacoes(e, nivel)]
     if not e.nivel_operacao:
@@ -832,6 +860,8 @@ def _whatsapp_partes(e: _Entrega, nivel: int) -> list:
     selo = e.selo if nivel < 3 else e.selo_curto
     if selo:
         partes.append((selo + (" " + e.selo_extra if e.selo_extra else ""), True))
+    elif e.versao_sem_selo:
+        partes.append((e.versao_sem_selo, False))
     if e.linha_versao_nova:
         partes.append((e.linha_versao_nova, False))
     partes += [(AVISO_FIXO, True), (brand.footer_text(REGRA, e.data_do_rodape), True)]
@@ -874,6 +904,8 @@ def _render_whatsapp(e: _Entrega, plataforma: str) -> str:
         essencial.append((_titulo_e_codigo(e.erros_operacao[0]["titulo"], e.erros_operacao[0]["codigo"], 80), True))
     elif e.tem_total:
         essencial += [(f"CBS: {_brl(e.total['vCBSSNtot'])}", True), (f"IBS: {_brl(e.total['vIBSSNtot'])}", True)]
+        if e.observacoes and _dec(e.total.get("totalTributos")) is not None:
+            essencial.append((f"Total: {_brl(e.total['totalTributos'])}", True))
     else:
         essencial.append((e.sem_total + ".", True))
     essencial += [(o, True) for o in _whatsapp_observacoes(e, 3)]

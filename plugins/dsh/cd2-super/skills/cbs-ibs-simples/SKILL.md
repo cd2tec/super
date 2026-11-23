@@ -50,9 +50,11 @@ Aqui a pergunta do roteiro sobre pesquisar novidades não se aplica. A regra des
 python3 <pasta da skill>/scripts/calc.py --checar-versao > aviso-versao.json
 ```
 
-É a única ida à internet da skill: consulta o GitHub da Receita, com prazo curto, e sempre sai com código 0. A saída tem `consultado`, `ha_versao_nova`, `calculadora` e `mensagem`.
+É a única ida à internet da skill: consulta o GitHub da Receita, com prazo curto, e sempre sai com código 0. A saída tem `consultado`, `ha_versao_nova`, `ha_tabela_nova`, `calculadora` e `mensagem`. São duas perguntas: `ha_versao_nova` fala do código da calculadora; `ha_tabela_nova`, das tabelas da Receita (a publicação mais frequente).
 
-- **Sem versão nova:** diga em uma frase que a conta está na versão mais nova da calculadora da Receita e siga.
+- **Sem versão nova e `ha_tabela_nova` falso:** diga em uma frase que o código da calculadora é o mais novo da Receita e que as tabelas em uso são as da base que a `mensagem` cita, e siga. Nunca diga só que "a conta está na versão mais nova".
+- **`ha_tabela_nova` verdadeiro:** diga que a Receita publicou tabelas novas e que a conta de hoje usa as tabelas da base que vem no plugin. A atualização do plugin traz as tabelas novas, pelo mesmo caminho da versão nova (abaixo). Siga com a conta, se a pessoa quiser.
+- **`ha_tabela_nova` nulo com `consultado` verdadeiro:** a consulta das tabelas falhou. Diga que não deu para conferir se há tabelas novas e siga.
 - **Com versão nova:** diga que a Receita publicou a versão `calculadora` e que a conta de hoje usa a versão anterior, que vem no plugin. O caminho é atualizar o plugin: no Claude Code, `/plugin marketplace update super`; no Claude Cowork, subir o ZIP novo da release no mesmo lugar; no Codex, `codex plugin marketplace upgrade super`; no DeepSeek Harness, baixar o ZIP novo e rodar o `install.py` de novo. No GPT, a versão nova chega quando a CD2 republica o GPT. Se a pessoa já está com o plugin na versão mais nova, é sinal de que nós, da CD2, estamos portando a mudança da Receita. Siga com a conta, se a pessoa quiser.
 - **Sem internet (`consultado` falso):** diga que não deu para conferir se há versão nova e siga. A falha da consulta nunca trava a conta.
 
@@ -70,11 +72,13 @@ Na conferência de nota de fornecedor, o documento e o CRT são os da nota do fo
 
 ### 5. Data
 
-Padrão: `2027-01-01`. Diga: "Como as regras começam em 01/01/2027, vou usar essa data. Até lá, a conta é uma simulação do que passa a valer." Se a pessoa der outra data a partir de 2027, use a dela. Data antes de 2027 não calcula: explique e proponha 01/01/2027.
+Padrão: `2027-01-01`. Diga: "Como as regras começam em 01/01/2027, vou usar essa data. Até lá, a conta é uma simulação do que passa a valer." Se a pessoa der outra data a partir de 2027, use a dela. Se ela der só o mês ("março de 2027"), use o primeiro dia do mês (2027-03-01) e diga isso. Data antes de 2027 não calcula: explique e proponha 01/01/2027.
 
 ### 6. Itens
 
-De cada item: o que é (uma descrição curta, como "arroz 5 kg"), o NCM (8 dígitos; na NFS-e, o NBS, 9 dígitos) e o valor. O valor é a base de cálculo do item: o valor do produto com frete, seguro e outras despesas, menos o desconto, sem o Imposto Seletivo. Na NFS-e há um item só.
+De cada item: o que é (uma descrição curta, como "arroz 5 kg"), o NCM (8 dígitos; na NFS-e, o NBS, 9 dígitos) e o valor.
+
+Quem não sabe o NCM acha em três lugares: na nota de compra do fornecedor (no DANFE ou no XML, campo `NCM` de cada produto), no cadastro de produtos do ERP e, em alguns produtos, no rótulo. Se você deduzir um NCM pelo nome do produto, mostre como palpite ("pelo nome, o NCM provável é 1006.30.21; confira na nota de compra") e só use depois que a pessoa confirmar. O valor é a base de cálculo do item: o valor do produto com frete, seguro e outras despesas, menos o desconto, sem o Imposto Seletivo. Na NFS-e há um item só.
 
 ### 7. Atividade de cada item
 
@@ -84,7 +88,7 @@ Não peça o código de memória. Rode:
 python3 <pasta da skill>/scripts/calc.py --atividades 2027-01-01 --tp-doc 65
 ```
 
-Troque a data e o `--tp-doc` pelos da operação. Mostre só as atividades com `disponivel` verdadeiro, com o código e a descrição em português (troque o travessão que vem em alguma descrição da tabela por vírgula). Para mercado, quase sempre é a 01 (revenda de mercadorias). Pergunte qual vale para cada item, ou se uma vale para todos.
+Troque a data e o `--tp-doc` pelos da operação. Mostre só as atividades com `disponivel` verdadeiro, com o código e a descrição em português (troque o travessão que vem em alguma descrição da tabela por vírgula). Para loja que vende mercadoria no caixa, mostre só as que cabem nisso: a 01 (revenda de mercadorias, venda de mercadorias industrializadas pelo contribuinte) e a 02 (demais bens materiais, sem ICMS). As de industrialização incentivada na Zona Franca de Manaus (03 e 04) e a 90 (operações não tributáveis) só entram se a pessoa disser que é o caso dela. Para mercado, quase sempre é a 01. Pergunte qual vale para cada item, ou se uma vale para todos.
 
 Guarde o anexo de cada atividade escolhida (`anexoSemFatorR`, e `anexoComFatorR` quando houver): é ele que diz qual linha de alíquotas pedir. Se alguma atividade tiver `sujeitaFatorR` verdadeiro, pergunte se o fator "r" da empresa é de 28% ou mais (o contador sabe): vai em `fatorR`, e com 28% ou mais o anexo é o `anexoComFatorR`; abaixo disso, o `anexoSemFatorR`.
 
@@ -113,16 +117,18 @@ Quem não sabe recebe a sugestão. Rode, item a item:
 python3 <pasta da skill>/scripts/sugestao.py --ncm 1006.30.21 --tp-doc 65 --data 2027-01-01
 ```
 
-Troque o NCM, o `--tp-doc` (55 ou 65) e a data pelos da operação. A saída traz `sugestoes` (cada uma com `cClassTrib`, `cst`, `descricao`, `motivo` e `reducao`), `leitura`, `avisos`, `imposto_seletivo` e `aviso`. Mostre as sugestões na ordem em que vêm, com o motivo de cada uma, e leia a `leitura` para a pessoa. Diga sempre: "Essa é a leitura da CD2, não da Receita. Confirme com o seu contador." Pergunte qual usar. O percentual de `reducao` é o da tabela de classificação; o efeito no Simples quem decide é a conta oficial, pelo tipo de receita bruta que ela mostra no item.
+Troque o NCM, o `--tp-doc` (55 ou 65) e a data pelos da operação. A saída traz `sugestoes` (cada uma com `cClassTrib`, `cst`, `descricao`, `motivo` e `reducao`), `leitura`, `avisos`, `imposto_seletivo` e `aviso`. Mostre as sugestões na ordem em que vêm, com o motivo de cada uma, e leia a `leitura` para a pessoa. Diga sempre: "Essa é a leitura da CD2, não da Receita. Confirme com o seu contador." Pergunte qual usar. O percentual de `reducao` é o do regime regular. Cada sugestão traz `efeito_no_simples`: com `nenhum`, a classificação tem o mesmo tipo de receita bruta da regra geral e a redução não muda esta conta. Sempre que uma sugestão mostrar redução, diga: "Essa redução é do regime regular. No Simples, ela não baixa a CBS nem o IBS desta conta, que saem da alíquota efetiva do PGDAS. A classificação vai na nota e decide se a conta aceita o NCM." Com `muda o tipo de receita`, leia o `efeito_texto`: aquela classificação pode mudar o resultado.
 
-**Na NFS-e, ou se `sugestoes` vier vazia, não há sugestão.** O `sugestao.py` só lê NCM, em NF-e e NFC-e. Nesse caso a classificação vem da pessoa ou do contador, nunca de você: nunca escolha uma, nem a 000001. Explique em uma frase: "O `cClassTrib` é o código de 6 dígitos que diz como a CBS e o IBS tratam este item; ele muda o resultado." Diga que o contador ou o sistema que emite a nota tem esse código, e espere a pessoa trazer.
+Para quem não sabe o NCM, use o que a pessoa trouxe da nota de compra, do ERP ou do rótulo (etapa 6). Um NCM deduzido do nome do produto é palpite: mostre como palpite e só rode o `sugestao.py` com ele depois que a pessoa confirmar.
+
+**Na NFS-e, ou se `sugestoes` vier vazia, não há sugestão.** O `sugestao.py` só lê NCM, em NF-e e NFC-e. Nesse caso a classificação vem da pessoa ou do contador, nunca de você: nunca escolha uma, nem a 000001. Explique em uma frase: "O `cClassTrib` é o código de 6 dígitos que diz como a CBS e o IBS tratam este item; ele vai na nota e decide se a conta aceita o item." Diga que o contador ou o sistema que emite a nota tem esse código, e espere a pessoa trazer.
 
 ### 10. Imposto Seletivo
 
 NFC-e e NF-e exigem o valor do Imposto Seletivo de cada item (`valorImpostoSeletivo`, "0.00" quando não há). Esta skill não calcula o Imposto Seletivo.
 
 - Se o `sugestao.py` disser `imposto_seletivo.na_lista` verdadeiro para um item, leia o `texto` para a pessoa e peça o valor do Imposto Seletivo daquele item. Não assuma zero.
-- **Se a pessoa não souber o valor:** diga com palavras simples que a CBS e o IBS do item não dependem dele (o Imposto Seletivo só entra no total de tributos) e que a lei ainda não definiu a alíquota. Ofereça seguir com "0.00" e só siga se ela concordar. Nesse caso, escreva em `observacoes` da entrega (veja [Entrega](#entrega)), trocando o número e a descrição do item: "O total não inclui o Imposto Seletivo do item {n} ({descrição}). A alíquota ainda não foi definida em lei." E diga o mesmo na conversa, logo antes da entrega.
+- **Se a pessoa não souber o valor:** diga com palavras simples que a CBS e o IBS do item não dependem dele (o Imposto Seletivo só entra no total de tributos) e que a lei ainda não definiu a alíquota. Ofereça seguir com "0.00" e só siga se ela concordar. Nesse caso, escreva em `observacoes` da entrega (veja [Entrega](#entrega)), trocando o número e a descrição do item: "O total não inclui o Imposto Seletivo do item {n} ({descrição}). A alíquota ainda não foi definida em lei." E diga o mesmo na conversa, logo antes da entrega. Com mais de um item assim, escreva uma observação só, com todos os números e descrições ("O total não inclui o Imposto Seletivo dos itens 2 (Cerveja lata), 4 (Refrigerante 2 l) e 7 (Vinho). A alíquota ainda não foi definida em lei."), para nenhum se perder no limite de 5 observações.
 - Para os outros itens, pergunte uma vez: "Algum destes itens paga Imposto Seletivo (por exemplo bebida alcoólica, refrigerante ou cigarro)?" Só depois que a pessoa confirmar que o item não tem, preencha "0.00".
 - Na NFS-e não há Imposto Seletivo: deixe o campo de fora.
 
@@ -164,7 +170,7 @@ A saída é `{"status", "corpo", "versao", "normalizacoes"}`. O `corpo` é o JSO
 
 **Leia as `normalizacoes` para a pessoa, uma a uma,** antes da entrega: "Troquei 1,1612 por 1.1612", "Troquei 1006.30.21 por 10063021". Se alguma disser que um número com ponto foi lido como decimal e não como milhar (por exemplo "1.000" lido como 1,000), pare e pergunte o que a pessoa quis dizer. Reescreva o valor como ela confirmar e rode de novo. Não entregue conta com essa dúvida aberta.
 
-**Erros:** com `status` 400 ou 422, a operação inteira voltou com erro (`corpo.errors`); com 200, cada item tem o seu `estadoItem` e, quando não foi calculado, `erros` ou `motivoEstado`. Para entender um código, rode `python3 <pasta da skill>/scripts/calc.py --erro VSN-013`. Explique com suas palavras, peça o dado certo e rode de novo. Não mude a operação sem dizer o que mudou.
+**Erros:** com `status` 400 ou 422, a operação inteira voltou com erro (`corpo.errors`); com 200, cada item tem o seu `estadoItem` e, quando não foi calculado, `erros` ou `motivoEstado`. Para entender um código, rode `python3 <pasta da skill>/scripts/calc.py --erro VSN-013`. Explique com suas palavras, peça o dado certo e rode de novo. Não mude a operação sem dizer o que mudou. O campo de um erro vem como no JSON (`itens[0].cClassTrib`, contando de 0); no texto em Markdown do render os colchetes viram parênteses (`itens(0)`), porque colchete ali pode virar link. É o mesmo campo.
 
 **Sem execução de código:** diga com clareza que nesta plataforma você não consegue calcular, e por quê: a conta depende da base oficial da Receita e do motor portado, que só rodam com código. Fazer a conta de cabeça daria um número sem garantia nenhuma, e por isso você não faz. Diga o que seria preciso: uma plataforma que rode Python (Claude, Codex, ChatGPT com o interpretador de código ou DeepSeek Harness), com este plugin. Você ainda pode explicar o que é a CBS e o IBS no Simples, o que a pessoa precisa juntar (documento, itens, NCM, valores, atividade e a linha de alíquotas do PGDAS) e onde está a calculadora oficial, cujo código é público. Não dê número.
 
@@ -200,7 +206,7 @@ Monte `entrega.json` na pasta de trabalho:
 - `sugestoes`: só os itens cuja classificação veio do `sugestao.py`, pelo `numero` do item. Cada um é a sugestão que a pessoa escolheu (o objeto da lista `sugestoes`) mais o `imposto_seletivo` da saída do `sugestao.py`. Sem sugestão, `null`.
 - `exemplo`: `true` só quando a linha de alíquotas é a do exemplo oficial.
 - `aviso_versao`: a saída do `--checar-versao`, ou `null` se não rodou.
-- `observacoes` (opcional): lista de textos curtos escritos por você, no máximo 5, com até 300 caracteres cada. Saem logo abaixo dos totais, na página, no texto e no resumo de WhatsApp. `observacoes` é só para fatos que a pessoa precisa ler ao lado do número, nunca conselho nem texto de venda. Hoje o caso previsto é o do Imposto Seletivo sem valor, com a frase fixa da etapa 10. Sem observação, deixe a chave de fora.
+- `observacoes` (opcional): lista de textos curtos escritos por você, no máximo 5, com até 300 caracteres cada. Saem logo abaixo dos totais, na página, no texto e no resumo de WhatsApp. `observacoes` é só para fatos que a pessoa precisa ler ao lado do número, nunca conselho nem texto de venda. Hoje o caso previsto é o do Imposto Seletivo sem valor, com a frase fixa da etapa 10, e todos os itens sem esse valor vão numa observação só (`itens 2, 4 e 7`), nunca uma por item. Sem observação, deixe a chave de fora.
 
 Rode no formato que a pessoa escolheu:
 
@@ -212,13 +218,15 @@ python3 <pasta da skill>/scripts/render.py --input entrega.json --formato markdo
 
 - `--formato`: `html` (página visual), `whatsapp` (resumo curto) ou `markdown` (texto).
 - `--plataforma`: o nome real da plataforma em que você está (Claude, Codex, ChatGPT ou DeepSeek). Entra na mensagem pronta do WhatsApp da CD2.
-- Toda entrega já sai com o total de CBS e de IBS em destaque, o resultado item a item com o motivo de cada item não calculado e o código oficial ao lado, a memória de cálculo, o selo de versão ("Conta igual à da calculadora oficial do Simples Nacional versão X, base Y, conferida em DD/MM/AAAA"), a marca de exemplo quando for o caso, os avisos fixos e o rodapé da CD2 Tech. Não edite o resultado à mão.
+- Toda entrega já sai com o total de CBS e de IBS em destaque, o resultado item a item com o motivo de cada item não calculado e o código oficial ao lado, a memória de cálculo, o selo de versão ("Conta igual à da calculadora oficial do Simples Nacional versão X, base Y, conferida em DD/MM/AAAA", só quando algum item foi calculado), a marca de exemplo quando for o caso, os avisos fixos e o rodapé da CD2 Tech. Não edite o resultado à mão.
 
 Por plataforma:
 
 - **Claude com artefatos:** publique o HTML gerado como artefato e mostre o link.
 - **Outras plataformas que rodam código:** salve `entrega-cbs-ibs-simples.html` na pasta de trabalho e diga o caminho completo. Resuma na conversa o total de CBS e de IBS e os itens que não foram calculados, com o motivo.
 - **WhatsApp e texto:** mostre a saída do render na conversa, pronta para copiar.
+
+Se um item calculado, com alíquota de IBS maior que zero, der IBS de R$ 0,00, explique: "O IBS deste item deu uma fração de centavo. Arredondado para duas casas decimais, como na conta oficial, fica R$ 0,00." Não é erro nem isenção.
 
 Na conversa, além do que o render traz, diga em uma ou duas frases o que vale só para este caso: o item que mais pesa, o item que não calculou e o que falta para calcular, ou, na conferência de nota, se o valor da nota bate com a conta oficial. Só com números da saída do `calc.py`.
 

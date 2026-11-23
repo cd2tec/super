@@ -36,6 +36,8 @@ import simples_motor  # noqa: E402
 BASE_URL_CLI = "https://github.com/ReceitaFederal/calculadora-rtc-simples-nacional"
 
 URL_VERSAO = "https://api.github.com/repos/ReceitaFederal/calculadora-rtc-simples-nacional/releases/latest"
+URL_TABELAS = ("https://api.github.com/repos/ReceitaFederal/calculadora-rtc-regime-regular/commits"
+               "?path=flyway/sql&per_page=1")
 USER_AGENT = "cd2-super-skill"
 _LIMITE_RESPOSTA = 1_000_000
 
@@ -237,16 +239,52 @@ def _partes(versao: str):
     return tuple(partes)
 
 
-def checar_versao(meta: dict, prazo: float = 4.0) -> dict:
-    """Pergunta ao GitHub qual é a última release da calculadora da Receita. Nunca levanta exceção.
+def _pedir_json(url: str, prazo: float):
+    pedido = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/vnd.github+json"})
+    with _abrir(pedido, timeout=prazo) as resposta:
+        return json.loads(resposta.read(_LIMITE_RESPOSTA).decode("utf-8"))
 
-    Só a URL fixa e um User-Agent genérico saem daqui: nada da pessoa nem da operação."""
-    resultado = {"consultado": False, "ha_versao_nova": None, "calculadora": None, "mensagem": ""}
+
+_RE_DIA = re.compile(r"(\d{4}-\d{2}-\d{2})(?:T.*)?")
+_RE_COMMIT = re.compile(r"[0-9a-f]{40}")
+
+
+def _tabela_nova(meta: dict, prazo: float):
+    """True ou False se a consulta das tabelas fechou; None se não deu para saber. Nunca levanta exceção.
+
+    O último commit da pasta de migrações da Receita é novo quando é outro commit, e não o espelhado, e
+    tem data depois da última conferência (a conferência usa as migrações daquele dia; sem ela, vale a
+    data da base)."""
     try:
-        pedido = urllib.request.Request(URL_VERSAO, headers={"User-Agent": USER_AGENT,
-                                                            "Accept": "application/vnd.github+json"})
-        with _abrir(pedido, timeout=prazo) as resposta:
-            corpo = json.loads(resposta.read(_LIMITE_RESPOSTA).decode("utf-8"))
+        corpo = _pedir_json(URL_TABELAS, prazo)
+        ultimo = corpo[0]
+        sha = ultimo["sha"]
+        dia = _RE_DIA.fullmatch(ultimo["commit"]["committer"]["date"])
+        if not isinstance(sha, str) or not _RE_COMMIT.fullmatch(sha) or dia is None:
+            return None
+    except Exception:
+        return None
+    try:
+        if sha == meta["migracoes"]["commit"]:
+            return False
+        conferencia = meta.get("conferencia") if isinstance(meta.get("conferencia"), dict) else {}
+        referencia = conferencia.get("data") or meta["base"]["data"]
+        if not isinstance(referencia, str) or _RE_DIA.fullmatch(referencia) is None:
+            return None
+    except Exception:
+        return None
+    return dia.group(1) > referencia[:10]
+
+
+def checar_versao(meta: dict, prazo: float = 4.0) -> dict:
+    """Pergunta ao GitHub qual é a última release da calculadora da Receita e quando as tabelas mudaram
+    pela última vez. Nunca levanta exceção.
+
+    Só as duas URLs fixas e um User-Agent genérico saem daqui: nada da pessoa nem da operação."""
+    resultado = {"consultado": False, "ha_versao_nova": None, "ha_tabela_nova": None, "calculadora": None,
+                 "mensagem": ""}
+    try:
+        corpo = _pedir_json(URL_VERSAO, prazo)
         tag = corpo["tag_name"]
         ultima = _partes(tag)
         if ultima is None:
@@ -262,15 +300,30 @@ def checar_versao(meta: dict, prazo: float = 4.0) -> dict:
         espelhada = _partes(meta["calculadora"]["versao"])
     except Exception:
         pass
+    base = None
+    try:
+        base = meta["base"]["versao"] or None
+    except Exception:
+        pass
+    tabelas = f"as da base {base}" if base else "as que vêm na skill"
     if espelhada is None:
-        resultado["mensagem"] = f"A versão mais nova da calculadora da Receita é a {tag}. Não sei qual é a da skill."
+        mensagem = f"A versão mais nova da calculadora da Receita é a {tag}. Não sei qual é a da skill."
     elif ultima > espelhada:
         resultado["ha_versao_nova"] = True
-        resultado["mensagem"] = (f"A Receita publicou a versão {tag} da calculadora e a skill ainda usa a "
-                                 f"{meta['calculadora']['versao']}. Peça a atualização da skill e confira com o contador.")
+        mensagem = (f"A Receita publicou a versão {tag} da calculadora e a skill ainda usa a "
+                    f"{meta['calculadora']['versao']}. Peça a atualização da skill e confira com o contador.")
     else:
         resultado["ha_versao_nova"] = False
-        resultado["mensagem"] = f"A skill está na versão mais nova da calculadora da Receita ({tag})."
+        mensagem = (f"O código da calculadora na skill é o mais novo da Receita ({tag}). "
+                    f"As tabelas em uso são {tabelas}.")
+    nova = _tabela_nova(meta, prazo)
+    resultado["ha_tabela_nova"] = nova
+    if nova is True:
+        mensagem += (" A Receita publicou tabelas novas depois dessas, e a atualização do plugin traz essas "
+                     "tabelas.")
+    elif nova is None:
+        mensagem += " Não consegui conferir agora se a Receita publicou tabelas novas."
+    resultado["mensagem"] = mensagem
     return resultado
 
 

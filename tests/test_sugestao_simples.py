@@ -253,9 +253,12 @@ class SugestaoTest(unittest.TestCase):
                 reducoes = [int(s["reducao"]) for s in r["sugestoes"][:-1]]
                 self.assertEqual(reducoes, sorted(reducoes))
                 for s in r["sugestoes"][:-1]:
-                    self.assertIn(f"Redução de {s['reducao']}%", s["motivo"])
+                    self.assertIn(f"No regime regular, redução de {s['reducao']}%", s["motivo"])
+                    self.assertIn(sugestao.TEXTO_SEM_EFEITO, s["motivo"])
                 aviso = next(a for a in r["avisos"] if "mais de uma lista" in a)
-                self.assertIn("nunca fica abaixo do real", aviso)
+                self.assertIn("menor redução no regime regular", aviso)
+                self.assertIn("No Simples, o valor desta conta não muda entre elas", aviso)
+                self.assertNotIn("nunca fica abaixo do real", aviso)
                 self.assertIn("natureza do seu produto", aviso)
 
     def test_duas_listas_na_base_da_skill_saem_da_menor_reducao_para_a_maior(self):
@@ -269,7 +272,9 @@ class SugestaoTest(unittest.TestCase):
                 reducoes = [int(s["reducao"]) for s in r["sugestoes"][:-1]]
                 self.assertEqual(reducoes, sorted(reducoes))
                 aviso = next(a for a in r["avisos"] if "mais de uma lista" in a)
-                self.assertIn("nunca fica abaixo do real", aviso)
+                self.assertIn("menor redução no regime regular", aviso)
+                self.assertIn("No Simples, o valor desta conta não muda entre elas", aviso)
+                self.assertNotIn("nunca fica abaixo do real", aviso)
 
     def test_uma_lista_so_nao_avisa_de_varias_listas(self):
         self.assertFalse(any("mais de uma lista" in a for a in self.sugerir(self.amostra.da_lista())["avisos"]))
@@ -286,7 +291,9 @@ class SugestaoTest(unittest.TestCase):
         # como no mini app: a lista que o NCM cumpre (200030) fica na frente, a dica depois
         r = self.sugerir("30049099")
         self.assertEqual(self.codigos(r), ["200030", "200032", "200009", "000001"])
-        self.assertTrue(any("200009" in a and "mais redução" in a for a in r["avisos"]))
+        self.assertTrue(any("200009" in a and "mais redução no regime regular" in a
+                            and "não muda o valor desta conta" in a for a in r["avisos"]))
+        self.assertFalse(any("promete" in a for a in r["avisos"]))
 
     @ancorado_na("V0073")
     def test_reducao_lida_da_base_bate_com_a_do_perfil_antigo_na_v0073(self):
@@ -445,7 +452,92 @@ class SugestaoTest(unittest.TestCase):
 
     def test_formato_da_sugestao(self):
         for s in self.sugerir(self.amostra.da_lista())["sugestoes"]:
-            self.assertEqual(set(s), {"cClassTrib", "cst", "descricao", "reducao", "motivo"})
+            self.assertEqual(set(s), {"cClassTrib", "cst", "descricao", "reducao", "motivo", "efeito_no_simples",
+                                      "efeito_texto"})
+
+    def _mesmo_tipo_da_geral(self, base=None):
+        base = base or self.base
+        geral = base.classificacao(sugestao.PERFIL["geral"], DATA)[0]["tpRBSN"]
+        return [c for c in sugestao.PERFIL["classificacoes"]
+                if base.classificacao(c, DATA) and base.classificacao(c, DATA)[0]["tpRBSN"] == geral]
+
+    def test_classificacao_com_o_tipo_de_receita_da_geral_nao_muda_a_conta(self):
+        # O efeito vem da base: na V0073 as treze do perfil têm o tpRBSN da 000001
+        codigos = self._mesmo_tipo_da_geral()
+        self.assertIn("000001", codigos)
+        for codigo in codigos:
+            with self.subTest(codigo=codigo):
+                id_classificacao = self.base.classificacao_cbs_ibs(codigo, DATA)["id"]
+                reducoes = self.base.percentuais_reducao(id_classificacao, DATA)
+                efeito, texto = sugestao._efeito(self.base, codigo, reducoes, DATA)
+                self.assertEqual(efeito, "nenhum")
+                if all(v == 0 for v in reducoes.values()):
+                    self.assertEqual(texto, sugestao.TEXTO_SEM_REDUCAO)
+                else:
+                    self.assertTrue(texto.startswith("No regime regular, redução de "), texto)
+                    self.assertTrue(texto.endswith(sugestao.TEXTO_SEM_EFEITO), texto)
+        # e de ponta a ponta, em cada sugestão que sai para uma amostra da base
+        for ncm in (self.amostra.da_lista(), *self.amostra.duas_listas(3), self.ncm_comum()):
+            r = self.sugerir(ncm)
+            for s in r["sugestoes"]:
+                if s["cClassTrib"] in codigos:
+                    with self.subTest(ncm=ncm, codigo=s["cClassTrib"]):
+                        self.assertEqual(s["efeito_no_simples"], "nenhum")
+                        self.assertIn(s["efeito_texto"], s["motivo"])
+                        self.assertIn("decide se a conta aceita o NCM", s["motivo"])
+            if all(s["cClassTrib"] in codigos for s in r["sugestoes"]):
+                self.assertIn(sugestao.LEITURA_SEM_EFEITO, r["leitura"])
+
+    def test_classificacao_com_outro_tipo_de_receita_avisa_que_pode_mudar(self):
+        ncm = self.amostra.da_lista("200003")
+        with tempfile.TemporaryDirectory() as pasta:
+            destino = Path(pasta) / "base-receita.db"
+            shutil.copy(SCRIPTS.parent / "references" / simples_base.NOME_BASE, destino)
+            with simples_base.Base(destino) as copia:
+                geral = copia.classificacao("000001", DATA)[0]["tpRBSN"]
+            con = sqlite3.connect(destino)
+            con.execute("UPDATE CLASSIFICACAO_TRIBUTARIA SET CLTR_TPRBSN = ? WHERE CLTR_CD = '200003'", (geral + 1,))
+            con.commit()
+            con.close()
+            with simples_base.Base(destino) as nova:
+                r = sugestao.sugerir(ncm, 65, DATA, nova)
+        primeira, geral_sug = r["sugestoes"][0], r["sugestoes"][-1]
+        self.assertEqual(primeira["cClassTrib"], "200003")
+        self.assertEqual(primeira["efeito_no_simples"], "muda o tipo de receita")
+        self.assertEqual(primeira["efeito_texto"], sugestao.TEXTO_TIPO_RECEITA)
+        self.assertIn(sugestao.TEXTO_TIPO_RECEITA, primeira["motivo"])
+        self.assertNotIn(sugestao.TEXTO_SEM_EFEITO, primeira["motivo"])
+        self.assertEqual(geral_sug["efeito_no_simples"], "nenhum")
+        self.assertIn(sugestao.LEITURA_TIPO_RECEITA, r["leitura"])
+        self.assertNotIn(sugestao.LEITURA_SEM_EFEITO, r["leitura"])
+        # a base original continua dizendo "nenhum"
+        self.assertEqual(self.sugerir(ncm)["sugestoes"][0]["efeito_no_simples"], "nenhum")
+
+    def test_a_cbs_e_o_ibs_nao_mudam_entre_classificacoes_do_mesmo_tipo_de_receita(self):
+        # o fato em que os textos se apoiam: no motor, a sugestão com o tpRBSN da 000001 dá a mesma conta
+        codigos = set(self._mesmo_tipo_da_geral())
+        ncm = self.amostra.da_lista("200003")
+        sugeridos = [s["cClassTrib"] for s in self.sugerir(ncm)["sugestoes"] if s["cClassTrib"] in codigos]
+        self.assertIn("200003", sugeridos)
+        self.assertIn("000001", sugeridos)
+
+        def conta(codigo):
+            operacao = {"id": "op-1", "versao": "3.0.0", "data": DATA.isoformat(), "tpDoc": "65", "CRT": "1",
+                        "aliquotasEfetivas": {"fatorR": False, "impedimentoSublimite": False,
+                                              "anexoI": {"pCBSSN": "1.1612", "pIBSSN": "0.0129"}},
+                        "itens": [{"numero": 1, "cAtivSN": "01", "cClassTrib": codigo, "ncm": ncm,
+                                   "baseCalculo": "1234.50", "valorImpostoSeletivo": "0.00"}]}
+            saida = calc.executar_operacao(operacao, self.base)
+            self.assertEqual(saida["status"], 200, saida)
+            item = saida["corpo"]["objetos"][0]
+            self.assertEqual(item["estadoItem"], "CALCULADO", item)
+            total = saida["corpo"]["total"]
+            return (item["tribCalc"]["vCBSSN"], item["tribCalc"]["vIBSSN"], total["vCBSSNtot"], total["vIBSSNtot"])
+
+        referencia = conta("000001")
+        for codigo in sugeridos:
+            with self.subTest(codigo=codigo):
+                self.assertEqual(conta(codigo), referencia)
 
 
 class LinhaDeComandoTest(unittest.TestCase):

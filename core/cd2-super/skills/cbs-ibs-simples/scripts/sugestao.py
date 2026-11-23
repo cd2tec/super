@@ -172,10 +172,39 @@ def _frase_reducao(r):
             f"{_texto(r['ibsMun'])}% no IBS municipal")
 
 
-def _sugestao(codigo, classificacao, motivo, reducoes):
+EFEITO_NENHUM = "nenhum"
+EFEITO_TIPO_RECEITA = "muda o tipo de receita"
+TEXTO_SEM_EFEITO = ("No Simples, essa redução não baixa a CBS nem o IBS desta conta, que saem da alíquota "
+                    "efetiva do PGDAS. A classificação vai na nota e decide se a conta aceita o NCM.")
+TEXTO_SEM_REDUCAO = ("No Simples, a CBS e o IBS desta conta saem da alíquota efetiva do PGDAS. "
+                     "A classificação vai na nota e decide se a conta aceita o NCM.")
+TEXTO_TIPO_RECEITA = ("No Simples, esta classificação muda o tipo de receita bruta do item e pode mudar o "
+                      "resultado desta conta. Confirme com o contador.")
+
+
+def _tp_rbsn(base, codigo, data):
+    """Tipo de receita bruta do Simples (tpRBSN) da classificação na data, pela mesma consulta do motor."""
+    vigentes = base.classificacao(codigo, data)
+    return vigentes[0]["tpRBSN"] if vigentes else None
+
+
+def _efeito(base, codigo, reducoes, data):
+    """(efeito_no_simples, texto). O efeito vem da base: a classificação com o mesmo tpRBSN da regra geral
+    (000001) cai na mesma conta do motor, e a redução do regime regular não muda o valor no Simples."""
+    proprio = _tp_rbsn(base, codigo, data)
+    if proprio is None or proprio != _tp_rbsn(base, PERFIL["geral"], data):
+        return EFEITO_TIPO_RECEITA, TEXTO_TIPO_RECEITA
+    if all(v == 0 for v in reducoes.values()):
+        return EFEITO_NENHUM, TEXTO_SEM_REDUCAO
+    frase = _frase_reducao(reducoes)
+    return EFEITO_NENHUM, f"No regime regular, {frase[0].lower()}{frase[1:]}. {TEXTO_SEM_EFEITO}"
+
+
+def _sugestao(codigo, classificacao, motivo, reducoes, efeito):
     perfil = PERFIL["classificacoes"][codigo]
     saida = {"cClassTrib": codigo, "cst": classificacao["cst"], "descricao": perfil["descricao"],
-             "reducao": _texto(reducoes["cbs"]), "motivo": motivo}
+             "reducao": _texto(reducoes["cbs"]), "motivo": motivo,
+             "efeito_no_simples": efeito[0], "efeito_texto": efeito[1]}
     if not reducoes["cbs"] == reducoes["ibsUf"] == reducoes["ibsMun"]:
         # `reducao` fica com a da CBS; aqui vão as três quando divergem
         saida["reducoes"] = {"cbs": _texto(reducoes["cbs"]), "ibsEstadual": _texto(reducoes["ibsUf"]),
@@ -198,6 +227,10 @@ def _imposto_seletivo(base, ncm, data):
 
 LEITURA = ("A primeira sugestão é a mais provável para um produto deste NCM. A última, 000001, é a regra "
            "geral, para o produto que não for o item do anexo.")
+LEITURA_SEM_EFEITO = ("No Simples, a redução de cada classificação não baixa a CBS nem o IBS desta conta, que saem "
+                      "da alíquota efetiva do PGDAS. A classificação vai na nota e decide se a conta aceita o NCM.")
+LEITURA_TIPO_RECEITA = ("Atenção: alguma destas classificações muda o tipo de receita bruta no Simples e pode "
+                        "mudar o resultado desta conta.")
 LEITURA_VAZIA = "Nenhuma classificação foi sugerida para este NCM."
 
 
@@ -230,8 +263,8 @@ def sugerir(ncm, tp_doc, data, base):
 
     resultado["imposto_seletivo"] = _imposto_seletivo(base, ncm_ok, data)
     classes = PERFIL["classificacoes"]
-    # Menor redução primeiro (a da CBS), desempate pelo código: o imposto mostrado nunca fica abaixo do real
-    # (a mesma ordem do mini app, classify.ts).
+    # Menor redução do regime regular primeiro (a da CBS), desempate pelo código (a mesma ordem do mini app,
+    # classify.ts). No Simples, entre classificações com o tpRBSN da regra geral, o valor da conta não muda.
     achadas = []
     for codigo, perfil in classes.items():
         if perfil["tipo"] != "lista":
@@ -244,36 +277,44 @@ def sugerir(ncm, tp_doc, data, base):
     for reducoes, codigo, classificacao in achadas:
         perfil = classes[codigo]
         listas.append(codigo)
+        efeito = _efeito(base, codigo, reducoes, data)
         sugestoes.append(_sugestao(
             codigo, classificacao,
             f"O NCM {ncm_ok} está na lista desta classificação: {perfil['descricao']}. "
-            f"{_frase_reducao(reducoes)}. Base legal: {perfil['referencia']}. "
-            "A lista é por NCM: confira se o seu produto é o item descrito no anexo.", reducoes))
+            f"{efeito[1]} Base legal: {perfil['referencia']}. "
+            "A lista é por NCM: confira se o seu produto é o item descrito no anexo.", reducoes, efeito))
     if len(listas) > 1:
         primeira = _texto(achadas[0][0]["cbs"])
+        if all(s["efeito_no_simples"] == EFEITO_NENHUM for s in sugestoes):
+            no_simples = "No Simples, o valor desta conta não muda entre elas."
+        else:
+            no_simples = "No Simples, uma delas muda o tipo de receita bruta e pode mudar o resultado desta conta."
         avisos.append(f"Este NCM cabe em mais de uma lista ({', '.join(listas)}). A primeira sugestão é a de "
-                      f"menor redução ({primeira}%): o imposto mostrado nunca fica abaixo do real. "
+                      f"menor redução no regime regular ({primeira}%). {no_simples} "
                       "Só a natureza do seu produto decide qual vale.")
 
     dica = next((d for d in PERFIL["dicas"] if any(ncm_ok.startswith(p) for p in d["prefixos"])), None)
     if dica:
         # Como no mini app, a dica nunca passa à frente de uma lista que o NCM de fato cumpre: fica depois
-        # dela, e só avisa quando promete mais redução do que a lista.
+        # dela, e só avisa quando tem mais redução no regime regular do que a lista.
         for codigo in dica["codigos"]:
             classificacao = _aceita(base, codigo, ncm_ok, sigla, data, exige_lista=False)
             if classificacao is None:
                 continue
             perfil = classes[codigo]
             reducoes = _reducoes(base, classificacao, data)
+            efeito = _efeito(base, codigo, reducoes, data)
             sugestoes.append(_sugestao(
                 codigo, classificacao,
-                f"Produtos deste NCM podem ter benefício ({_frase_reducao(reducoes).lower()}): "
-                f"{perfil['descricao']}. "
+                f"Produtos deste NCM podem ter esta classificação: {perfil['descricao']}. {efeito[1]} "
                 f"Base legal: {perfil['referencia']}. A tabela da Receita não lista este benefício "
-                "por NCM. Só use se o produto se enquadrar, e confirme com o contador.", reducoes))
+                "por NCM. Só use se o produto se enquadrar, e confirme com o contador.", reducoes, efeito))
             if achadas and reducoes["cbs"] > achadas[0][0]["cbs"]:
-                avisos.append(f"Se o produto for do tipo {dica['id']}, a {codigo} promete mais redução "
-                              f"({_texto(reducoes['cbs'])}%) do que a lista em que o NCM está. Confira o produto.")
+                no_simples = (" No Simples, isso não muda o valor desta conta." if efeito[0] == EFEITO_NENHUM
+                              else " No Simples, ela muda o tipo de receita bruta e pode mudar o resultado.")
+                avisos.append(f"Se o produto for do tipo {dica['id']}, a {codigo} tem mais redução no regime "
+                              f"regular ({_texto(reducoes['cbs'])}%) do que a lista em que o NCM está."
+                              f"{no_simples} Confira o produto.")
     if not sugestoes:
         avisos.append(f"Nenhuma classificação com benefício da leitura de varejo da CD2 cabe no NCM {ncm_ok}.")
 
@@ -282,23 +323,22 @@ def sugerir(ncm, tp_doc, data, base):
     if classificacao is not None:
         perfil = classes[geral]
         reducoes = _reducoes(base, classificacao, data)
-        if all(v == 0 for v in reducoes.values()):
-            regra = "Regra geral, sem redução"
-        else:
-            regra = f"Regra geral. {_frase_reducao(reducoes)}"
+        efeito = _efeito(base, geral, reducoes, data)
+        regra = "Regra geral, sem redução" if all(v == 0 for v in reducoes.values()) else "Regra geral"
         if sugestoes:
-            motivo = (f"{regra}. Vale para o produto que não for o item do anexo. "
+            motivo = (f"{regra}. {efeito[1]} Vale para o produto que não for o item do anexo. "
                       f"Base legal: {perfil['referencia']}.")
         else:
             motivo = (f"{regra}: o NCM {ncm_ok} não está em nenhuma lista do perfil de "
-                      f"varejo da CD2. Base legal: {perfil['referencia']}.")
-        sugestoes.append(_sugestao(geral, classificacao, motivo, reducoes))
+                      f"varejo da CD2. {efeito[1]} Base legal: {perfil['referencia']}.")
+        sugestoes.append(_sugestao(geral, classificacao, motivo, reducoes, efeito))
     elif not sugestoes:
         avisos.append("A base da Receita não aceita nem a tributação integral para este NCM, "
                       "neste documento e nesta data. Não vou chutar: confirme com o contador.")
     resultado["sugestoes"] = sugestoes
     if sugestoes:
-        resultado["leitura"] = LEITURA
+        nenhum = all(s["efeito_no_simples"] == EFEITO_NENHUM for s in sugestoes)
+        resultado["leitura"] = f"{LEITURA} {LEITURA_SEM_EFEITO if nenhum else LEITURA_TIPO_RECEITA}"
     return resultado
 
 
