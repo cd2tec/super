@@ -61,16 +61,22 @@ jobs:
         skill: ${{ fromJSON(needs.listar.outputs.skills) }}
     env:
       SKILL: ${{ matrix.skill }}
-      SAIDA: ${{ runner.temp }}/saida
-      TRAB: ${{ runner.temp }}/trabalho
-      ETAPA: ${{ runner.temp }}/saida/etapa.txt
-      RECEITA: ${{ runner.temp }}/receita
       # Fora do checkout e fora do runner.temp: é o que os contêineres enxergam.
       ISOL: /tmp/receita-isolada
       # A mesma família de imagem do ensaio local (Maven com Temurin 25), presa pelo digest.
       IMAGEM: maven:3-eclipse-temurin-25@sha256:84bd96155bf37d1be2858433aee89320f487c2d21faf06406640e7dc2b82d686
       PORTA: "8082"
     steps:
+      # O contexto runner não existe no env do job, só nos passos: as pastas entram por aqui.
+      - name: Pastas de trabalho
+        run: |
+          {
+            echo "SAIDA=$RUNNER_TEMP/saida"
+            echo "TRAB=$RUNNER_TEMP/trabalho"
+            echo "ETAPA=$RUNNER_TEMP/saida/etapa.txt"
+            echo "RECEITA=$RUNNER_TEMP/receita"
+          } >> "$GITHUB_ENV"
+
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
@@ -295,13 +301,19 @@ jobs:
         skill: ${{ fromJSON(needs.listar.outputs.skills) }}
     env:
       SKILL: ${{ matrix.skill }}
-      ART: ${{ runner.temp }}/art
-      ETAPA: ${{ runner.temp }}/etapa.txt
       GH_TOKEN: ${{ github.token }}
       REPO: ${{ github.repository }}
       RAMO: ${{ github.ref }}
       EXECUCAO: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
+      # O contexto runner não existe no env do job, só nos passos: as pastas entram por aqui.
+      - name: Pastas de trabalho
+        run: |
+          {
+            echo "ART=$RUNNER_TEMP/art"
+            echo "ETAPA=$RUNNER_TEMP/etapa.txt"
+          } >> "$GITHUB_ENV"
+
       - uses: actions/checkout@v4
         with:
           # A ponta do ramo agora, não a do começo da execução, com o histórico para ler o meta.json do
