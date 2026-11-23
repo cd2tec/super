@@ -1359,8 +1359,8 @@ class FonteTest(unittest.TestCase):
     def test_sem_travessao_literal_nos_scripts_e_nos_testes(self):
         # texto copiado do Java com U+2014 ou U+2013 fica escrito com o escape
         arquivos = [SKILL / "scripts" / "simples_motor.py", SKILL / "scripts" / "simples_base.py",
-                    SKILL / "scripts" / "calc.py",
-                    Path(__file__), ROOT / "tests" / "test_simples_cobertura.py",
+                    SKILL / "scripts" / "calc.py", SKILL / "scripts" / "sugestao.py",
+                    Path(__file__), ROOT / "tests" / "test_sugestao_simples.py", ROOT / "tests" / "test_simples_cobertura.py",
                     ROOT / "tests" / "test_receita_paridade.py", PASTA_CONFERENCIA / "bateria.py",
                     ROOT / "scripts" / "receita_paridade.py"]
         for arquivo in arquivos:
