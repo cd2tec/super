@@ -59,8 +59,21 @@ def _e_numero(valor) -> bool:
     return isinstance(valor, (int, Decimal)) and not isinstance(valor, bool)
 
 
-def _numero_em_texto(valor) -> str:
-    return format(valor, "f") if isinstance(valor, Decimal) else str(valor)
+_EXPOENTE_MAXIMO = 1000  # acima disso o número não é expandido: fica para o motor recusar
+
+
+def _numero_em_texto(valor):
+    """Texto do número JSON, sem notação científica. None quando expandir seria absurdo."""
+    if isinstance(valor, Decimal):
+        if not valor.is_finite() or abs(valor.as_tuple().exponent) > _EXPOENTE_MAXIMO:
+            return None
+        return format(valor, "f")
+    return str(valor)
+
+
+_RE_NUMERICO = re.compile(r"[+-]?\d[\d.,]*")
+# parte inteira sem zero a esquerda: "0.022" nunca e milhar, e o formato das aliquotas oficiais
+_RE_MILHAR_EM_DUVIDA = re.compile(r"[+-]?[1-9]\d*[.,]\d{3}")
 
 
 def _decimal_em_formato_oficial(texto: str) -> str:
@@ -69,7 +82,8 @@ def _decimal_em_formato_oficial(texto: str) -> str:
     if tem_ponto and tem_virgula:
         decimal = "," if texto.rfind(",") > texto.rfind(".") else "."
         milhar = "." if decimal == "," else ","
-        padrao = rf"[+-]?\d{{1,3}}(?:{re.escape(milhar)}\d{{3}})*{re.escape(decimal)}\d+"
+        # primeiro grupo de 1 a 3 digitos sem zero a esquerda, depois grupos de exatamente 3
+        padrao = rf"[+-]?[1-9]\d{{0,2}}(?:{re.escape(milhar)}\d{{3}})+{re.escape(decimal)}\d+"
         if re.fullmatch(padrao, texto):
             return texto.replace(milhar, "").replace(decimal, ".")
     elif tem_virgula and re.fullmatch(r"[+-]?\d+,\d+", texto):
@@ -77,8 +91,14 @@ def _decimal_em_formato_oficial(texto: str) -> str:
     return texto
 
 
+def _aviso_milhar(caminho: str, texto: str) -> str:
+    lido = texto.replace(".", ",")
+    return (f'Em {caminho}, "{texto}" foi lido como {lido}, e não como milhar. '
+            "Se era milhar, escreva sem o ponto.")
+
+
 def _so_digitos(texto: str) -> str:
-    if re.fullmatch(r"[\d.\-/ ]*\d[\d.\-/ ]*", texto):
+    if re.fullmatch(r"\d+(?:[. \-]\d+)+", texto):
         return re.sub(r"\D", "", texto)
     return texto
 
@@ -87,26 +107,35 @@ def _normalizar_campo(registro: dict, nome: str, caminho: str, tipo: str, avisos
     valor = registro[nome]
     if _e_numero(valor):
         novo = _numero_em_texto(valor)
-        original = novo if isinstance(valor, int) else str(valor)
-        motivo = "número do JSON virou texto"
-    elif isinstance(valor, str):
-        original = valor
-        if tipo == "decimal":
-            novo = _decimal_em_formato_oficial(valor)
-        elif tipo == "nomenclatura":
-            novo = _so_digitos(valor)
-        elif tipo == "data":
-            achou = _RE_DATA_BR.fullmatch(valor)
-            novo = f"{achou.group(3)}-{achou.group(2)}-{achou.group(1)}" if achou else valor
-        else:
-            novo = valor
-        motivo = {"decimal": "formato do número", "nomenclatura": "só os dígitos",
-                  "data": "data no formato AAAA-MM-DD"}.get(tipo, "")
-    else:
-        return
-    if novo != valor or _e_numero(valor):
+        if novo is None:
+            return
         registro[nome] = novo
-        avisos.append(f'{caminho}: troquei "{original}" por "{novo}" ({motivo}).')
+        if novo == str(valor):
+            avisos.append(f'Em {caminho}, o número {valor} virou o texto "{novo}".')
+        else:
+            avisos.append(f'{caminho}: troquei "{valor}" por "{novo}" (número do JSON virou texto).')
+        return
+    if not isinstance(valor, str):
+        return
+    novo, extra = valor, []
+    if tipo == "decimal":
+        aparado = valor.strip()
+        if _RE_NUMERICO.fullmatch(aparado):
+            novo = _decimal_em_formato_oficial(aparado)
+            if _RE_MILHAR_EM_DUVIDA.fullmatch(aparado):
+                extra.append(_aviso_milhar(caminho, aparado))
+    elif tipo == "nomenclatura":
+        novo = _so_digitos(valor)
+    elif tipo == "data":
+        achou = _RE_DATA_BR.fullmatch(valor)
+        if achou:
+            novo = f"{achou.group(3)}-{achou.group(2)}-{achou.group(1)}"
+    motivo = {"decimal": "formato do número", "nomenclatura": "só os dígitos",
+              "data": "data no formato AAAA-MM-DD"}.get(tipo, "")
+    if novo != valor:
+        registro[nome] = novo
+        avisos.append(f'{caminho}: troquei "{valor}" por "{novo}" ({motivo}).')
+    avisos.extend(extra)
 
 
 def normalizar(operacao):
@@ -156,8 +185,12 @@ def normalizar(operacao):
 
 def _versao_resumida(base) -> dict:
     meta = base.meta()
-    return {"calculadora": meta["calculadora"]["versao"], "base": base.versao_base()["versao"],
-            "conferida_em": (meta.get("conferencia") or {}).get("data", "")}
+    meta = meta if isinstance(meta, dict) else {}
+    calculadora = meta.get("calculadora")
+    conferencia = meta.get("conferencia")
+    return {"calculadora": calculadora.get("versao", "") if isinstance(calculadora, dict) else "",
+            "base": base.versao_base()["versao"],
+            "conferida_em": conferencia.get("data", "") if isinstance(conferencia, dict) else ""}
 
 
 def _resposta(status, corpo, base) -> dict:
@@ -191,11 +224,10 @@ def _executar_versao(base) -> dict:
 # --------------------------------------------------------- aviso de versão
 
 def _partes(versao: str):
-    texto = versao.strip()
-    texto = texto[1:] if texto[:1] in ("v", "V") else texto
-    if not re.fullmatch(r"\d+(?:\.\d+)*", texto):
+    achou = re.fullmatch(r"[vV]?(\d+(?:\.\d+)*)(?:[-+].*)?", versao.strip())
+    if achou is None:
         return None
-    partes = [int(p) for p in texto.split(".")]
+    partes = [int(p) for p in achou.group(1).split(".")]
     while len(partes) > 1 and partes[-1] == 0:
         partes.pop()
     return tuple(partes)
@@ -267,19 +299,20 @@ def _parser():
                 "  versões da skill:        python3 calc.py --versao\n"
                 "  há versão nova?          python3 calc.py --checar-versao"),
         formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--input", help="arquivo JSON da operação (padrão: entrada padrão)")
+    modo = parser.add_mutually_exclusive_group()
+    modo.add_argument("--input", help="arquivo JSON da operação (padrão: entrada padrão)")
     parser.add_argument("--humano", action="store_true",
                         help="aceita vírgula decimal, milhar, número sem aspas, NCM com pontos e data DD/MM/AAAA, "
                              "e lista o que mudou em `normalizacoes`")
-    parser.add_argument("--atividades", metavar="DATA", help="lista as atividades vigentes na data (AAAA-MM-DD)")
+    modo.add_argument("--atividades", metavar="DATA", help="lista as atividades vigentes na data (AAAA-MM-DD)")
     parser.add_argument("--anexo", action="append", help="filtra por anexo (I a V); pode repetir")
     parser.add_argument("--tp-doc", help="filtra pelo tipo de documento fiscal, como 55")
     parser.add_argument("--cclasstrib", help="filtra pela classificação tributária, como 000001")
-    parser.add_argument("--atividade", metavar="CODIGO", help="mostra uma atividade pelo código (use com --data)")
+    modo.add_argument("--atividade", metavar="CODIGO", help="mostra uma atividade pelo código (use com --data)")
     parser.add_argument("--data", help="data da consulta, AAAA-MM-DD (com --atividade; sem ela a resposta é o 400 da oficial)")
-    parser.add_argument("--erro", metavar="VSN-001", help="explica um código de erro")
-    parser.add_argument("--versao", action="store_true", help="mostra as versões da calculadora e da base")
-    parser.add_argument("--checar-versao", action="store_true",
+    modo.add_argument("--erro", metavar="VSN-001", help="explica um código de erro")
+    modo.add_argument("--versao", action="store_true", help="mostra as versões da calculadora e da base")
+    modo.add_argument("--checar-versao", action="store_true",
                         help="consulta o GitHub da Receita e diz se há versão nova (única ida à internet)")
     return parser
 
@@ -303,7 +336,14 @@ def _ler_operacao(args):
 
 
 def main(argv=None) -> int:
-    args = _parser().parse_args(argv)
+    parser = _parser()
+    args = parser.parse_args(argv)
+    consulta = (args.atividades is not None or args.atividade is not None or args.erro is not None
+                or args.versao or args.checar_versao)
+    if args.humano and consulta:
+        parser.error("--humano só vale para o cálculo de uma operação, não para as consultas")
+    if args.data is not None and args.atividade is None:
+        parser.error("--data só vale junto de --atividade (em --atividades a data vem logo depois)")
     for stream in (sys.stdin, sys.stdout):
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8")
@@ -312,7 +352,7 @@ def main(argv=None) -> int:
             try:
                 with simples_base.Base() as base:
                     meta = base.meta()
-            except simples_base.BaseIndisponivel:
+            except Exception:  # esta consulta nunca derruba: sem meta, so informa a ultima versao
                 meta = {}
             _imprimir(checar_versao(meta))
             return 0

@@ -761,7 +761,7 @@ class NormalizarTest(unittest.TestCase):
                 self.assertEqual(self.corrigir(entrada)[0], saida)
 
     def test_ponto_sozinho_nunca_e_milhar(self):
-        for texto in ("1.000", "1000.00", "1.5", "1.000.000"):
+        for texto in ("1000.00", "1.5", "1.000.000", "1.0000"):
             with self.subTest(texto):
                 valor, avisos = self.corrigir(texto)
                 self.assertEqual(valor, texto)
@@ -817,6 +817,172 @@ class NormalizarTest(unittest.TestCase):
         self.assertIs(op["aliquotasEfetivas"]["fatorR"], True)
         self.assertEqual(op["aliquotasEfetivas"]["anexoIII"]["semRedistribuicaoISS"]["pCBSSN"], "1.99")
         self.assertEqual(len(avisos), 1)
+
+
+class NormalizarRevisaoTest(unittest.TestCase):
+    def avisos_de(self, texto, campo="baseCalculo"):
+        op, avisos = calc.normalizar({"itens": [{campo: texto}]})
+        return op["itens"][0][campo], avisos
+
+    def test_ponto_com_tres_digitos_avisa_sem_mudar_o_valor(self):
+        for texto in ("1.000", "12.500"):
+            with self.subTest(texto):
+                valor, avisos = self.avisos_de(texto)
+                self.assertEqual(valor, texto)
+                self.assertEqual(avisos, [f'Em itens[0].baseCalculo, "{texto}" foi lido como '
+                                         f'{texto.replace(".", ",")}, e não como milhar. '
+                                         "Se era milhar, escreva sem o ponto."])
+
+    def test_virgula_com_tres_digitos_muda_e_avisa_do_milhar(self):
+        valor, avisos = self.avisos_de("1,000")
+        self.assertEqual(valor, "1.000")
+        self.assertEqual(len(avisos), 2)
+        self.assertIn('troquei "1,000" por "1.000"', avisos[0])
+        self.assertEqual(avisos[1], 'Em itens[0].baseCalculo, "1,000" foi lido como 1,000, e não como milhar. '
+                                    "Se era milhar, escreva sem o ponto.")
+
+    def test_outras_formas_de_ponto_nao_avisam(self):
+        for texto in ("1.0000", "1.00", "1.5", "1.000.000", "0.022", "0.001"):
+            with self.subTest(texto):
+                self.assertEqual(self.avisos_de(texto), (texto, []))
+
+    def test_o_aviso_do_milhar_vale_para_aliquota_tambem(self):
+        op, avisos = calc.normalizar({"aliquotasEfetivas": {"anexoI": {"pCBSSN": "1.000"}}})
+        self.assertEqual(op["aliquotasEfetivas"]["anexoI"]["pCBSSN"], "1.000")
+        self.assertEqual(len(avisos), 1)
+        self.assertIn("aliquotasEfetivas.anexoI.pCBSSN", avisos[0])
+
+    def test_expoente_enorme_fica_para_o_motor(self):
+        import time
+        inicio = time.monotonic()
+        op, avisos = calc.normalizar(json.loads(
+            '{"itens": [{"baseCalculo": 1E+999999999, "valorImpostoSeletivo": 1E-999999999}]}',
+            parse_float=Decimal))
+        self.assertLess(time.monotonic() - inicio, 1)
+        self.assertIsInstance(op["itens"][0]["baseCalculo"], Decimal)
+        self.assertIsInstance(op["itens"][0]["valorImpostoSeletivo"], Decimal)
+        self.assertEqual(avisos, [])
+
+    def test_espacos_nas_pontas_do_numero_saem_com_aviso(self):
+        valor, avisos = self.avisos_de("  1500.00 \t")
+        self.assertEqual(valor, "1500.00")
+        self.assertEqual(len(avisos), 1)
+        valor, avisos = self.avisos_de(" 1.500,00 ")
+        self.assertEqual(valor, "1500.00")
+        self.assertEqual(len(avisos), 1)
+        self.assertEqual(self.avisos_de(" abc "), (" abc ", []))
+
+    def test_ncm_so_perde_separador_entre_grupos_de_digitos(self):
+        casos_ncm = {"1006.30.21": "10063021", "1006 30 21": "10063021", "1006-30-21": "10063021",
+                     "+1006.30.21": "+1006.30.21", "1006.30.2x": "1006.30.2x", ".10063021": ".10063021",
+                     "10063021.": "10063021.", " 10063021": " 10063021", "1006..30": "1006..30",
+                     "10063021": "10063021"}
+        for entrada, saida in casos_ncm.items():
+            with self.subTest(entrada):
+                self.assertEqual(self.avisos_de(entrada, "ncm")[0], saida)
+
+    def test_numero_com_grupos_mal_formados_fica_como_esta(self):
+        for texto in ("0.001,5", "0,001.5", "01.000,00", "1.00,5", "1.0000,5", "10.00.000,5"):
+            with self.subTest(texto):
+                self.assertEqual(self.avisos_de(texto), (texto, []))
+
+    def test_aviso_de_numero_que_virou_texto(self):
+        op, avisos = calc.normalizar(json.loads('{"tpDoc": 55, "itens": [{"baseCalculo": 10.50}]}',
+                                                parse_float=Decimal))
+        self.assertEqual(avisos, ['Em tpDoc, o número 55 virou o texto "55".',
+                                  'Em itens[0].baseCalculo, o número 10.50 virou o texto "10.50".'])
+        _, avisos = calc.normalizar({"tpDoc": Decimal("1E+3")})
+        self.assertEqual(avisos, ['tpDoc: troquei "1E+3" por "1000" (número do JSON virou texto).'])
+
+
+class ModosExclusivosTest(unittest.TestCase):
+    def test_combinacoes_de_modos_sao_erro_de_uso(self):
+        combinacoes = [("--erro", "VSN-001", "--versao"), ("--versao", "--checar-versao"),
+                       ("--atividades", "2027-01-01", "--erro", "VSN-001"),
+                       ("--atividade", "01", "--data", "2027-01-01", "--versao"),
+                       ("--input", "x.json", "--versao"), ("--input", "x.json", "--atividades", "2027-01-01")]
+        for args in combinacoes:
+            with self.subTest(args):
+                processo = rodar_cli(*args)
+                self.assertEqual(processo.returncode, 2)
+                self.assertEqual(processo.stdout, "")
+                self.assertNotIn("Traceback", processo.stderr)
+
+    def test_humano_com_consulta_e_erro_de_uso(self):
+        for args in (("--humano", "--erro", "VSN-001"), ("--humano", "--versao"),
+                     ("--humano", "--atividades", "2027-01-01"), ("--humano", "--checar-versao")):
+            with self.subTest(args):
+                processo = rodar_cli(*args)
+                self.assertEqual(processo.returncode, 2)
+                self.assertNotIn("Traceback", processo.stderr)
+
+    def test_data_so_com_atividade(self):
+        self.assertEqual(rodar_cli("--data", "2027-01-01", "--versao").returncode, 2)
+        self.assertEqual(rodar_cli("--atividade", "01", "--data", "2027-01-01").returncode, 0)
+
+
+class ChecarVersaoRevisaoTest(unittest.TestCase):
+    META = {"calculadora": {"versao": "1.0.2"}}
+
+    def setUp(self):
+        self.original = calc._abrir
+        self.addCleanup(setattr, calc, "_abrir", self.original)
+
+    def test_tag_com_sufixo_compara_pela_parte_numerica(self):
+        for tag, nova in {"1.0.3-rc1": True, "v1.0.3+build": True, "v1.0.2-rc1": False, "1.0.2+x": False}.items():
+            with self.subTest(tag):
+                calc._abrir = lambda pedido, timeout=None, tag=tag: _Resposta(json.dumps({"tag_name": tag}))
+                r = calc.checar_versao(self.META)
+                self.assertTrue(r["consultado"])
+                self.assertEqual(r["ha_versao_nova"], nova)
+
+    def test_qualquer_falha_ao_ler_a_meta_sai_0(self):
+        class BaseQuebrada:
+            def __init__(self, *_):
+                pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                return False
+
+            def meta(self):
+                raise KeyError("calculadora")
+
+        class BaseQueNaoAbre:
+            def __init__(self, *_):
+                raise json.JSONDecodeError("ruim", "", 0)
+
+        import contextlib
+        import io
+        calc._abrir = lambda pedido, timeout=None: _Resposta(json.dumps({"tag_name": "1.0.2"}))
+        original = simples_base.Base
+        self.addCleanup(setattr, simples_base, "Base", original)
+        for falsa in (BaseQuebrada, BaseQueNaoAbre):
+            with self.subTest(falsa.__name__):
+                simples_base.Base = falsa
+                saida = io.StringIO()
+                with contextlib.redirect_stdout(saida):
+                    codigo = calc.main(["--checar-versao"])
+                self.assertEqual(codigo, 0)
+                self.assertTrue(json.loads(saida.getvalue())["consultado"])
+
+    def test_versao_resumida_com_meta_incompleta(self):
+        class BaseSemMeta:
+            def __init__(self, meta):
+                self._meta = meta
+
+            def meta(self):
+                return self._meta
+
+            def versao_base(self):
+                return {"versao": "V0073"}
+
+        for meta in ({}, {"calculadora": None, "conferencia": []}, []):
+            with self.subTest(meta=meta):
+                self.assertEqual(calc._versao_resumida(BaseSemMeta(meta)),
+                                 {"calculadora": "", "base": "V0073", "conferida_em": ""})
 
 
 class _Resposta:
