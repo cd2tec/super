@@ -44,6 +44,6 @@
   "hash_ignorar_colunas": {
     "VERSAO_BASE_DADO": ["VRBD_DATA"]
   },
-  "ignorar": [],
+  "ignorar": ["timestamp"],
   "excecoes_cobertura": []
 }
