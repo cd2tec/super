@@ -30,7 +30,7 @@ Na entrada da skill no plugin (versão 0.6.0): calculadora do Simples na versão
 - **A alíquota efetiva do Simples.** A calculadora oficial não a calcula a partir do faturamento, e a skill também não. Ela entra na operação como a linha de alíquotas efetivas de CBS e IBS do período, por anexo, que sai do PGDAS-D e que o contador tem. A skill não calcula o DAS.
 - **Geração ou validação de XML** de documento fiscal.
 - **O regime regular** da CBS e do IBS. Quando a empresa do Simples opta por ele, a calculadora oficial só registra a receita (estado `NAO_CALCULADO`, motivo `REGIME_SOMENTE_RECEITA`).
-- **O Imposto Seletivo.** NFC-e, NF-e e os outros documentos com CRT exigem o valor dele por item (`valorImpostoSeletivo`, "0.00" quando não há), e a calculadora oficial só o repassa. A skill também não o calcula.
+- **O Imposto Seletivo.** NFC-e, NF-e e os outros documentos com CRT exigem o valor dele por item (`valorImpostoSeletivo`, "0.00" quando não há), e a calculadora oficial só o repassa. A skill também não o calcula. Quando a pessoa não sabe o valor e aceita seguir com "0.00", a CBS e o IBS não mudam, e a entrega diz, nas observações logo abaixo dos totais, que o total não inclui o Imposto Seletivo daquele item.
 
 ## Como a conta é conferida
 

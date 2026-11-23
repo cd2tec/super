@@ -424,10 +424,12 @@ class RobustezTest(unittest.TestCase):
                        aviso_versao={"consultado": True, "ha_versao_nova": True, "calculadora": "1.0.3", "mensagem": "m"})
         base["calculo"]["normalizacoes"] = ["a"]
         base["calculo"]["corpo"]["resolucaoAliquotas"]["avisos"] = ["a"]
+        base["observacoes"] = ["a", "b"]
         yield "misto", base
         for caso in (C_422, C_NAO_CALC, C_INCONS, C_500, C_400, C_OK):
             yield caso, entrega(caso, sugestoes={"1": {"cClassTrib": "1", "cst": "1", "descricao": "d", "reducao": "0"}},
-                                aviso_versao={"consultado": True, "ha_versao_nova": True, "calculadora": "1.0.3"})
+                                aviso_versao={"consultado": True, "ha_versao_nova": True, "calculadora": "1.0.3"},
+                                observacoes=["o"])
         yield "2026", vsn015_de_2026()
 
     def test_campo_hostil_em_toda_a_entrega_nao_sobrevive(self):
@@ -469,7 +471,7 @@ class RobustezTest(unittest.TestCase):
         grande = "Z" * 2000
         cenarios = []
         for caso in (C_OK, C_MISTO, C_422, C_500, C_NAO_CALC):
-            e = _tudo_hostil(entrega(caso, exemplo=True, sugestoes=sugestao_do_item(),
+            e = _tudo_hostil(entrega(caso, exemplo=True, sugestoes=sugestao_do_item(), observacoes=["o"] * 5,
                                      aviso_versao={"consultado": True, "ha_versao_nova": True, "calculadora": "1.0.3"}), grande)
             cenarios.append((caso + "-texto", e))
         vsn = vsn015_de_2026()
@@ -563,6 +565,142 @@ class SugestaoDaCd2Test(unittest.TestCase):
         e["sugestoes"]["1"]["imposto_seletivo"]["texto"] = "<script>x</script>"
         self.assertNotIn("<script", render.render(e, "html"))
         self.assertNotIn("<script", render.render(e, "markdown"))
+
+
+# Saída de hoje, sem "observacoes", gravada antes da mudança: sem a chave (ou com ela inválida), nada muda.
+SAIDA_DE_HOJE = {
+    ("C_OK", "html"): "e2266d0f42fad3fbfda85ef09e8531ecd7afd4b90cfc784ebdd28e38f889915c",
+    ("C_OK", "markdown"): "82d5a9894a53eeac03026e99d1abee5f0864c50bba23a52bc7fc7690b8950dc3",
+    ("C_OK", "whatsapp"): "4372ce7bd76104bd15325138080b7923b86843b84824e20132b696b84ba660dc",
+    ("C_MISTO", "html"): "f075155482315a2654411152b837f0c1cc64d5716f6f9b8bc2de44d92e624d01",
+    ("C_MISTO", "markdown"): "2bf4920734460eb236da3cee81899c67b9064cd710ed33a9f615db512438d61b",
+    ("C_MISTO", "whatsapp"): "8fca337d9a0db074a159e2b92d8963fcdcb7c6943654e4fda83f240dd32aafe7",
+    ("C_422", "html"): "a9e24cb30700c2b18c3ba706e3a41bc8aa1f08818f41db7df3960d47a16e832b",
+    ("C_422", "markdown"): "d0865b9472e4654778e91665f53942d2daf071646a69b4e598011d63986a87b0",
+    ("C_422", "whatsapp"): "ea0994c207c05b8e72473a673790699e6bfbd826fb2d84d20a96c8aba04156f8",
+    ("C_NAO_CALC", "html"): "f652cbc545e76f83bd767ef89dd08e5d1c20f2161ea4f386699049575cc10596",
+    ("C_NAO_CALC", "markdown"): "8e37c71f6e5181a9467ffbc2ab436c7c869c6e60f43da5d9260c5994b57a8e80",
+    ("C_NAO_CALC", "whatsapp"): "94116c7b39542b08f1ce0adb3b96c464a4bdd3030ca756c024e61e5b5b2a728b",
+    ("C_INCONS", "html"): "0ad2a0fdb540ddef75603d337efe9fbaac28db871f24e30d70b2cc6242482d1e",
+    ("C_INCONS", "markdown"): "1cf25143d177d09b6c0c0d8152377a2465b949d3972c081667eee436242dc7c1",
+    ("C_INCONS", "whatsapp"): "eb9a82752e837c515260eb9b84e3fda9c06bd884c0414159eb1c2f8a2c856614",
+    ("C_NAO_IMPL", "html"): "5bf7fac1a8b21493b2854e4e4e103d270e0777399db3ab22b42cee8a7afab1a3",
+    ("C_NAO_IMPL", "markdown"): "766e636aef602472f35022ba872a6a9a0d2a28b5a06e444ba0dbcda51a712f57",
+    ("C_NAO_IMPL", "whatsapp"): "f3bbb5632df75b534dc7504eda8bb03e121209217ce98270134fc48db17358c8",
+    ("C_500", "html"): "a3955f8233c7b9cea653f9950eb97022b30c06a3755195a3caa27a05c703a636",
+    ("C_500", "markdown"): "486924aa7cc9c75cd7a3ac570cbdeddb280aba38a73cb80a17ecde40dddb6048",
+    ("C_500", "whatsapp"): "81175b655f6a63bd368d6dd9bf91903d8fb1c699a370360d6963546590487673",
+    ("C_400", "html"): "7ba67d6361a379419098aaba1e59fe2728a234170637e688d2af849b456727db",
+    ("C_400", "markdown"): "412a84c0299cf32ed3d564c6e166b2047488520e09f33f271f79b2039a721851",
+    ("C_400", "whatsapp"): "1542de6aac4d820e455953f879d6532fd1e0a69515cddc4aab7d73f41ca77376",
+    ("exemplo-sugestao", "html"): "0fa54752912254fb3193a203efc6238ce6c2531ffcfa4ee4f177614875457941",
+    ("exemplo-sugestao", "markdown"): "004765ca539bc78c8ea5acfa10cabb2526d437c655b8c584300debefc28fbda3",
+    ("exemplo-sugestao", "whatsapp"): "792b5718e7f16235feb03fe76a96ff11de794ff1eac941b9baa329d025b33cd6",
+    ("2026", "html"): "b488cdc7825c468e4a20ddd98e2ddade03307433f9f3497c4a83df1895155d59",
+    ("2026", "markdown"): "5b2d9b9957da9c3dc9e9bf9940e7de58c7eef23b20ee46197d8a1573f4fc61c1",
+    ("2026", "whatsapp"): "3a2f067a371407345f3adb1c5ad8b64f4fc0786671e5a435fefd02160b90a29e",
+}
+OBS_IS = "O total não inclui o Imposto Seletivo do item 1 (Cerveja). A alíquota ainda não foi definida em lei."
+MAIS_OBS = "Há mais observações na página completa."
+
+
+def _amostras():
+    for nome in ("C_OK", "C_MISTO", "C_422", "C_NAO_CALC", "C_INCONS", "C_NAO_IMPL", "C_500", "C_400"):
+        yield nome, entrega(globals()[nome])
+    yield "exemplo-sugestao", entrega(C_OK, exemplo=True, sugestoes=sugestao_do_item())
+    yield "2026", vsn015_de_2026()
+
+
+def _hash(texto):
+    import hashlib
+    return hashlib.sha256(texto.encode("utf-8")).hexdigest()
+
+
+class ObservacoesTest(unittest.TestCase):
+    def test_sem_observacoes_a_saida_e_a_de_hoje(self):
+        for nome, e in _amostras():
+            for formato in FORMATOS:
+                with self.subTest(caso=nome, formato=formato):
+                    self.assertEqual(_hash(render.render(e, formato)), SAIDA_DE_HOJE[(nome, formato)])
+
+    def test_observacoes_invalidas_sao_ignoradas(self):
+        for invalida in (None, [], "texto solto", {"1": "x"}, 7, [1, 2], [None, {"a": "b"}], ["", "   "]):
+            for nome, e in _amostras():
+                e = copy.deepcopy(e)
+                e["observacoes"] = invalida
+                for formato in FORMATOS:
+                    with self.subTest(obs=repr(invalida), caso=nome, formato=formato):
+                        self.assertEqual(_hash(render.render(e, formato)), SAIDA_DE_HOJE[(nome, formato)])
+
+    def test_lista_mista_fica_so_com_os_textos(self):
+        md = render.render(entrega(C_OK, observacoes=[1, OBS_IS, None]), "markdown")
+        self.assertIn("## Observações", md)
+        self.assertEqual(md.count("Imposto Seletivo do item 1"), 1)
+
+    def test_bloco_nos_tres_formatos_abaixo_dos_totais_e_antes_dos_itens(self):
+        e = entrega(C_OK, observacoes=[OBS_IS])
+        html = render.render(e, "html")
+        self.assertIn(">Observações<", html)
+        self.assertIn(OBS_IS, html)
+        self.assertLess(html.index("R$ 11,61"), html.index(">Observações<"))
+        self.assertLess(html.index(">Observações<"), html.index("<table"))
+        md = render.render(e, "markdown")
+        self.assertIn("## Observações\n\n- " + OBS_IS, md)
+        self.assertLess(md.index("**CBS:**"), md.index("## Observações"))
+        self.assertLess(md.index("## Observações"), md.index("## Itens da operação"))
+        wa = render.render(e, "whatsapp")
+        self.assertIn(OBS_IS, wa)
+        self.assertLess(wa.index("IBS: R$ 0,13"), wa.index(OBS_IS))
+        self.assertLess(wa.index(OBS_IS), wa.index("Conta igual"))
+
+    def test_abaixo_do_erro_da_operacao(self):
+        e = entrega(C_422, observacoes=["Nota da conversa."])
+        html = render.render(e, "html")
+        self.assertLess(html.index("ERRO NA OPERAÇÃO"), html.index(">Observações<"))
+        self.assertIn("## Observações", render.render(e, "markdown"))
+        self.assertIn("Nota da conversa.", render.render(e, "whatsapp"))
+
+    def test_no_maximo_cinco_e_cada_uma_com_300(self):
+        notas = [f"N{n} " + "x" * 400 for n in range(7)]
+        md = render.render(entrega(C_OK, observacoes=notas), "markdown")
+        bloco = md.split("## Observações", 1)[1].split("## Itens", 1)[0]
+        linhas = [l for l in bloco.splitlines() if l.startswith("- ")]
+        self.assertEqual(len(linhas), 5)
+        self.assertNotIn("N5 ", bloco)
+        self.assertTrue(all(len(l) <= 2 + 300 for l in linhas), [len(l) for l in linhas])
+
+    def test_whatsapp_com_cinco_notas_de_2000_cabe_e_guarda_a_primeira(self):
+        notas = [f"Nota {n}: " + "y" * 2000 for n in range(5)]
+        for caso in (C_OK, C_MISTO, C_422):
+            e = entrega(caso, exemplo=True, sugestoes=sugestao_do_item(), observacoes=notas,
+                        aviso_versao={"consultado": True, "ha_versao_nova": True, "calculadora": "1.0.3"})
+            with self.subTest(caso):
+                wa = render.render(e, "whatsapp")
+                self.assertLessEqual(len(wa), 1000)
+                self.assertIn("Nota 0: yyy", wa)
+                self.assertIn(MAIS_OBS, wa)
+                self.assertNotIn("Nota 1:", wa)
+                self.assertIn(AVISO_FIXO, wa)
+                self.assertIn("Conta igual", wa)
+                if caso != C_422:
+                    self.assertIn("CBS: R$", wa)
+                    self.assertIn("IBS: R$", wa)
+
+    def test_whatsapp_com_notas_curtas_mostra_todas(self):
+        wa = render.render(entrega(C_OK, observacoes=[f"Nota {n}." for n in range(5)]), "whatsapp")
+        for n in range(5):
+            self.assertIn(f"Nota {n}.", wa)
+        self.assertNotIn(MAIS_OBS, wa)
+
+    def test_observacao_passa_pelo_limpador_de_cada_formato(self):
+        e = entrega(C_OK, observacoes=[HOSTIL])
+        html = render.render(e, "html")
+        for tag in ("<script", "<img src=x"):
+            self.assertNotIn(tag, html)
+        for formato in ("markdown", "whatsapp"):
+            texto = render.render(e, formato)
+            for proibido in ("<", ">", "`", "javascript:"):
+                self.assertNotIn(proibido, texto, formato)
 
 
 class CliTest(unittest.TestCase):

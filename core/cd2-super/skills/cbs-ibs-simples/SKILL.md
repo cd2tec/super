@@ -122,7 +122,7 @@ Troque o NCM, o `--tp-doc` (55 ou 65) e a data pelos da operação. A saída tra
 NFC-e e NF-e exigem o valor do Imposto Seletivo de cada item (`valorImpostoSeletivo`, "0.00" quando não há). Esta skill não calcula o Imposto Seletivo.
 
 - Se o `sugestao.py` disser `imposto_seletivo.na_lista` verdadeiro para um item, leia o `texto` para a pessoa e peça o valor do Imposto Seletivo daquele item. Não assuma zero.
-- **Se a pessoa não souber o valor:** diga com palavras simples que a CBS e o IBS do item não dependem dele (o Imposto Seletivo só entra no total de tributos) e que a lei ainda não definiu a alíquota. Ofereça seguir com "0.00" e só siga se ela concordar. Nesse caso, logo antes da entrega, diga na conversa: "O total de tributos deste item deixa o Imposto Seletivo de fora." A página do `render.py` não traz esse aviso, então ele é seu.
+- **Se a pessoa não souber o valor:** diga com palavras simples que a CBS e o IBS do item não dependem dele (o Imposto Seletivo só entra no total de tributos) e que a lei ainda não definiu a alíquota. Ofereça seguir com "0.00" e só siga se ela concordar. Nesse caso, escreva em `observacoes` da entrega (veja [Entrega](#entrega)), trocando o número e a descrição do item: "O total não inclui o Imposto Seletivo do item {n} ({descrição}). A alíquota ainda não foi definida em lei." E diga o mesmo na conversa, logo antes da entrega.
 - Para os outros itens, pergunte uma vez: "Algum destes itens paga Imposto Seletivo (por exemplo bebida alcoólica, refrigerante ou cigarro)?" Só depois que a pessoa confirmar que o item não tem, preencha "0.00".
 - Na NFS-e não há Imposto Seletivo: deixe o campo de fora.
 
@@ -193,12 +193,14 @@ Monte `entrega.json` na pasta de trabalho:
 
 ```json
 {"operacao": {...a operação gravada...}, "calculo": {...a saída inteira do calc.py...},
- "sugestoes": {"1": {...a sugestão escolhida...}}, "exemplo": false, "aviso_versao": {...a saída do --checar-versao...}}
+ "sugestoes": {"1": {...a sugestão escolhida...}}, "exemplo": false, "aviso_versao": {...a saída do --checar-versao...},
+ "observacoes": ["O total não inclui o Imposto Seletivo do item 2 (Cerveja lata 350 ml). A alíquota ainda não foi definida em lei."]}
 ```
 
 - `sugestoes`: só os itens cuja classificação veio do `sugestao.py`, pelo `numero` do item. Cada um é a sugestão que a pessoa escolheu (o objeto da lista `sugestoes`) mais o `imposto_seletivo` da saída do `sugestao.py`. Sem sugestão, `null`.
 - `exemplo`: `true` só quando a linha de alíquotas é a do exemplo oficial.
 - `aviso_versao`: a saída do `--checar-versao`, ou `null` se não rodou.
+- `observacoes` (opcional): lista de textos curtos escritos por você, no máximo 5, com até 300 caracteres cada. Saem logo abaixo dos totais, na página, no texto e no resumo de WhatsApp. `observacoes` é só para fatos que a pessoa precisa ler ao lado do número, nunca conselho nem texto de venda. Hoje o caso previsto é o do Imposto Seletivo sem valor, com a frase fixa da etapa 10. Sem observação, deixe a chave de fora.
 
 Rode no formato que a pessoa escolheu:
 

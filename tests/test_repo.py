@@ -154,7 +154,10 @@ class AtribuicaoReceita(unittest.TestCase):
         skill = read("core/cd2-super/skills/cbs-ibs-simples/SKILL.md")
         gpt = read("core/cd2-super/gpts/cbs-ibs-simples/instructions.md")
         for texto in (skill, gpt):
-            self.assertIn("deixa o Imposto Seletivo de fora", texto)
+            self.assertIn("O total não inclui o Imposto Seletivo do item {n} ({descrição}). "
+                          "A alíquota ainda não foi definida em lei.", texto)
+            self.assertIn("observacoes", texto)
+            self.assertIn("nunca conselho", texto)
             self.assertIn("sem % nem R$", texto)
             self.assertIn("nunca escolh", texto)
         self.assertIn("Se a pessoa não souber o valor", skill)

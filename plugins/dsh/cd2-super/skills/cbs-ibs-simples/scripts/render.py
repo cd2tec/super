@@ -11,7 +11,11 @@ Uso:
 
 `entrega.json` = {"operacao": {...}, "calculo": {...saída do calc.py...},
                   "sugestoes": {"<número do item>": {...}} | null, "exemplo": bool,
-                  "aviso_versao": {...} | null}
+                  "aviso_versao": {...} | null, "observacoes": ["texto curto", ...] (opcional)}
+
+`observacoes` são fatos que a pessoa precisa ler ao lado do número, escritos na conversa (por exemplo, que o
+total deixa o Imposto Seletivo de fora). No máximo 5, cada uma com até 300 caracteres; o que não for lista de
+textos é ignorado. Saem logo abaixo dos totais (ou do erro da operação), antes dos itens.
 
 Formatos: html, markdown, whatsapp. Só biblioteca padrão (Python 3.10+).
 """
@@ -48,6 +52,10 @@ ARCHEO_URL = "https://archeo.cd2.com.br/"
 RECEITA_URL = "https://github.com/ReceitaFederal/calculadora-rtc-simples-nacional"
 INICIO_DAS_REGRAS = 2027
 LIMITE_WHATSAPP = 1000
+MAX_OBSERVACOES = 5
+LIMITE_OBSERVACAO = 300
+TITULO_OBSERVACOES = "Observações"
+MAIS_OBSERVACOES = "Há mais observações na página completa."
 
 ESTADOS = {
     "CALCULADO": ("Calculado", "green"),
@@ -235,6 +243,9 @@ class _Entrega:
         self.conferida = conferida if _DATA_ISO.fullmatch(conferida) else ""
         self.normalizacoes = [t for t in (self.t(n) for n in _lista(calculo.get("normalizacoes"))) if t]
         self.operacao = _dict(dados.get("operacao"))
+        textos = [o for o in _lista(dados.get("observacoes")) if isinstance(o, str)]
+        limpas = (self.t(_corta(_txt(o), LIMITE_OBSERVACAO)) for o in textos)
+        self.observacoes = [o for o in limpas if o][:MAX_OBSERVACOES]
         self.exemplo = bool(dados.get("exemplo"))
         sugestoes = dados.get("sugestoes")
         self.sugestoes = sugestoes if isinstance(sugestoes, dict) else {}
@@ -609,6 +620,14 @@ def _html_hero(e: _Entrega) -> str:
     )
 
 
+def _html_observacoes(e: _Entrega) -> str:
+    if not e.observacoes:
+        return ""
+    itens = "".join(f"<li>{esc(o)}</li>" for o in e.observacoes)
+    return (f'<section class="secao" aria-labelledby="t-obs"><h2 class="heading-sm" id="t-obs">{TITULO_OBSERVACOES}</h2>'
+            f'<ul class="lista">{itens}</ul></section>')
+
+
 def _html_memoria(e: _Entrega) -> str:
     blocos = []
     for i in e.calculados:
@@ -675,7 +694,7 @@ def _render_html(e: _Entrega, plataforma: str) -> str:
         "LOGO": brand.logo_pair_html(),
         "HEADER_META": meta,
         "FAIXA": f'<div class="faixa" role="note">{esc(FAIXA_EXEMPLO)}</div>' if e.exemplo else "",
-        "HERO": _html_hero(e),
+        "HERO": _html_hero(e) + _html_observacoes(e),
         "ITENS": _html_itens(e),
         "MEMORIA": _html_memoria(e),
         "AVISOS_OPERACAO": _html_avisos_operacao(e),
@@ -722,6 +741,8 @@ def _render_markdown(e: _Entrega, plataforma: str) -> str:
                    f"- **IBS:** {_brl(t['vIBSSNtot'])}"]
         linhas += [f"- {nome}: {valor}" for nome, valor in _extras_do_total(e)]
         linhas += [f"- {e.contagem}", ""]
+    if e.observacoes:
+        linhas += [f"## {TITULO_OBSERVACOES}", ""] + [f"- {o}" for o in e.observacoes] + [""]
     if e.itens:
         linhas += ["## Itens da operação", "", "| Item | Situação | Base | Alíquota CBS | Alíquota IBS | CBS | IBS |",
                    "| --- | --- | ---: | ---: | ---: | ---: | ---: |"]
@@ -799,6 +820,7 @@ def _whatsapp_partes(e: _Entrega, nivel: int) -> list:
         if _dec(t.get("totalTributos")) is not None:
             partes.append((f"Total: {_brl(t['totalTributos'])}", False))
         partes.append((_corta(e.contagem, 80) + ".", False))
+    partes += [(o, True) for o in _whatsapp_observacoes(e, nivel)]
     if not e.nivel_operacao:
         for i in e.problemas[:2]:
             codigos = ", ".join(m["codigo"] for m in i["motivos"] if m["codigo"])
@@ -814,6 +836,20 @@ def _whatsapp_partes(e: _Entrega, nivel: int) -> list:
         partes.append((e.linha_versao_nova, False))
     partes += [(AVISO_FIXO, True), (brand.footer_text(REGRA, e.data_do_rodape), True)]
     return partes
+
+
+def _whatsapp_observacoes(e: _Entrega, nivel: int) -> list:
+    """Observações no resumo. Fazem parte do essencial: quanto maior o nível, mais curtas; nos níveis
+    apertados fica só a primeira, cortada, com o aviso de que há mais na página. A primeira nunca some."""
+    obs = e.observacoes
+    if not obs:
+        return []
+    if nivel == 0:
+        return list(obs)
+    if nivel == 1:
+        return [_corta(o, 150) for o in obs]
+    primeira = _corta(obs[0], 150 if nivel == 2 else 80)
+    return [primeira] + ([MAIS_OBSERVACOES] if len(obs) > 1 else [])
 
 
 def _juntar(partes: list) -> str:
@@ -840,6 +876,7 @@ def _render_whatsapp(e: _Entrega, plataforma: str) -> str:
         essencial += [(f"CBS: {_brl(e.total['vCBSSNtot'])}", True), (f"IBS: {_brl(e.total['vIBSSNtot'])}", True)]
     else:
         essencial.append((e.sem_total + ".", True))
+    essencial += [(o, True) for o in _whatsapp_observacoes(e, 3)]
     essencial += [(e.selo_curto, True)] if e.selo_curto else []
     essencial += [(AVISO_FIXO, True), ("CD2 Tech", True)]
     return _juntar(essencial)
