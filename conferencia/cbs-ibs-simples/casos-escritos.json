@@ -6258,6 +6258,273 @@
   }
  },
  {
+  "id": "item-com-erro-ao-lado-de-itens-calculados",
+  "grupo": "item",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2027-03-15",
+    "tpDoc": "55",
+    "CRT": "1",
+    "aliquotasEfetivas": {
+     "fatorR": true,
+     "impedimentoSublimite": false,
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363"
+     }
+    },
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     },
+     {
+      "numero": 2,
+      "cAtivSN": "01",
+      "cClassTrib": "999999",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     },
+     {
+      "numero": 3,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "-1.00",
+      "valorImpostoSeletivo": "abc"
+     },
+     {
+      "numero": 4,
+      "cAtivSN": "02",
+      "cClassTrib": "000001",
+      "baseCalculo": "250.50",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "item-que-nao-e-objeto-e-http-400",
+  "grupo": "item",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2027-03-15",
+    "tpDoc": "55",
+    "CRT": "1",
+    "aliquotasEfetivas": {
+     "fatorR": true,
+     "impedimentoSublimite": false,
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363"
+     }
+    },
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     },
+     5
+    ]
+   }
+  }
+ },
+ {
+  "id": "item-http-400-vence-o-422-da-operacao",
+  "grupo": "item",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "versao": "3.0.0",
+    "data": "2027-03-15",
+    "tpDoc": "xx",
+    "CRT": "1",
+    "aliquotasEfetivas": {
+     "fatorR": true,
+     "impedimentoSublimite": false,
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363"
+     }
+    },
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     },
+     "x"
+    ]
+   }
+  }
+ },
+ {
+  "id": "item-numero-em-texto-e-com-fracao",
+  "grupo": "item",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2027-03-15",
+    "tpDoc": "55",
+    "CRT": "1",
+    "aliquotasEfetivas": {
+     "fatorR": true,
+     "impedimentoSublimite": false,
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363"
+     }
+    },
+    "itens": [
+     {
+      "numero": " 7 ",
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     },
+     {
+      "numero": 9.9,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     },
+     {
+      "numero": "",
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     },
+     {
+      "numero": "null",
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
   "id": "erros-vsn-001",
   "grupo": "erro",
   "requisicao": {

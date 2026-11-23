@@ -743,8 +743,8 @@ class TestErrosDeAtividades(ComBase):
                  (datetime(2027, 3, 15, 12, 0, 0, 123000, tzinfo=timezone.utc), "2027-03-15T12:00:00.123Z"),
                  (datetime(2027, 3, 15, 12, 0, 0, 123456, tzinfo=timezone.utc), "2027-03-15T12:00:00.123456Z"))
         for agora, esperado in casos:
-            self.assertEqual(sb._instante(agora), esperado)
-        self.assertRegex(sb._instante(None), r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3}(\d{3})?)?Z$")
+            self.assertEqual(sb.instante(agora), esperado)
+        self.assertRegex(sb.instante(None), r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3}(\d{3})?)?Z$")
 
 
 # --- Nomenclatura (domain/service) --------------------------------------------------------

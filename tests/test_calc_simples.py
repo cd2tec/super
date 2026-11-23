@@ -1,8 +1,8 @@
-"""Testes do motor da skill cbs-ibs-simples (simples_motor.py), a parte da operação inteira.
+"""Testes do motor da skill cbs-ibs-simples (simples_motor.py): a operação e os itens.
 
 Conferem o motor contra as respostas gravadas da calculadora oficial do Simples Nacional (tag 1.0.2,
-base V0073): os casos do grupo `global` (validação da operação) e do grupo `erro` (catálogo VSN-).
-Os 72 casos do grupo `item` são da Tarefa 6.
+base V0073): os casos do grupo `global` (validação da operação), do grupo `item` (cálculo dos itens,
+par de alíquotas e totais) e do grupo `erro` (catálogo VSN-).
 
 As respostas oficiais foram gravadas chamando a calculadora em http://127.0.0.1:8082/api. Por isso o
 teste passa `base_url="http://127.0.0.1"` (esquema://host, sem porta: HttpUtils.getBaseURL), que entra
@@ -104,17 +104,15 @@ class OperacaoTest(ComBase):
     def test_nenhum_caso_global_chega_aos_itens(self):
         for caso in casos("global"):
             with self.subTest(caso["id"]):
-                try:
-                    status, _ = simples_motor.calcular(
-                        caso["requisicao"]["corpo"], self.base, BASE_URL_OFICIAL, agora=AGORA)
-                except NotImplementedError:
-                    self.fail("o caso global chegou ao processamento dos itens")
+                status, corpo = simples_motor.calcular(
+                    caso["requisicao"]["corpo"], self.base, BASE_URL_OFICIAL, agora=AGORA)
                 self.assertEqual(status, 422)
+                self.assertNotIn("objetos", corpo)
 
-    def test_operacao_valida_para_no_ponto_dos_itens(self):
-        with self.assertRaises(NotImplementedError) as contexto:
-            self.calcular(operacao())
-        self.assertEqual(str(contexto.exception), "itens: Tarefa 6")
+    def test_operacao_valida_chega_aos_itens(self):
+        status, corpo = self.calcular(operacao())
+        self.assertEqual(status, 200)
+        self.assertEqual(corpo["objetos"][0]["estadoItem"], "CALCULADO")
 
     def test_catalogo_bate_com_a_oficial(self):
         self.assertEqual(len(casos("erro")), 53)
@@ -221,7 +219,7 @@ class ContextoDaOperacaoTest(ComBase):
             "linha de alíquotas (true)"])
         ctx = self.contexto(operacao(tpDoc="91", CRT=None, opSimpNac="3", regApIBSCBSSN="2", regApTribSN="1"))
         self.assertEqual(ctx.avisos[-1], "regApIBSCBSSN 2 (excesso de sublimite) com regApTribSN 1: "
-                         "incoerente — quem excede o sublimite tem o ISS fora do Simples Nacional")
+                         "incoerente \u2014 quem excede o sublimite tem o ISS fora do Simples Nacional")
 
 
 class ValidacaoGlobalTest(ComBase):
@@ -245,8 +243,7 @@ class ValidacaoGlobalTest(ComBase):
         # aparada, e bissexto vale
         for texto in (" 2028-02-29 ", "2027-03-15\t"):
             with self.subTest(texto):
-                with self.assertRaises(NotImplementedError):
-                    self.calcular(operacao(data=texto))
+                self.assertEqual(self.calcular(operacao(data=texto))[0], 200)
 
     def test_data_fora_das_vigencias_nao_tem_documento(self):
         for texto in ("0000-01-01", "-0001-01-01", "2026-12-31"):
@@ -261,8 +258,7 @@ class ValidacaoGlobalTest(ComBase):
 
     def test_inteiro_tolerante_como_o_integer_value(self):
         # " 1" e "+1" valem; "1.0" e "01x" não
-        with self.assertRaises(NotImplementedError):
-            self.calcular(operacao(CRT=" +1"))
+        self.assertEqual(self.calcular(operacao(CRT=" +1"))[0], 200)
         self.assertEqual(self.erros(operacao(CRT="1.0"))[0][0], "VSN-016")
         self.assertEqual(self.erros(operacao(CRT="99999999999"))[0][0], "VSN-016")
 
@@ -277,14 +273,16 @@ class ValidacaoGlobalTest(ComBase):
         self.assertEqual(corpo["errors"][0]["detail"],
                          "Tipo de regime de apuração do IBS/CBS inválido, recebido: 'true' (esperado 1 ou 2).")
         self.assertEqual(self.erros(operacao(CRT=Decimal("1.0")))[0][0], "VSN-016")
-        with self.assertRaises(NotImplementedError):
-            self.calcular(operacao(CRT=1, tpDoc=55))
+        status, corpo = self.calcular(operacao(CRT=1, tpDoc=55))
+        self.assertEqual(status, 200)
+        self.assertEqual((corpo["oper"]["tpDoc"], corpo["oper"]["CRT"]), ("55", "1"))
 
     def test_vsn_039_so_quando_o_regime_calcula(self):
         self.assertEqual([e[0] for e in self.erros(operacao(aliquotasEfetivas=None))], ["VSN-039"])
         # SOMENTE_RECEITA: a fonte nem é consultada
-        with self.assertRaises(NotImplementedError):
-            self.calcular(operacao(tpRegimeIBSCBS="1", aliquotasEfetivas=None))
+        status, corpo = self.calcular(operacao(tpRegimeIBSCBS="1", aliquotasEfetivas=None))
+        self.assertEqual(status, 200)
+        self.assertNotIn("resolucaoAliquotas", corpo)
 
     def test_aliquota_fora_do_formato_na_ordem_dos_anexos(self):
         linha = copy.deepcopy(LINHA)
@@ -381,6 +379,192 @@ class CorpoIlegivelTest(ComBase):
     def test_campo_desconhecido_e_ignorado(self):
         status, _ = simples_motor.calcular({"naoExiste": {"a": [1]}}, self.base, BASE_URL_OFICIAL, agora=AGORA)
         self.assertEqual(status, 422)
+
+
+class ItensTest(ComBase):
+    """Os itens: classificação, atividade, par de alíquotas, a conta, os totais e o JSON da resposta."""
+
+    def conferir(self, caso):
+        status, corpo = simples_motor.calcular(caso["requisicao"]["corpo"], self.base, BASE_URL_OFICIAL, agora=AGORA)
+        self.assertEqual(receita_paridade.comparar(caso["resposta"], {"status": status, "corpo": corpo}, IGNORAR),
+                         [])
+        return corpo
+
+    def test_grupo_item_bate_com_a_oficial(self):
+        self.assertEqual(len(casos("item")), 76)
+        for caso in casos("item"):
+            with self.subTest(caso["id"]):
+                self.conferir(caso)
+
+    def test_ordem_dos_campos_e_a_do_java(self):
+        def chaves(a, b, caminho=""):
+            if isinstance(a, dict) and isinstance(b, dict):
+                self.assertEqual(list(b), list(a), caminho)
+                for chave in a:
+                    chaves(a[chave], b.get(chave), f"{caminho}/{chave}")
+            elif isinstance(a, list) and isinstance(b, list):
+                for i, (x, y) in enumerate(zip(a, b)):
+                    chaves(x, y, f"{caminho}/{i}")
+        for caso in casos("item"):
+            with self.subTest(caso["id"]):
+                _, corpo = simples_motor.calcular(caso["requisicao"]["corpo"], self.base, BASE_URL_OFICIAL,
+                                                  agora=AGORA)
+                chaves(caso["resposta"]["corpo"], corpo)
+
+    def test_exemplos_oficiais_batem(self):
+        exemplos = {c["id"]: c for c in casos("item") if c["id"] in ("exemplo-nfe", "exemplo-nfse")}
+        self.assertEqual(set(exemplos), {"exemplo-nfe", "exemplo-nfse"})
+        # o exemplo da NFS-e traz um NBS que não está na base V0073: a oficial responde VSN-050
+        esperado = {"exemplo-nfe": ("CALCULADO", []), "exemplo-nfse": ("INCONSISTENCIA_ENTRADA", ["VSN-050"])}
+        for id_, caso in exemplos.items():
+            with self.subTest(id_):
+                objeto = self.conferir(caso)["objetos"][0]
+                self.assertEqual((objeto["estadoItem"], [e["code"] for e in objeto.get("erros", [])]),
+                                 esperado[id_])
+
+    def test_item_com_erro_nao_derruba_os_outros(self):
+        caso = next(c for c in casos("item") if c["id"] == "item-com-erro-ao-lado-de-itens-calculados")
+        corpo = self.conferir(caso)
+        estados = {o["nObj"]: o["estadoItem"] for o in corpo["objetos"]}
+        self.assertEqual(estados, {1: "CALCULADO", 2: "INCONSISTENCIA_ENTRADA", 3: "INCONSISTENCIA_ENTRADA",
+                                   4: "CALCULADO"})
+        com_erro = corpo["objetos"][2]
+        self.assertEqual([e["code"] for e in com_erro["erros"]], ["VSN-002", "VSN-003"])
+        self.assertNotIn("tribCalc", com_erro)
+        # o total soma só os dois itens calculados
+        self.assertEqual(corpo["total"]["vRBSNtot"], "1250.50")
+
+    def test_total_e_a_soma_dos_valores_publicados(self):
+        pares = {"vRBSNtot": "vRBSNitem", "vBC": "vBC", "vIBSSNtot": "vIBSSN", "vIBSSNtotPendSusp": "vIBSPendSusp",
+                 "vCBSSNtot": "vCBSSN", "vCBSSNtotPendSusp": "vCBSPendSusp"}
+        conferidos = 0
+        for caso in casos("item"):
+            status, corpo = simples_motor.calcular(caso["requisicao"]["corpo"], self.base, BASE_URL_OFICIAL,
+                                                   agora=AGORA)
+            if status != 200 or "total" not in corpo:
+                continue
+            with self.subTest(caso["id"]):
+                tributos = [o["tribCalc"] for o in corpo["objetos"] if "tribCalc" in o]
+                for total, campo in pares.items():
+                    valores = [Decimal(t[campo]) for t in tributos if campo in t]
+                    if valores:
+                        self.assertEqual(Decimal(corpo["total"][total]), sum(valores), total)
+                    else:
+                        self.assertNotIn(total, corpo["total"])
+                for t in tributos:
+                    if "totalItem" in t:
+                        devidos = [Decimal(t[c]) for c in ("vIBSSN", "vCBSSN") if c in t]
+                        devidos += [Decimal(t["IS"]["valor"])] if "IS" in t else []
+                        self.assertEqual(Decimal(t["totalItem"]), sum(devidos))
+                conferidos += 1
+        self.assertGreater(conferidos, 50)
+
+    def test_objetos_em_ordem_de_numero_e_resolucao_na_ordem_de_entrada(self):
+        itens = [dict(ITEM, numero=9), dict(ITEM, numero=2), dict(ITEM, numero=5, cAtivSN="02")]
+        _, corpo = self.calcular(operacao(itens=itens))
+        self.assertEqual([o["nObj"] for o in corpo["objetos"]], [2, 5, 9])
+        self.assertEqual([r["numero"] for r in corpo["resolucaoAliquotas"]["itens"]], [9, 2, 5])
+
+    def test_memoria_de_calculo_no_formato_brasileiro(self):
+        # DecimalFormat("#,##0.00") e ("#,##0.00##") com os símbolos pt-BR, HALF_EVEN
+        self.assertEqual(simples_motor._moeda_br(Decimal("9999999999999.99")), "9.999.999.999.999,99")
+        self.assertEqual(simples_motor._moeda_br(Decimal("0")), "0,00")
+        self.assertEqual(simples_motor._moeda_br(None), "0,00")
+        self.assertEqual(simples_motor._percentual_br(Decimal("1.68393793783")), "1,6839")
+        self.assertEqual(simples_motor._percentual_br(Decimal("1234.5")), "1.234,50")
+        self.assertEqual(simples_motor._percentual_br(Decimal("0.00125")), "0,0012")
+
+
+class LeituraDoItemTest(ComBase):
+    """O item como o Jackson o lê (ItemSimplesUnificadoInput), com as respostas que a oficial deu."""
+
+    def detalhe(self, itens, **campos):
+        status, resposta = self.calcular(operacao(itens=itens, **campos))
+        self.assertEqual(status, 400)
+        self.assertEqual(resposta["title"], "Mensagem incompreensível")
+        return resposta["detail"]
+
+    def test_elemento_que_nao_e_objeto_e_400(self):
+        tipo = "br.gov.serpro.rtc.api.simplesnacional.model.input.ItemSimplesUnificadoInput"
+        construtor = f"JSON parse error: Cannot construct instance of `{tipo}` (although at least one Creator exists): "
+        self.assertEqual(self.detalhe([ITEM, 5]), construtor + "no int/Int-argument constructor/factory method to "
+                         "deserialize from Number value (5)")
+        self.assertEqual(self.detalhe(["x"]), construtor + "no String-argument constructor/factory method to "
+                         "deserialize from String value ('x')")
+        self.assertEqual(self.detalhe([True]), construtor + "no boolean/Boolean-argument constructor/factory method "
+                         "to deserialize from boolean value (true)")
+        self.assertEqual(self.detalhe([Decimal("1.5")]), construtor + "no double/Double-argument constructor/"
+                         "factory method to deserialize from Number value (1.5)")
+        self.assertEqual(self.detalhe([[1]]), f"JSON parse error: Cannot deserialize value of type `{tipo}` from "
+                         "Array value (token `JsonToken.START_ARRAY`)")
+        for vazio in ("", " "):
+            self.assertEqual(self.detalhe([vazio]), f'JSON parse error: Cannot coerce empty String ("") to `{tipo}` '
+                             "value (but could if coercion was enabled using `CoercionConfig`)")
+
+    def test_400_do_item_vence_o_422_da_operacao(self):
+        self.assertIn("ItemSimplesUnificadoInput", self.detalhe([5], id=None, tpDoc="xx"))
+
+    def test_elemento_nulo_vira_item_vazio(self):
+        _, corpo = self.calcular(operacao(itens=[None]))
+        objeto = corpo["objetos"][0]
+        self.assertEqual(objeto["nObj"], 1)
+        self.assertEqual([e["code"] for e in objeto["erros"]], ["VSN-010", "VSN-001", "VSN-003", "VSN-020"])
+
+    def test_numero_como_o_integer_do_jackson(self):
+        for bruto, lido in (("7", 7), (" +8 ", 8), (Decimal("9.9"), 9), (Decimal("-2.7"), -2), ("007", 7),
+                            ("\u0663", 3), ("0000000000012", 12)):
+            with self.subTest(bruto):
+                _, corpo = self.calcular(operacao(itens=[dict(ITEM, numero=bruto)]))
+                self.assertEqual(corpo["objetos"][0]["nObj"], lido)
+        for nulo in ("", " ", "null", " null "):
+            with self.subTest(nulo):
+                _, corpo = self.calcular(operacao(itens=[dict(ITEM, numero=nulo)]))
+                self.assertEqual(corpo["objetos"][0]["erros"][0]["code"], "VSN-010")
+
+    def test_numero_fora_do_contrato_e_400(self):
+        prefixo = "JSON parse error: Cannot deserialize value of type `java.lang.Integer` from "
+        casos_400 = {
+            True: prefixo + "Boolean value (token `JsonToken.VALUE_TRUE`)",
+            "abc": prefixo + 'String "abc": not a valid `java.lang.Integer` value',
+            " 2.5 ": prefixo + 'String "2.5": not a valid `java.lang.Integer` value',
+            "1_0": prefixo + 'String "1_0": not a valid `java.lang.Integer` value',
+            "NULL": prefixo + 'String "NULL": not a valid `java.lang.Integer` value',
+            "99999999999999999999": prefixo + 'String "99999999999999999999": not a valid `java.lang.Integer` value',
+            "-99999999999": prefixo + 'String "-99999999999": Overflow: numeric value (-99999999999) out of range '
+                                      "of `java.lang.Integer` (-2147483648 -2147483647)",
+            99999999999: "JSON parse error: Numeric value (99999999999) out of range of `int` "
+                         "(-2147483648 - 2147483647)",
+            Decimal("1e20"): "JSON parse error: Numeric value (1E+20) out of range of `int` (-2147483648 - 2147483647)",
+        }
+        for bruto, esperado in casos_400.items():
+            with self.subTest(bruto):
+                self.assertEqual(self.detalhe([dict(ITEM, numero=bruto)]), esperado)
+        self.assertEqual(self.detalhe([dict(ITEM, numero={})]),
+                         prefixo + "Object value (token `JsonToken.START_OBJECT`)")
+
+    def test_campo_de_texto_do_item_fora_do_contrato_e_400(self):
+        self.assertEqual(self.detalhe([dict(ITEM, cClassTrib={"a": 1})]),
+                         "JSON parse error: Cannot deserialize value of type `java.lang.String` from Object value "
+                         "(token `JsonToken.START_OBJECT`)")
+
+    def test_ncm_e_nbs_aceitam_os_dois_nomes_e_o_ultimo_vale(self):
+        _, corpo = self.calcular(operacao(itens=[dict(ITEM, NCM="x", ncm="12345678")]))
+        erro = corpo["objetos"][0]["erros"][0]
+        self.assertEqual((erro["code"], erro["pointer"]), ("VSN-049", "#/itens/0/ncm"))
+        _, corpo = self.calcular(operacao(itens=[dict(ITEM, nbs="101011100", NBS="1")]))
+        self.assertEqual(corpo["objetos"][0]["erros"][0]["code"], "VSN-051")
+
+
+class FonteTest(unittest.TestCase):
+    def test_sem_travessao_literal_nos_scripts_e_nos_testes(self):
+        # texto copiado do Java com U+2014 ou U+2013 fica escrito com o escape
+        arquivos = [SKILL / "scripts" / "simples_motor.py", SKILL / "scripts" / "simples_base.py",
+                    Path(__file__)]
+        for arquivo in arquivos:
+            with self.subTest(arquivo.name):
+                texto = arquivo.read_text(encoding="utf-8")
+                self.assertNotIn("\u2014", texto)
+                self.assertNotIn("\u2013", texto)
 
 
 if __name__ == "__main__":

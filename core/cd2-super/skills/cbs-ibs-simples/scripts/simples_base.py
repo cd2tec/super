@@ -829,7 +829,7 @@ class Base:
             detalhe_erro = detalhe
         return 400, {
             "type": f"{base}/errors/{caminho}", "title": titulo, "status": 400, "detail": detalhe,
-            "instance": instancia, "timestamp": _instante(agora),
+            "instance": instancia, "timestamp": instante(agora),
             "errors": [{"title": titulo, "pointer": f"#/{pointer}", "detail": detalhe_erro}],
         }
 
@@ -1120,7 +1120,7 @@ class Base:
             self.validar_nbs(nbs, id_classificacao, codigo, data, tributos)
 
 
-def _instante(agora) -> str:
+def instante(agora) -> str:
     """Instant.now() como o Jackson escreve (ISO_INSTANT: fração em 0, 3, 6 ou 9 dígitos)."""
     if agora is None:
         agora = datetime.now(timezone.utc)

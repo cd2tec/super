@@ -1,21 +1,24 @@
-"""Motor do cálculo da skill cbs-ibs-simples: a operação inteira.
+"""Motor do cálculo da skill cbs-ibs-simples: a operação e os itens.
 
-Port de CalculoSimplesUnificadoService (calculadora-rtc-simples-nacional, tag 1.0.2), na parte que vale
-para a operação como um todo, e de SimplesNacionalNaoAssistidoService (a linha de alíquotas vem no
-corpo). Também traz o catálogo de erros VSN- (CodigoValidacaoSimples) e o tratamento de erro da API
-(shared/exceptionhandler). O cálculo de cada item é da Tarefa 6, no mesmo arquivo.
+Port do endpoint não assistido da calculadora-rtc-simples-nacional (tag 1.0.2): CalculoSimplesUnificadoService
+e SimplesNacionalNaoAssistidoService (a linha de alíquotas vem no corpo), ProcessadorItemSimples,
+EscolhaParAliquotasService, SimplesNacionalCalculoService, ItemCollectorSimples, ValidacaoNomenclaturaAdapter,
+os modelos de saída e os serializers dos números. Também traz o catálogo de erros VSN-
+(CodigoValidacaoSimples) e o tratamento de erro da API (shared/exceptionhandler).
 
 Como a oficial, o motor não deduz, não corrige e não completa a entrada. Erro de validação sai na ordem
 em que o Java o produz. Mensagens, títulos e detalhes são os do Java, letra por letra; onde o Java monta
 a mensagem com `String.format`, o formato é o mesmo, com `%s` e `%d` trocados pelo valor. Só biblioteca
 padrão, Decimal para todo número.
 
-Fluxo de `calcular`, com o que cada passo guarda no `ContextoOperacao` que a Tarefa 6 recebe:
+Fluxo de `calcular`, com o que cada passo guarda no `ContextoOperacao` que os itens recebem:
   1. `_ler_corpo`: o JSON vira `DadosOperacao` (texto, como o Jackson entrega). Estrutura fora do
      contrato é HTTP 400 (HttpMessageNotReadableException).
   2. validação global (HTTP 422): campos globais, documento, regime, quantidade de itens.
   3. regime de apuração, fator de transição de compra governamental, linha de alíquotas, avisos.
-  4. `_processar_itens(contexto)`: o ponto onde a Tarefa 6 entra.
+  4. `_processar_itens(contexto)`: cada item, em sequência e na ordem de entrada (o Java usa threads),
+     e a resposta 200: `oper`, `resolucaoAliquotas`, `objetos` e `total`. Erro de item fica no próprio
+     item (estado e lista `erros`), nunca derruba a operação.
 """
 from __future__ import annotations
 
@@ -31,7 +34,8 @@ _AQUI = Path(__file__).resolve().parent
 if str(_AQUI) not in sys.path:
     sys.path.append(str(_AQUI))
 
-import simples_base  # noqa: E402  (precisa do caminho acima)
+import numeros  # noqa: E402  (precisa do caminho acima)
+import simples_base  # noqa: E402
 
 CAMINHO_NAO_ASSISTIDO = "/api/calculadora/observabilidade/simples-nacional/nao-assistido"  # com o /api do perfil offline
 CAMINHO_ERROS = "/calculadora/observabilidade/simples-nacional/erros"
@@ -584,7 +588,7 @@ def _corpo_422(erros, instancia, agora):
         "status": 422,
         "detail": f"O cálculo contém {len(erros)} erro(s).",
         "instance": instancia,
-        "timestamp": simples_base._instante(agora),
+        "timestamp": simples_base.instante(agora),
         "errors": list(erros),
     }
 
@@ -597,14 +601,14 @@ def _corpo_problema(status, titulo, caminho, detalhe, base_url, instancia, agora
         "status": status,
         "detail": detalhe,
         "instance": instancia,
-        "timestamp": simples_base._instante(agora),
+        "timestamp": simples_base.instante(agora),
     }
 
 
 # --- Leitura do corpo (o que o Jackson faz com OperacaoSimplesNaoAssistidaInput) -----------------
 # Campos de texto aceitam número e booleano (coerção de escalar); objeto e lista no lugar de texto, lista
 # ou registro são HTTP 400, com a mensagem do Jackson. Campo desconhecido é ignorado. O que o JSON traz
-# dentro de cada item de `itens` fica como veio: o formato do item é da Tarefa 6.
+# dentro de cada item de `itens` é lido por `_ler_item`, no mesmo estilo.
 
 _PACOTE_ENTRADA = "br.gov.serpro.rtc.api.simplesnacional.model.input."
 _T_OPERACAO = _PACOTE_ENTRADA + "OperacaoSimplesNaoAssistidaInput"
@@ -725,15 +729,108 @@ def _ler_registro(tipo, no):
 
 
 def _ler_itens(lista):
-    # Ponto de extensão da Tarefa 6: a leitura de cada item (ItemSimplesUnificadoInput) entra aqui.
-    return None if lista is None else list(lista)
+    # Lista de ItemSimplesUnificadoInput: cada elemento é um EntradaItem, ou None (elemento nulo)
+    return None if lista is None else [_ler_item(elemento) for elemento in lista]
+
+
+# --- Leitura de um item (ItemSimplesUnificadoInput) -------------------------------------------
+# `numero` é Integer, como o Jackson o lê: inteiro, número com fração (truncado), texto aparado com um
+# inteiro (vazio ou "null" é nulo); o resto é texto. `ncm` e `nbs` aceitam também `NCM` e `NBS`; com os
+# dois nomes no JSON, vale o último. Elemento que não é objeto é HTTP 400.
+
+_T_ITEM = _PACOTE_ENTRADA + "ItemSimplesUnificadoInput"
+_T_INTEGER = "java.lang.Integer"
+_INT_MIN, _INT_MAX = -(2 ** 31), 2 ** 31 - 1
+_LONG_MIN, _LONG_MAX = -(2 ** 63), 2 ** 63 - 1
+_FAIXA_INT = "(-2147483648 - 2147483647)"
+
+_CAMPOS_ITEM = {  # nome no JSON -> campo do EntradaItem
+    "numero": "numero", "cAtivSN": "c_ativ_sn", "cClassTrib": "c_class_trib", "nbs": "nbs", "NBS": "nbs",
+    "ncm": "ncm", "NCM": "ncm", "baseCalculo": "base_calculo", "valorImpostoSeletivo": "valor_imposto_seletivo",
+    "tribISSQN": "trib_issqn", "tpRetISSQN": "tp_ret_issqn", "tpBM": "tp_bm",
+}
+
+
+@dataclass(frozen=True)
+class EntradaItem:
+    """ItemSimplesUnificadoInput: o item como chegou (texto, e `numero` inteiro), None onde faltou."""
+    numero: int | None = None
+    c_ativ_sn: str | None = None
+    c_class_trib: str | None = None
+    nbs: str | None = None
+    ncm: str | None = None
+    base_calculo: str | None = None
+    valor_imposto_seletivo: str | None = None
+    trib_issqn: str | None = None
+    tp_ret_issqn: str | None = None
+    tp_bm: str | None = None
+
+
+def _ler_item(no):
+    if no is None:
+        return None
+    if not isinstance(no, dict):
+        if isinstance(no, list):
+            raise _CorpoIlegivel("JSON parse error: " + _de_valor(_T_ITEM, no))
+        if isinstance(no, str) and _aparar(no) == "":
+            raise _CorpoIlegivel(f'JSON parse error: Cannot coerce empty String ("") to `{_T_ITEM}` value (but '
+                                 "could if coercion was enabled using `CoercionConfig`)")
+        raise _CorpoIlegivel("JSON parse error: " + _sem_construtor(_T_ITEM, no))
+    lido = {}
+    for nome, valor in no.items():  # na ordem do JSON: o primeiro defeito vence, o último valor fica
+        campo = _CAMPOS_ITEM.get(nome)
+        if campo is None:
+            continue
+        lido[campo] = _ler_inteiro(valor) if campo == "numero" else _ler_texto(valor)
+    return EntradaItem(**lido)
+
+
+def _ler_inteiro(valor):
+    # NumberDeserializers.IntegerDeserializer
+    if valor is None:
+        return None
+    if isinstance(valor, bool) or isinstance(valor, (dict, list)):
+        raise _CorpoIlegivel("JSON parse error: " + _de_valor(_T_INTEGER, valor))
+    if isinstance(valor, (int, Decimal)):
+        if valor < _INT_MIN or valor > _INT_MAX:
+            raise _CorpoIlegivel(f"JSON parse error: Numeric value ({valor}) out of range of `int` {_FAIXA_INT}")
+        return int(valor)  # número com fração: truncado (ACCEPT_FLOAT_AS_INT)
+    texto = _aparar(valor)
+    if texto in ("", "null"):
+        return None
+    prefixo = f"JSON parse error: Cannot deserialize value of type `{_T_INTEGER}` from String \"{texto}\": "
+    if len(texto) > 9:  # Long.parseLong, e então a faixa do int
+        numero = _parse_inteiro_java(texto, _LONG_MIN, _LONG_MAX)
+        if numero is not None and not _INT_MIN <= numero <= _INT_MAX:
+            raise _CorpoIlegivel(prefixo + f"Overflow: numeric value ({texto}) out of range of "
+                                 f"`{_T_INTEGER}` (-2147483648 -2147483647)")
+    else:  # Integer.parseInt
+        numero = _parse_inteiro_java(texto, _INT_MIN, _INT_MAX)
+    if numero is None:
+        raise _CorpoIlegivel(prefixo + f"not a valid `{_T_INTEGER}` value")
+    return numero
+
+
+def _parse_inteiro_java(texto, minimo, maximo):
+    # Integer.parseInt / Long.parseLong: sinal opcional e dígitos Unicode (Character.digit); None se inválido
+    sinal, digitos = (texto[0], texto[1:]) if texto[:1] in ("+", "-") else ("+", texto)
+    if not digitos:
+        return None
+    numero = 0
+    for c in digitos:
+        valor = unicodedata.decimal(c, None)
+        if valor is None:
+            return None
+        numero = numero * 10 + valor
+    numero = -numero if sinal == "-" else numero
+    return numero if minimo <= numero <= maximo else None
 
 
 @dataclass(frozen=True)
 class DadosOperacao:
     """CalculoSimplesUnificadoService.DadosOperacaoSimples: a operação como chegou (texto ou None).
 
-    `itens` é a lista como veio do JSON (cada item ainda um dict, ou None), ou None se ausente.
+    `itens` é a lista de EntradaItem (None onde o elemento veio nulo), ou None se ausente.
     `aliquotas_efetivas` é o registro lido (dict com fatorR, impedimentoSublimite, anexoI..anexoV) ou None.
     """
     id: str | None
@@ -821,7 +918,7 @@ def _parse_data(valor):
     return DataOperacao(consulta, texto, ano)
 
 
-# --- Contexto que a Tarefa 6 recebe --------------------------------------------------------------
+# --- Contexto que os itens recebem ----------------------------------------------------------------
 
 @dataclass(frozen=True)
 class RegimeInformado:
@@ -875,8 +972,8 @@ class LinhaAliquotas:
 class ContextoOperacao:
     """Tudo o que `calcular` apurou da operação até o ponto de processar os itens.
 
-    É a interface da Tarefa 6 (CalculoSimplesUnificadoService.processar, passos 5 e 6):
-      dados          DadosOperacao, a operação como chegou (itens ainda crus)
+    É o que os itens usam (CalculoSimplesUnificadoService.processar, passos 5 e 6):
+      dados          DadosOperacao, a operação como chegou (itens já lidos como EntradaItem)
       data           DataOperacao (use `.consulta` nas consultas à base e `.texto` nas mensagens)
       tp_doc         int, o tpDoc convertido
       documento      linha de TIPO_DFE_CALCULO (vocabularioRegime, casasAliquotaCalculo, maximoItens,
@@ -1142,7 +1239,7 @@ def _avisos_da_operacao(vocabulario, regime, informado, linha):
                 "do indicador de impedimento por sublimite da linha de alíquotas "
                 f"({'true' if linha.impedimento_sublimite else 'false'})")
     if informado.reg_ap_ibscbssn == 2 and informado.reg_ap_tribsn == 1:
-        avisos.append("regApIBSCBSSN 2 (excesso de sublimite) com regApTribSN 1: incoerente — quem excede "
+        avisos.append("regApIBSCBSSN 2 (excesso de sublimite) com regApTribSN 1: incoerente \u2014 quem excede "
                       "o sublimite tem o ISS fora do Simples Nacional")
     return avisos
 
@@ -1269,10 +1366,976 @@ def _preparar_operacao(dados, base, base_url, instancia, agora):
         instancia=instancia, agora=agora)
 
 
-def _processar_itens(contexto):
-    # CalculoSimplesUnificadoService.processar, passos 5 e 6 (itens e saída): Tarefa 6.
-    # Recebe o ContextoOperacao e devolve (200, corpo). Erro de item sobe como _ErrosCalculo.
-    raise NotImplementedError("itens: Tarefa 6")
+def _processar_itens(ctx):
+    # CalculoSimplesUnificadoService.processar, passos 5 e 6. O Java processa os itens em paralelo e
+    # devolve na ordem de entrada; aqui a ordem é a mesma, em sequência.
+    fatos_operacao = _fatos_da_operacao(ctx.informado)
+    processados = []
+    for indice, bruto in enumerate(ctx.dados.itens):
+        item = _item_seguro(bruto)
+        resolvedor = (_Resolvedor(item, ctx, fatos_operacao) if ctx.calcula_tributos else _SEM_ALIQUOTAS)
+        processados.append(_processar_item(item, indice, ctx, resolvedor))
+
+    # objetos em ordem de nObj (nulo primeiro); ordenação estável, como Stream.sorted
+    objetos = sorted((p.objeto for p in processados), key=lambda o: (o.n_obj is not None, o.n_obj or 0))
+    resolucao = None
+    if ctx.calcula_tributos:
+        resolucao = _resolucao_json(ctx.linha, [p.resolucao for p in processados], ctx.avisos)
+
+    corpo = {"oper": _operacao_json(ctx.dados, ctx.regime["codigo"])}
+    if resolucao is not None:
+        corpo["resolucaoAliquotas"] = resolucao
+    corpo["objetos"] = [_objeto_json(o) for o in objetos]
+    total = _totalizar(objetos)
+    if total is not None:
+        corpo["total"] = total
+    return 200, corpo
+
+
+def _fatos_da_operacao(informado):
+    # CalculoSimplesUnificadoService.fatosDaOperacao: campos do documento que entram na escolha do par
+    fatos = {}
+    _colocar(fatos, _CAMPO_CRT, informado.crt)
+    _colocar(fatos, _CAMPO_REGAPIBSCBSSN, informado.reg_ap_ibscbssn)
+    _colocar(fatos, _CAMPO_REGAPTRIBSN, informado.reg_ap_tribsn)
+    return fatos
+
+
+def _colocar(fatos, campo, valor):
+    # CalculoSimplesUnificadoService.colocar
+    if valor is not None:
+        fatos[campo] = valor
+
+
+def _item_seguro(item):
+    # CalculoSimplesUnificadoService.itemSeguro: item nulo na lista vira item vazio
+    return item if item is not None else EntradaItem()
+
+
+# --- Estados, motivos e erros do item ----------------------------------------------------------
+
+CALCULADO = "CALCULADO"  # EstadoItemSimplesEnum
+NAO_CALCULADO = "NAO_CALCULADO"
+NAO_IMPLEMENTADO = "NAO_IMPLEMENTADO"
+INCONSISTENCIA_ENTRADA = "INCONSISTENCIA_ENTRADA"
+FALHA_TECNICA_ESTADO = "FALHA_TECNICA"
+
+# MotivoNaoCalculoSimplesEnum: código e descrição base (com %s onde o Java formata)
+_MOTIVOS_NAO_CALCULO = {
+    "REGIME_SOMENTE_RECEITA": (
+        "O optante apura o IBS e a CBS pelo regime regular, fora do Simples Nacional; o item leva ao Simples "
+        "apenas a receita bruta."),
+    "CATIVSN_AUSENTE": (
+        "O código de atividade do Simples Nacional (cAtivSN) não foi informado; sem ele o IBS e a CBS do item "
+        "não são calculados (NT 2026.005, §5.3.3)."),
+    "CATIVSN_DESCONHECIDO": (
+        "O código de atividade '%s' não existe ou não está vigente na data do fato gerador; o IBS e a CBS do "
+        "item não são calculados."),
+    "CATIVSN_INADMISSIVEL_NO_DOCUMENTO": (
+        "A atividade '%s' não é admitida no tipo de documento %s (tpDoc %s); o IBS e a CBS do item não são "
+        "calculados."),
+    "ANEXO_SEM_ALIQUOTA_CBS": (
+        "A Tabela de Alíquotas Efetivas do Simples Nacional não traz a alíquota de CBS do Anexo %s para o "
+        "contribuinte no período; o IBS e a CBS do item não são calculados."),
+}
+
+
+def _motivo(codigo, *parametros):
+    # MotivoNaoCalculoSimplesEnum.motivo: {codigo, descricao}, com os %s trocados pelos parâmetros
+    descricao = _MOTIVOS_NAO_CALCULO[codigo]
+    if parametros:
+        descricao = descricao % tuple(_s(p) if p is None or isinstance(p, str) else str(p) for p in parametros)
+    return {"codigo": codigo, "descricao": descricao}
+
+
+class _ColetorItem:
+    """ItemCollectorSimples: erros do item (RFC 7807) e o estado que eles dão ao item."""
+
+    def __init__(self, indice, base_url):
+        self.indice = indice
+        self.base_url = base_url
+        self.estado = CALCULADO
+        self.erros = []
+
+    def erro(self, codigo, campo, detalhe):
+        # addErroValidacao: campo relativo ao item (None aponta o item)
+        self.erro_no_ponteiro(codigo, self._ponteiro(campo), detalhe)
+
+    def erro_no_ponteiro(self, codigo, ponteiro, detalhe):
+        # addErroValidacaoNoPonteiro: o primeiro erro leva o item a INCONSISTENCIA_ENTRADA
+        if self.estado == CALCULADO:
+            self.estado = INCONSISTENCIA_ENTRADA
+        self._acumular(codigo, ponteiro, detalhe)
+
+    def nao_implementado(self, codigo, campo, detalhe):
+        # addNaoImplementado: o estado vale sempre
+        self.estado = NAO_IMPLEMENTADO
+        self._acumular(codigo, self._ponteiro(campo), detalhe)
+
+    def falha_tecnica(self, mensagem):
+        # addFalhaTecnica: VSN-999 no próprio item, com a mensagem da exceção
+        self.estado = FALHA_TECNICA_ESTADO
+        self._acumular(FALHA_TECNICA, f"#/itens/{self.indice}", mensagem)
+
+    def tem_erros(self):
+        return bool(self.erros)
+
+    def _ponteiro(self, campo):
+        return f"#/itens/{self.indice}" if campo is None else f"#/itens/{self.indice}/{campo}"
+
+    def _acumular(self, codigo, ponteiro, detalhe):
+        # ErroDetalhe, com NON_NULL: detalhe nulo sai do JSON
+        erro = {"type": f"{self.base_url}{CAMINHO_ERROS}?codigo={codigo}", "title": CODIGOS[codigo]["titulo"],
+                "code": codigo, "pointer": ponteiro}
+        if detalhe is not None:
+            erro["detail"] = detalhe
+        self.erros.append(erro)
+
+
+class _FalhaTecnica(Exception):
+    """RuntimeException fora das críticas conhecidas: vira VSN-999 no item, com esta mensagem."""
+
+
+# --- Resultado do item (ProcessadorItemSimples, SimplesNacionalCalculoService) ------------------
+
+@dataclass(frozen=True)
+class Tributos:
+    """TributosSimplesDomain: valores exatos (Decimal) ou None; None sai do JSON (NON_NULL)."""
+    v_rbsn_item: Decimal
+    tp_rbsn: int
+    tp_rbsn_descricao: str
+    v_bc: Decimal | None = None
+    p_ibssn: Decimal | None = None
+    v_ibssn: Decimal | None = None
+    v_ibs_pend_susp: Decimal | None = None
+    p_cbssn: Decimal | None = None
+    v_cbssn: Decimal | None = None
+    v_cbs_pend_susp: Decimal | None = None
+    imposto_seletivo: Decimal | None = None
+    total_item: Decimal | None = None
+    memoria_cbs: str | None = None
+    memoria_ibs: str | None = None
+
+
+@dataclass(frozen=True)
+class Objeto:
+    """ObjetoSimplesDomain: nObj, estado, motivo (só no NAO_CALCULADO), tributos e erros."""
+    n_obj: int | None
+    estado: str
+    motivo: dict | None = None
+    trib_calc: Tributos | None = None
+    erros: list | None = None
+
+
+@dataclass(frozen=True)
+class ResolucaoItem:
+    """ResolucaoAliquotaItemDomain: a escolha do par do item, para o bloco resolucaoAliquotas."""
+    numero: int | None
+    c_ativ_sn: str | None
+    anexo: str | None
+    tipo_aliquota: str | None
+    regra: str | None
+    p_ibssn: Decimal | None
+    p_cbssn: Decimal | None
+    motivo: str
+    avisos: tuple = ()
+
+
+@dataclass(frozen=True)
+class AliquotasItem:
+    """ProcessadorItemSimples.AliquotasItemSimples: o par do cálculo (pontos percentuais) e a resolução."""
+    p_ibssn: Decimal | None
+    p_cbssn: Decimal | None
+    nao_calcular: bool
+    resolucao: ResolucaoItem | None
+
+
+@dataclass(frozen=True)
+class AtividadeItem:
+    """ProcessadorItemSimples.AtividadeItemSimples: cAtivSN normalizado, linha vigente e admissão no tpDoc."""
+    c_ativ_sn: str | None
+    atividade: dict | None
+    admissivel: bool
+
+    def valida(self):
+        return self.atividade is not None and self.admissivel
+
+
+@dataclass(frozen=True)
+class ItemProcessado:
+    """ProcessadorItemSimples.ItemProcessadoSimples."""
+    objeto: Objeto
+    resolucao: ResolucaoItem | None
+
+
+# --- Processamento de um item (ProcessadorItemSimples) ----------------------------------------
+
+_CAMPO_CCLASSTRIB = "cClassTrib"
+_UM_DIGITO = re.compile(r"[0-9]")  # \d do java.util.regex, que é só ASCII
+_FORMATO_VALOR = re.compile(r"[0-9]{1,13}(\.[0-9]{1,2})?")  # 13v2
+_DESCRICAO_FORMATO_VALOR = ("até 13 dígitos inteiros e até 2 casas decimais, sem notação científica "
+                            "(ex.: 1000.00)")
+
+
+def _processar_item(item, indice, ctx, resolvedor):
+    # ProcessadorItemSimples.processarItem: erros de validação ficam no próprio item, nunca na operação
+    coletor = _ColetorItem(indice, ctx.base_url)
+    data = ctx.data.consulta
+
+    n_obj = item.numero
+    if n_obj is None:
+        coletor.erro(NUMERO_AUSENTE, "numero", "O número do item é obrigatório.")
+
+    # 0. Prioridade máxima: cClassTrib ainda sem tratamento na calculadora (VSN-027).
+    if _c_class_trib_nao_implementado(item.c_class_trib, ctx, coletor):
+        return ItemProcessado(Objeto(n_obj if n_obj is not None else indice + 1, coletor.estado,
+                                     erros=list(coletor.erros)), resolvedor.nao_avaliado())
+
+    # NCM zero vale como ausente só no DF-e que o permite
+    ncm = None if ctx.permite_ncm_zero and item.ncm in ("00", "00000000") else item.ncm
+
+    # 1. Insumos monetários; validação estrutural de NCM/NBS depois da base.
+    base_calculo = _validar_decimal(item.base_calculo, coletor, "baseCalculo", BASE_AUSENTE, BASE_INVALIDA)
+    estrutura_valida = _validar_estrutural(ncm, item.nbs, ctx, coletor)
+    if ctx.documento["admiteImpostoSeletivo"] is True:
+        valor_is = _validar_decimal(item.valor_imposto_seletivo, coletor, "valorImpostoSeletivo", IS_INVALIDO,
+                                    IS_INVALIDO)
+    else:
+        valor_is = _validar_imposto_seletivo_nao_admitido(item.valor_imposto_seletivo, coletor)
+
+    # 2. Tipo de receita bruta pelo cClassTrib, e a nomenclatura pela classificação.
+    classificacao, tipo_receita = _resolver_tipo_receita_bruta(item.c_class_trib, ctx, coletor)
+    _validar_por_classificacao(ncm, item.nbs, ctx, classificacao, estrutura_valida, coletor)
+
+    calcula_tributos = ctx.regime["calculaTributos"] is not False
+    atividade = AtividadeItem(None, None, False)
+    aliquotas = AliquotasItem(None, None, False, None)
+    if calcula_tributos:
+        # 3. cAtivSN: inválido não é erro, leva a NAO_CALCULADO.
+        atividade = _validar_c_ativ_sn(item.c_ativ_sn, tipo_receita, ctx, coletor)
+        # 4. Alíquotas exigidas só quando o cálculo as usa.
+        cbs_exigida = (atividade.valida() and tipo_receita is not None
+                       and tipo_receita["exigeAliquota"] is True)
+        ibs_exigida = cbs_exigida and ctx.regime["geraIbs"] is True
+        aliquotas = resolvedor.resolver(atividade, cbs_exigida, ibs_exigida, coletor)
+
+    # 5. Com erro de validação, não calcula.
+    if coletor.tem_erros():
+        return ItemProcessado(Objeto(n_obj if n_obj is not None else indice + 1, coletor.estado,
+                                     erros=list(coletor.erros)), aliquotas.resolucao)
+
+    # 6. Cálculo, com tudo resolvido.
+    motivo_nao_calculo = _motivo_nao_calculo(atividade, aliquotas, ctx) if calcula_tributos else None
+    try:
+        estado, motivo, tributos = _calcular_item(
+            ctx.regime, tipo_receita, motivo_nao_calculo, base_calculo, valor_is, aliquotas.p_ibssn,
+            aliquotas.p_cbssn, ctx.tp_ente_gov, ctx.fator_transicao, ctx.documento["casasAliquotaCalculo"])
+    except _FalhaTecnica as erro:
+        coletor.falha_tecnica(str(erro))
+        return ItemProcessado(Objeto(n_obj if n_obj is not None else indice + 1, coletor.estado,
+                                     erros=list(coletor.erros)), aliquotas.resolucao)
+    return ItemProcessado(Objeto(n_obj, estado, motivo, tributos), aliquotas.resolucao)
+
+
+def _motivo_nao_calculo(atividade, aliquotas, ctx):
+    # ProcessadorItemSimples.motivoNaoCalculo: None quando o item é calculável
+    if atividade.c_ativ_sn is None:
+        return _motivo("CATIVSN_AUSENTE")
+    if atividade.atividade is None:
+        return _motivo("CATIVSN_DESCONHECIDO", atividade.c_ativ_sn)
+    if not atividade.admissivel:
+        documento = ctx.sigla_dfe if ctx.sigla_dfe is not None else "informado"
+        return _motivo("CATIVSN_INADMISSIVEL_NO_DOCUMENTO", atividade.c_ativ_sn, documento, ctx.tp_doc)
+    if aliquotas.nao_calcular:
+        anexo = aliquotas.resolucao.anexo if aliquotas.resolucao is not None else None
+        return _motivo("ANEXO_SEM_ALIQUOTA_CBS", anexo if anexo is not None else "aplicado")
+    return None
+
+
+def _normalizar_c_ativ_sn(c_ativ_sn, completar_zero):
+    # ProcessadorItemSimples.normalizarCAtivSN: aparado, "7" vira "07"; None quando ausente ou em branco
+    if not _informado(c_ativ_sn):
+        return None
+    codigo = _aparar(c_ativ_sn)
+    return "0" + codigo if completar_zero and _UM_DIGITO.fullmatch(codigo) else codigo
+
+
+def _c_class_trib_nao_implementado(c_class_trib, ctx, coletor):
+    # ProcessadorItemSimples.cClassTribNaoImplementado: a primeira consulta de banco do item
+    if not _informado(c_class_trib):
+        return False
+    codigo = _aparar(c_class_trib)
+    if ctx.base.contar_tratamentos_nao_implementados(codigo, ctx.data.consulta) == 0:
+        return False
+    coletor.nao_implementado(
+        CCLASSTRIB_NAO_IMPLEMENTADO, _CAMPO_CCLASSTRIB,
+        f"A classificação tributária '{codigo}' ainda não possui tratamento implementado no cálculo do "
+        f"Simples Nacional na data '{ctx.data.texto}'. Essa funcionalidade está prevista no roadmap e será "
+        "disponibilizada em versão futura.")
+    return True
+
+
+def _resolver_tipo_receita_bruta(c_class_trib, ctx, coletor):
+    # ProcessadorItemSimples.resolverTipoReceitaBruta: devolve (classificação, tipo de receita) ou
+    # (None, None) quando a classificação está ausente, desconhecida ou incompatível com o tpDoc
+    if not _informado(c_class_trib):
+        coletor.erro(CCLASSTRIB_AUSENTE, _CAMPO_CCLASSTRIB,
+                     "O código de classificação tributária (cClassTrib) é obrigatório e não foi informado.")
+        return None, None
+    codigo = _aparar(c_class_trib)
+    data = ctx.data.consulta
+    vigentes = ctx.base.classificacao(codigo, data)
+    if not vigentes:
+        coletor.erro(CCLASSTRIB_DESCONHECIDO, _CAMPO_CCLASSTRIB,
+                     f"O cClassTrib '{codigo}' não existe ou não está vigente na data '{ctx.data.texto}': "
+                     "o tpRBSN não pôde ser determinado.")
+        return None, None
+    classificacao = vigentes[0]
+    if ctx.base.contar_vinculos_classificacao_tp_doc(codigo, ctx.tp_doc, data) == 0:
+        coletor.erro(CCLASSTRIB_INCOMPATIVEL_TPDOC, _CAMPO_CCLASSTRIB,
+                     f"O cClassTrib '{codigo}' não é admissível para o tipo de documento fiscal {ctx.tp_doc}.")
+        return None, None
+    tp_rbsn = classificacao["tpRBSN"]
+    tipo_receita = ctx.base.tipo_receita_bruta(tp_rbsn, data, ctx.vocabulario)
+    if tipo_receita is None:
+        coletor.erro(PARAMETRIZACAO_INDISPONIVEL, _CAMPO_CCLASSTRIB,
+                     f"Não há parametrização de efeito vigente para o tipo de receita bruta tpRBSN={tp_rbsn} "
+                     f"na data '{ctx.data.texto}'.")
+    return classificacao, tipo_receita
+
+
+def _validar_c_ativ_sn(c_ativ_sn, tipo_receita, ctx, coletor):
+    # ProcessadorItemSimples.validarCAtivSN: só o VSN-023 é erro; o resto leva a NAO_CALCULADO
+    codigo = _normalizar_c_ativ_sn(c_ativ_sn, True)
+    if codigo is None:
+        return AtividadeItem(None, None, False)
+    data = ctx.data.consulta
+    atividades = ctx.base.atividades_por_c_ativ_sn(codigo, data)
+    if not atividades:
+        return AtividadeItem(codigo, None, False)
+    atividade = atividades[0]
+    if ctx.base.contar_vinculos_atividade_tp_doc(atividade["id"], ctx.tp_doc, data) == 0:
+        return AtividadeItem(codigo, atividade, False)
+    if (atividade["naoTributavel"] is True and tipo_receita is not None
+            and tipo_receita["vedadoNaoTributavel"] is True):
+        coletor.erro(CATIVSN_INCOMPATIVEL_CCLASSTRIB, "cAtivSN",
+                     f"O código de atividade '{codigo}' (Operações não Tributáveis) é incompatível com "
+                     f"cClassTrib de tpRBSN={tipo_receita['codigo']}.")
+    return AtividadeItem(codigo, atividade, True)
+
+
+def _validar_decimal(valor, coletor, campo, codigo_ausente, codigo_invalido):
+    # ProcessadorItemSimples.validarDecimal: valor monetário obrigatório, 13v2, não negativo
+    if not _informado(valor):
+        coletor.erro(codigo_ausente, campo, "O campo é obrigatório e não foi informado.")
+        return None
+    return _converter_no_formato(valor, _FORMATO_VALOR, _DESCRICAO_FORMATO_VALOR, coletor, campo, codigo_invalido)
+
+
+def _validar_imposto_seletivo_nao_admitido(valor, coletor):
+    # ProcessadorItemSimples.validarImpostoSeletivoNaoAdmitido: ausente ou zero; devolve sempre None
+    if not _informado(valor):
+        return None
+    convertido = _converter_no_formato(valor, _FORMATO_VALOR, _DESCRICAO_FORMATO_VALOR, coletor,
+                                       "valorImpostoSeletivo", IS_INVALIDO)
+    if convertido is not None and not convertido.is_zero():
+        coletor.erro(IS_NAO_ADMITIDO, "valorImpostoSeletivo",
+                     "O documento não tem Imposto Seletivo: o valor deve ser zero ou não ser informado, "
+                     f"recebido: '{valor}'.")
+    return None
+
+
+def _converter_no_formato(valor, formato, descricao_formato, coletor, campo, codigo_invalido):
+    # ProcessadorItemSimples.converterNoFormato: o formato é conferido antes da conversão
+    texto = _aparar(valor)
+    if formato.fullmatch(texto):
+        return Decimal(texto)
+    if texto.startswith("-") and formato.fullmatch(texto[1:]):
+        coletor.erro(codigo_invalido, campo, f"O valor não pode ser negativo, recebido: '{valor}'.")
+    else:
+        coletor.erro(codigo_invalido, campo,
+                     f"O valor não é um número decimal válido, recebido: '{valor}'. Informe {descricao_formato}.")
+    return None
+
+
+# --- Nomenclatura do item (ValidacaoNomenclaturaAdapter) ----------------------------------------
+
+_CRITICAS_NOMENCLATURA = (  # exceção conhecida -> (código, campo); campo "?" é decidido pelo valor
+    (simples_base.NcmNbsSimultaneasException, NCM_NBS_SIMULTANEOS, "ncm"),
+    (simples_base.NcmNaoEncontradaException, NCM_NAO_ENCONTRADO, "ncm"),
+    (simples_base.NbsNaoEncontradaException, NBS_NAO_ENCONTRADO, "nbs"),
+    (simples_base.NcmCompletoNaoInformadoException, NCM_INCOMPLETO, "ncm"),
+    (simples_base.NbsCompletoNaoInformadoException, NBS_INCOMPLETO, "nbs"),
+    (simples_base.NomenclaturaObrigatoriaNaoInformadaException, NOMENCLATURA_OBRIGATORIA, None),
+    (simples_base.NomenclaturaIncompativelTipoDfeException, NOMENCLATURA_INCOMPATIVEL, "?"),
+    (simples_base.NomenclaturaNaoPermitidaTipoDfeException, NOMENCLATURA_NAO_PERMITIDA, None),
+    (simples_base.NcmNaoVinculadaException, NCM_NAO_APLICAVEL, "ncm"),
+    (simples_base.NbsNaoVinculadaException, NBS_NAO_APLICAVEL, "nbs"),
+)
+# Exceções que a oficial também lança aqui e não traduz: viram VSN-999
+_FALHAS_NOMENCLATURA = (simples_base.ValidacaoException, simples_base.EntidadeNaoEncontradaException,
+                        simples_base.ResultadoNaoUnico, _FalhaTecnica)
+
+
+class _FormatoNomenclaturaInvalido(Exception):
+    """ValidacaoNomenclaturaAdapter.FormatoNomenclaturaInvalidoException."""
+
+    def __init__(self, campo):
+        super().__init__(f"O {campo.upper()} deve conter exclusivamente {8 if campo == 'ncm' else 9} dígitos "
+                         "ASCII, sem espaços ou símbolos.")
+        self.campo = campo
+
+
+_NCM_FORMATO = re.compile(r"[0-9]{8}")
+_NBS_FORMATO = re.compile(r"[0-9]{9}")
+
+
+def _validar_estrutural(ncm, nbs, ctx, coletor):
+    # ValidacaoNomenclaturaAdapter.validarEstrutural
+    try:
+        _validar_ncm_nbs(ncm, nbs, ctx)
+        return True
+    except (_FormatoNomenclaturaInvalido,) + _FALHAS_NOMENCLATURA as erro:
+        _registrar(erro, ncm, nbs, coletor)
+        return False
+
+
+def _validar_ncm_nbs(ncm, nbs, ctx):
+    # ValidacaoNomenclaturaAdapter.validarNcmNbs (vazio = "" ou nulo, sem aparar)
+    if ncm and nbs:
+        raise simples_base.NcmNbsSimultaneasException()
+    if ncm and not _NCM_FORMATO.fullmatch(ncm):
+        raise _FormatoNomenclaturaInvalido("ncm")
+    if nbs and not _NBS_FORMATO.fullmatch(nbs):
+        raise _FormatoNomenclaturaInvalido("nbs")
+    if ncm and not ctx.base.existe_ncm(ncm, ctx.data.consulta):
+        raise simples_base.NcmNaoEncontradaException(ncm, ctx.data.texto)
+    if nbs and not ctx.base.existe_nbs(nbs, ctx.data.consulta):
+        raise simples_base.NbsNaoEncontradaException(nbs, ctx.data.texto)
+
+
+def _validar_por_classificacao(ncm, nbs, ctx, classificacao, estrutura_valida, coletor):
+    # ValidacaoNomenclaturaAdapter.validarPorClassificacao: só sem erro anterior e com classificação
+    if not estrutura_valida or coletor.tem_erros() or classificacao is None:
+        return
+    try:
+        if ctx.sigla_dfe is None:
+            raise _FalhaTecnica("Sigla TIPO_DFE ausente para o documento habilitado na data")
+        ctx.base.validar_nomenclatura(ctx.sigla_dfe, classificacao["id"], classificacao["codigo"], ncm, nbs,
+                                      ctx.data.consulta, "CBS e IBS", simples_base.MODO_PERMISSIVO)
+    except _FALHAS_NOMENCLATURA as erro:
+        _registrar(erro, ncm, nbs, coletor)
+
+
+def _registrar(erro, ncm, nbs, coletor):
+    # ValidacaoNomenclaturaAdapter.registrar e traduzirErroConhecido
+    if isinstance(erro, _FormatoNomenclaturaInvalido):
+        coletor.erro(NOMENCLATURA_FORMATO_INVALIDO, erro.campo, str(erro))
+        return
+    for classe, codigo, campo in _CRITICAS_NOMENCLATURA:
+        if isinstance(erro, classe):
+            if campo == "?":
+                campo = "ncm" if ncm else "nbs" if nbs else None
+            coletor.erro(codigo, campo, str(erro))
+            return
+    coletor.falha_tecnica(str(erro))
+
+
+# --- Alíquotas do item: o par escolhido na linha (CalculoSimplesUnificadoService.resolvedor) -------
+
+# Nomes dos campos no contrato, os mesmos da coluna SIPA_CAMPO (EscolhaParAliquotasService)
+_CAMPO_CRT = "CRT"
+_CAMPO_REGAPIBSCBSSN = "regApIBSCBSSN"
+_CAMPO_REGAPTRIBSN = "regApTribSN"
+_CAMPO_TRIBISSQN = "tribISSQN"
+_CAMPO_TPRETISSQN = "tpRetISSQN"
+_CAMPO_TPBM = "tpBM"
+
+
+class _SemAliquotas:
+    """CalculoSimplesUnificadoService.SEM_ALIQUOTAS: regime que não calcula tributos."""
+
+    @staticmethod
+    def resolver(atividade, cbs_exigida, ibs_exigida, coletor):
+        return AliquotasItem(None, None, False, None)
+
+    @staticmethod
+    def nao_avaliado():
+        return None
+
+
+_SEM_ALIQUOTAS = _SemAliquotas()
+
+
+class _Resolvedor:
+    """CalculoSimplesUnificadoService.resolvedor: campos do ISS, escolha do par e exigência das alíquotas."""
+
+    def __init__(self, item, ctx, fatos_operacao):
+        self.item = item
+        self.ctx = ctx
+        self.linha = ctx.linha
+        self.fatos_operacao = fatos_operacao
+
+    def resolver(self, atividade, cbs_exigida, ibs_exigida, coletor):
+        c_ativ_sn = atividade.c_ativ_sn
+        if atividade.atividade is None:
+            return self._sem_par(c_ativ_sn, "ATIVIDADE_DESCONHECIDA")
+
+        avisos = []
+        fatos = dict(self.fatos_operacao)
+        if atividade.admissivel:
+            iss = _avaliar_campos_iss(self.ctx.vocabulario, atividade.atividade, self.item, coletor)
+            avisos.extend(iss.avisos)
+            _colocar(fatos, _CAMPO_TRIBISSQN, iss.trib_issqn)
+            _colocar(fatos, _CAMPO_TPRETISSQN, iss.tp_ret_issqn)
+            _colocar(fatos, _CAMPO_TPBM, iss.tp_bm)
+
+        escolha = _escolher(atividade.atividade, atividade.admissivel, self.linha, fatos, self.ctx.situacoes_iss)
+        if escolha.motivo == "FATOR_R_AUSENTE":
+            coletor.erro_no_ponteiro(FATOR_R_AUSENTE, self._ponteiro_linha("fatorR", coletor),
+                                     f"O fatorR é exigido: a atividade {_s(c_ativ_sn)} é sujeita ao fator \"r\" "
+                                     "(Anexo III ou V).")
+        if escolha.par_sem_redistribuicao_ausente:
+            avisos.append(_aviso_par_sem_redistribuicao_ausente(escolha.anexo))
+
+        par = escolha.par
+        p_cbs = None if par is None else par.p_cbssn
+        p_ibs = None if par is None else par.p_ibssn
+        nao_calcular = False
+        if escolha.caminho_par is not None:
+            if self.linha.origem == "TABELA_ALIQUOTAS_EFETIVAS" and p_cbs is None:
+                nao_calcular = True  # dado inconsistente na tabela do assistido: o item não é calculado
+            else:
+                self._exigir(cbs_exigida, p_cbs, ALIQUOTA_CBS_AUSENTE, "pCBSSN", escolha, coletor)
+                self._exigir(ibs_exigida, p_ibs, ALIQUOTA_IBS_AUSENTE, "pIBSSN", escolha, coletor)
+
+        return AliquotasItem(p_ibs, p_cbs, nao_calcular, ResolucaoItem(
+            self.item.numero, c_ativ_sn, escolha.anexo, escolha.tipo_aliquota, escolha.regra, p_ibs, p_cbs,
+            escolha.motivo, tuple(avisos)))
+
+    def nao_avaliado(self):
+        return self._sem_par(_normalizar_c_ativ_sn(self.item.c_ativ_sn, True), "ITEM_NAO_IMPLEMENTADO").resolucao
+
+    def _sem_par(self, c_ativ_sn, motivo):
+        return AliquotasItem(None, None, False, ResolucaoItem(
+            self.item.numero, c_ativ_sn, None, None, None, None, None, motivo))
+
+    def _exigir(self, exigida, aliquota, codigo, campo, escolha, coletor):
+        # alíquota exigida e ausente no par escolhido: erro do item, com o caminho do par
+        if not exigida or aliquota is not None:
+            return
+        par = "sem" if (escolha.tipo_aliquota == "SEM_REDISTRIBUICAO"
+                        and not escolha.par_sem_redistribuicao_ausente) else "com"
+        if escolha.tipo_aliquota == "PAR_UNICO":
+            detalhe = (f"A alíquota {campo} do anexo {_s(escolha.anexo)} é exigida para o cálculo do item e não "
+                       "está na linha de alíquotas.")
+        else:
+            detalhe = (f"A alíquota {campo} do anexo {_s(escolha.anexo)} (par {par} redistribuição do ISS, regra "
+                       f"{_s(escolha.regra)}) é exigida para o cálculo do item e não está na linha de alíquotas.")
+        coletor.erro_no_ponteiro(codigo, self._ponteiro_linha(escolha.caminho_par + "/" + campo, coletor), detalhe)
+
+    def _ponteiro_linha(self, caminho, coletor):
+        # dentro de aliquotasEfetivas quando a linha veio da requisição; no cAtivSN do item quando veio da
+        # Tabela de Alíquotas Efetivas (assistido)
+        if self.linha.origem == "REQUISICAO":
+            return "#/" + _RAIZ_ALIQUOTAS + "/" + caminho
+        return f"#/itens/{coletor.indice}/cAtivSN"
+
+
+# --- Campos do ISS e escolha do par (EscolhaParAliquotasService) -------------------------------
+
+_DOMINIO_TRIBISSQN = frozenset({1, 2, 3, 4})
+_DOMINIO_TPRETISSQN = frozenset({1, 2, 3})
+_DOMINIO_TPBM = frozenset({1, 2, 3, 4})
+_TRIBUTAVEL = 1  # tribISSQN 1: operação tributável
+_ISENCAO = 1  # tpBM 1: isenção
+_RETIDO = frozenset({2, 3})  # tpRetISSQN retido pelo tomador ou pelo intermediário
+
+
+@dataclass(frozen=True)
+class AvaliacaoIss:
+    """EscolhaParAliquotasService.AvaliacaoIssItem: campos do ISS que valem para a escolha, e avisos."""
+    trib_issqn: int | None
+    tp_ret_issqn: int | None
+    tp_bm: int | None
+    avisos: tuple
+
+
+@dataclass(frozen=True)
+class EscolhaPar:
+    """EscolhaParAliquotasService.EscolhaParAliquotas."""
+    anexo: str | None
+    tipo_aliquota: str | None
+    regra: str | None
+    par: ParAliquotas | None
+    par_sem_redistribuicao_ausente: bool
+    caminho_par: str | None
+    motivo: str
+
+
+_PAR_ZERO = ParAliquotas(Decimal(0), Decimal(0))  # ParAliquotasSimples.ZERO
+
+
+def _avaliar_campos_iss(vocabulario, atividade, item, coletor):
+    # EscolhaParAliquotasService.avaliarCamposIss
+    avisos = []
+    trib_informado = _informado(item.trib_issqn)
+    ret_informado = _informado(item.tp_ret_issqn)
+    bm_informado = _informado(item.tp_bm)
+
+    if vocabulario != "NFSE":
+        desconsiderados = [campo for campo, informado in ((_CAMPO_TRIBISSQN, trib_informado),
+                                                          (_CAMPO_TPRETISSQN, ret_informado),
+                                                          (_CAMPO_TPBM, bm_informado)) if informado]
+        if desconsiderados:
+            avisos.append(f"{', '.join(desconsiderados)} desconsiderado(s): os campos do ISS só valem na NFS-e.")
+        return AvaliacaoIss(None, None, None, tuple(avisos))
+
+    iss_no_simples = atividade["issNoSimples"] is True
+    c_ativ_sn = _s(atividade["cAtivSN"])
+
+    # tribISSQN
+    trib_issqn = _inteiro(item.trib_issqn)
+    if trib_informado and (trib_issqn is None or trib_issqn not in _DOMINIO_TRIBISSQN):
+        coletor.erro(TRIBISSQN_INVALIDO, _CAMPO_TRIBISSQN,
+                     f"A tributação do ISSQN (tribISSQN) deve ser 1, 2, 3 ou 4, recebido: '{item.trib_issqn}'.")
+        trib_issqn = None
+    elif not trib_informado and iss_no_simples:
+        coletor.erro(TRIBISSQN_INVALIDO, _CAMPO_TRIBISSQN,
+                     f"A tributação do ISSQN (tribISSQN) é obrigatória para a atividade {c_ativ_sn}, que tem ISS "
+                     "no Simples Nacional.")
+
+    # tpRetISSQN
+    tp_ret_issqn = None
+    if ret_informado and trib_issqn is not None and trib_issqn != _TRIBUTAVEL:
+        avisos.append(f"tpRetISSQN desconsiderado: não há retenção do ISS com tribISSQN {trib_issqn} (a NFS-e "
+                      "recusaria a combinação: regra E0580).")
+    elif ret_informado:
+        tp_ret_issqn = _inteiro(item.tp_ret_issqn)
+        if tp_ret_issqn is None or tp_ret_issqn not in _DOMINIO_TPRETISSQN:
+            coletor.erro(TPRETISSQN_INVALIDO, _CAMPO_TPRETISSQN,
+                         "O tipo de retenção do ISSQN (tpRetISSQN) deve ser 1, 2 ou 3, recebido: "
+                         f"'{item.tp_ret_issqn}'.")
+            tp_ret_issqn = None
+    elif iss_no_simples and trib_issqn == _TRIBUTAVEL:
+        coletor.erro(TPRETISSQN_INVALIDO, _CAMPO_TPRETISSQN,
+                     f"O tipo de retenção do ISSQN (tpRetISSQN) é obrigatório com tribISSQN = 1 na atividade "
+                     f"{c_ativ_sn}, que tem ISS no Simples Nacional.")
+
+    # tpBM
+    tp_bm = None
+    if bm_informado and atividade["admiteBeneficioMunicipal"] is not True:
+        avisos.append(f"tpBM desconsiderado: a atividade {c_ativ_sn} não admite benefício municipal do ISS "
+                      "(regra E0536 da NFS-e: só os subitens 7.02 e 7.05, atividades 12 e 13).")
+    elif bm_informado:
+        tp_bm = _inteiro(item.tp_bm)
+        if tp_bm is None or tp_bm not in _DOMINIO_TPBM:
+            coletor.erro(TPBM_INVALIDO, _CAMPO_TPBM,
+                         f"O tipo de benefício municipal (tpBM) deve ser 1, 2, 3 ou 4, recebido: '{item.tp_bm}'.")
+            tp_bm = None
+
+    if tp_bm == _ISENCAO and tp_ret_issqn is not None and tp_ret_issqn in _RETIDO:
+        avisos.append(f"tpBM 1 (isenção) com tpRetISSQN {tp_ret_issqn}: combinação recusada pela NFS-e (regra "
+                      "E0594); vale a isenção municipal (par sem redistribuição).")
+    return AvaliacaoIss(trib_issqn, tp_ret_issqn, tp_bm, tuple(avisos))
+
+
+def _escolher(atividade, admissivel, linha, fatos, situacoes):
+    # EscolhaParAliquotasService.escolher: a primeira regra que se aplica decide
+    # Regra 1: DOCUMENTO.
+    if not admissivel:
+        return EscolhaPar(None, None, "DOCUMENTO", None, False, None, "ATIVIDADE_INADMISSIVEL_NO_DOCUMENTO")
+
+    # Regra 2: ATIVIDADE_NAO_TRIBUTADA, atividade sem anexo (código 90).
+    anexo_com_fator_r = atividade["anexoComFatorR"]
+    anexo_sem_fator_r = atividade["anexoSemFatorR"]
+    if anexo_com_fator_r is None and anexo_sem_fator_r is None:
+        return EscolhaPar(None, "SEM_ALIQUOTA", "ATIVIDADE_NAO_TRIBUTADA", _PAR_ZERO, False, None,
+                          "ATIVIDADE_SEM_ANEXO")
+
+    # Anexo: "sem fator r", ou "com fator r" na atividade sujeita ao fator r.
+    anexo = anexo_sem_fator_r
+    if anexo_com_fator_r is not None:
+        if linha.fator_r is None:
+            return EscolhaPar(None, None, None, None, False, None, "FATOR_R_AUSENTE")
+        anexo = anexo_com_fator_r if linha.fator_r else anexo_sem_fator_r
+    aliquotas_anexo = linha.anexo(anexo)
+    par_do_anexo = None if aliquotas_anexo is None else aliquotas_anexo.par
+    caminho_anexo = "anexo" + anexo
+
+    # Regra 3: ANEXO_SEM_ISS, anexos I e II têm um só par.
+    if anexo not in ("III", "IV", "V"):
+        return _escolhido(anexo, "PAR_UNICO", "ANEXO_SEM_ISS", par_do_anexo, False, caminho_anexo)
+
+    # Regras 4 a 9: anexos III, IV e V.
+    regra, tipo = "PADRAO", "COM_REDISTRIBUICAO"
+    if linha.impedimento_sublimite:
+        # Regra 4: o impedimento vem da linha de alíquotas.
+        regra, tipo = "ISS_FORA_DO_SIMPLES", "SEM_REDISTRIBUICAO"
+    elif (situacao := _situacao("ISS_FORA_DO_SIMPLES", fatos, situacoes)) is not None:
+        regra, tipo = situacao["regra"], situacao["tipoAliquota"]
+    elif atividade["issNoSimples"] is not True:
+        # Regra 5: atividade sem ISS no Simples.
+        regra, tipo = "ATIVIDADE_SEM_ISS", "SEM_REDISTRIBUICAO"
+    else:
+        # Regras 6, 7 e 8, nesta ordem.
+        for candidata in ("ISS_NAO_INCIDE", "ISENCAO_MUNICIPAL", "ISS_RETIDO"):
+            situacao = _situacao(candidata, fatos, situacoes)
+            if situacao is not None:
+                regra, tipo = situacao["regra"], situacao["tipoAliquota"]
+                break
+
+    if tipo != "SEM_REDISTRIBUICAO":
+        return _escolhido(anexo, tipo, regra, par_do_anexo, False, caminho_anexo)
+    # Par sem redistribuição nulo: vale o par com.
+    sem = None if aliquotas_anexo is None else aliquotas_anexo.sem_redistribuicao_iss
+    if sem is None:
+        return _escolhido(anexo, tipo, regra, par_do_anexo, True, caminho_anexo)
+    return _escolhido(anexo, tipo, regra, sem, False, caminho_anexo + "/semRedistribuicaoISS")
+
+
+def _aviso_par_sem_redistribuicao_ausente(anexo):
+    # EscolhaParAliquotasService.avisoParSemRedistribuicaoAusente
+    return (f"Par sem redistribuição do ISS ausente no anexo {_s(anexo)}; aplicado o par com redistribuição, "
+            "igual quando o ISS não passa do teto.")
+
+
+def _escolhido(anexo, tipo, regra, par, sem_ausente, caminho):
+    # EscolhaParAliquotasService.escolhido
+    motivo = "ANEXO_SEM_ALIQUOTA" if par is None or par.p_cbssn is None else "RESOLVIDA"
+    return EscolhaPar(anexo, tipo, regra, par, sem_ausente, caminho, motivo)
+
+
+def _situacao(regra, fatos, situacoes):
+    # EscolhaParAliquotasService.situacao: a primeira situação vigente da regra com o valor do documento
+    for situacao in situacoes:
+        if situacao["regra"] == regra and situacao["valor"] == fatos.get(situacao["campo"]):
+            return situacao
+    return None
+
+
+# --- A conta (SimplesNacionalCalculoService) -------------------------------------------------
+
+def _calcular_item(regime, tipo_receita, motivo_nao_calculo, base_calculo, valor_is, p_ibssn, p_cbssn,
+                   tp_ente_gov, fator_transicao, casas_aliquota):
+    # SimplesNacionalCalculoService.calcularItem: devolve (estado, motivo, Tributos)
+    # Receita bruta do item: zero quando o tipo de receita não compõe receita.
+    if tipo_receita["compoeReceita"] is True:
+        parcelas = [base_calculo]
+        if tipo_receita["impostoSeletivoCompoeReceita"] is True and valor_is is not None:
+            parcelas.append(valor_is)
+        v_rbsn_item = numeros.arredondar_valor(numeros.totalizar(parcelas))
+    else:
+        v_rbsn_item = Decimal(0)
+
+    # Regime que não calcula tributos ou item não calculável: só a receita bruta. O regime vem antes.
+    motivo = (_motivo("REGIME_SOMENTE_RECEITA") if regime["calculaTributos"] is False else motivo_nao_calculo)
+    if motivo is not None:
+        return NAO_CALCULADO, motivo, Tributos(v_rbsn_item, tipo_receita["codigo"], tipo_receita["descricao"])
+
+    # Transformação das alíquotas: redutor (não aplicado), deslocamento da compra governamental, leiaute.
+    p_ibssn, p_cbssn = _arredondar_aliquotas_do_leiaute(
+        *_aplicar_deslocamento_cbs_ibs(p_ibssn, p_cbssn, tp_ente_gov, fator_transicao), casas_aliquota)
+
+    fator_receita = tipo_receita["fatorReceita"]
+    pendente_suspenso = tipo_receita["pendenteSuspenso"] is True
+    v_bc = numeros.arredondar_valor(numeros.multiplicar(v_rbsn_item, fator_receita))
+    valor_ibs = numeros.arredondar_valor(_valor_tributo(v_rbsn_item, fator_receita, p_ibssn))
+    valor_cbs = numeros.arredondar_valor(_valor_tributo(v_rbsn_item, fator_receita, p_cbssn))
+
+    # Regime que não gera IBS (CRT=2): os campos do IBS não saem.
+    gera_ibs = regime["geraIbs"] is True
+    ibs = _repartir_por_regime(regime, valor_ibs, pendente_suspenso) if gera_ibs else None
+    cbs = _repartir_por_regime(regime, valor_cbs, pendente_suspenso)
+
+    # Total do item: só os valores devidos, mais o IS repassado.
+    total_item = numeros.totalizar(v for v in (None if ibs is None else ibs[0], cbs[0], valor_is) if v is not None)
+
+    return CALCULADO, None, Tributos(
+        v_rbsn_item=v_rbsn_item, tp_rbsn=tipo_receita["codigo"], tp_rbsn_descricao=tipo_receita["descricao"],
+        v_bc=v_bc, p_ibssn=p_ibssn if gera_ibs else None, v_ibssn=None if ibs is None else ibs[0],
+        v_ibs_pend_susp=None if ibs is None else ibs[1], p_cbssn=p_cbssn, v_cbssn=cbs[0], v_cbs_pend_susp=cbs[1],
+        imposto_seletivo=valor_is, total_item=total_item,
+        memoria_cbs=_memoria_calculo(tipo_receita, v_rbsn_item, v_bc, p_cbssn, cbs),
+        memoria_ibs=None if ibs is None else _memoria_calculo(tipo_receita, v_rbsn_item, v_bc, p_ibssn, ibs))
+
+
+def _memoria_calculo(tipo_receita, v_rbsn_item, v_bc, aliquota, valor):
+    # SimplesNacionalCalculoService.memoriaCalculo
+    return (f"Receita bruta do Simples Nacional de R$ {_moeda_br(v_rbsn_item)} ({_s(tipo_receita['descricao'])}). "
+            f"A base de cálculo utilizada é de R$ {_moeda_br(v_bc)}, com alíquota efetiva de "
+            f"{_percentual_br(aliquota)}%. Valor devido de R$ {_moeda_br(valor[0])} e pendente/suspenso de "
+            f"R$ {_moeda_br(valor[1])}.")
+
+
+def _aplicar_deslocamento_cbs_ibs(p_ibssn, p_cbssn, tp_ente_gov, fator):
+    # SimplesNacionalCalculoService.aplicarDeslocamentoCbsIbs (o redutor do passo 1 é identidade)
+    if tp_ente_gov is None or (p_ibssn is None and p_cbssn is None):
+        return p_ibssn, p_cbssn
+    p_ibs = Decimal(0) if p_ibssn is None else p_ibssn
+    p_cbs = Decimal(0) if p_cbssn is None else p_cbssn
+    if tp_ente_gov == 1:
+        # União: pCBS' = pCBS + pIBS; pIBS' = 0.
+        return Decimal(0), numeros.totalizar((p_cbs, p_ibs))
+    if fator is None:
+        raise _FalhaTecnica(f"Fator de transição de compra governamental não resolvido para tpEnteGov {tp_ente_gov}")
+    # pIBS' = pIBS + f x pCBS; pCBS' = (1 - f) x pCBS.
+    return (numeros.totalizar((p_ibs, numeros.multiplicar(fator, p_cbs))),
+            numeros.multiplicar(numeros.subtrair(Decimal(1), fator), p_cbs))
+
+
+def _arredondar_aliquotas_do_leiaute(p_ibssn, p_cbssn, casas):
+    # SimplesNacionalCalculoService.arredondarAliquotasDoLeiaute (NFS-e: 2 casas; None = precisão integral)
+    if casas is None:
+        return p_ibssn, p_cbssn
+    return numeros.arredondar_aliquota(p_ibssn, casas), numeros.arredondar_aliquota(p_cbssn, casas)
+
+
+def _valor_tributo(v_rbsn_item, fator_receita, aliquota):
+    # SimplesNacionalCalculoService.valorTributo: exato, sem arredondamento
+    if aliquota is None or fator_receita.is_zero():
+        return Decimal(0)
+    return numeros.multiplicar(numeros.multiplicar(v_rbsn_item, fator_receita),
+                               numeros.percentual_para_fracao(aliquota))
+
+
+def _repartir_por_regime(regime, valor, pendente_suspenso):
+    # SimplesNacionalCalculoService.repartirPorRegime: (devido, pendente/suspenso)
+    destino = regime["destinoPendenteSuspenso"] if pendente_suspenso else regime["destinoDevido"]
+    if destino == "DEVIDO":
+        return valor, Decimal(0)
+    if destino == "PENDENTE_SUSPENSO":
+        return Decimal(0), valor
+    if destino == "ZERO":
+        return Decimal(0), Decimal(0)
+    raise _FalhaTecnica(f"destino de valor desconhecido: {destino}")  # no Java, exceção dentro do try do item
+
+
+# --- Total (TotalSimplesDomain.totalizar) -----------------------------------------------------
+
+def _totalizar(objetos):
+    # TotalSimplesDomain.totalizar e create: só os itens com tribCalc; None quando não há nenhum
+    tributos = [o.trib_calc for o in objetos if o.trib_calc is not None]
+    if not tributos:
+        return None
+
+    def somar(campo):
+        valores = [getattr(t, campo) for t in tributos if getattr(t, campo) is not None]
+        return numeros.totalizar(valores) if valores else None
+
+    v_ibs, v_cbs, total_is = somar("v_ibssn"), somar("v_cbssn"), somar("imposto_seletivo")
+    total_tributos = None
+    if v_ibs is not None or v_cbs is not None or total_is is not None:
+        total_tributos = numeros.totalizar(v for v in (v_ibs, v_cbs, total_is) if v is not None)
+    return _sem_nulos({
+        "vRBSNtot": _moeda(somar("v_rbsn_item")),
+        "vBC": _moeda(somar("v_bc")),
+        "vIBSSNtot": _moeda(v_ibs),
+        "vIBSSNtotPendSusp": _moeda(somar("v_ibs_pend_susp")),
+        "vCBSSNtot": _moeda(v_cbs),
+        "vCBSSNtotPendSusp": _moeda(somar("v_cbs_pend_susp")),
+        "totalIs": _moeda(total_is),
+        "totalTributos": _moeda(total_tributos),
+    })
+
+
+# --- Saída: o JSON como o Jackson escreve ------------------------------------------------------
+# NON_NULL omite os nulos (oper, objetos, tribCalc, total, erros); ALWAYS os mantém (resolucaoAliquotas,
+# itens da resolução, motivoEstado). Valores fiscais com BigDecimalTDec1302Serializer (2 casas, texto),
+# alíquotas do cálculo com BigDecimalTDec0302_04Serializer (2 a 4 casas, texto) e alíquotas da resolução
+# com BigDecimalTextoIntegralSerializer (toPlainString, texto).
+
+def _sem_nulos(campos):
+    return {chave: valor for chave, valor in campos.items() if valor is not None}
+
+
+def _moeda(valor):
+    # BigDecimalTDec1302Serializer
+    return None if valor is None else numeros.formatar_moeda(valor)
+
+
+def _aliquota_publicada(valor):
+    # BigDecimalTDec0302_04Serializer
+    return None if valor is None else numeros.formatar_aliquota(valor)
+
+
+def _texto_integral(valor):
+    # BigDecimalTextoIntegralSerializer: BigDecimal.toPlainString
+    return None if valor is None else format(valor, "f")
+
+
+def _no_padrao_brasileiro(texto):
+    # DecimalFormatSymbols pt-BR: milhar com ponto, decimal com vírgula ("1234.5" vira "1.234,5")
+    inteiro, _, fracao = texto.partition(".")
+    sinal = "-" if inteiro.startswith("-") else ""
+    inteiro = inteiro.lstrip("-")
+    grupos = []
+    while len(inteiro) > 3:
+        grupos.insert(0, inteiro[-3:])
+        inteiro = inteiro[:-3]
+    grupos.insert(0, inteiro)
+    return sinal + ".".join(grupos) + ("," + fracao if fracao else "")
+
+
+def _moeda_br(valor):
+    # SimplesNacionalCalculoService.formatarMoeda: DecimalFormat("#,##0.00") pt-BR, HALF_EVEN; nulo vale zero
+    return _no_padrao_brasileiro(numeros.formatar_moeda(Decimal(0) if valor is None else valor))
+
+
+def _percentual_br(valor):
+    # SimplesNacionalCalculoService.formatarPercentual: DecimalFormat("#,##0.00##") pt-BR; nulo vale zero
+    return _no_padrao_brasileiro(numeros.formatar_aliquota(Decimal(0) if valor is None else valor))
+
+
+def _operacao_json(dados, regime_apuracao):
+    # OperacaoSimplesDomain: os campos como chegaram, e o código neutro do regime
+    return _sem_nulos({
+        "data": dados.data, "tpDoc": dados.tp_doc, "CRT": dados.crt, "tpRegimeIBSCBS": dados.tp_regime_ibscbs,
+        "opSimpNac": dados.op_simp_nac, "regApIBSCBSSN": dados.reg_ap_ibscbssn,
+        "regApTribSN": dados.reg_ap_tribsn, "tpEnteGov": dados.tp_ente_gov, "regimeApuracao": regime_apuracao,
+    })
+
+
+def _resolucao_json(linha, itens, avisos):
+    # ResolucaoAliquotasNaoAssistidoDomain (ALWAYS): fatorR pode sair null
+    return {"fatorR": linha.fator_r, "indSublimite": linha.impedimento_sublimite,
+            "itens": [_resolucao_item_json(r) for r in itens], "avisos": list(avisos)}
+
+
+def _resolucao_item_json(resolucao):
+    # ResolucaoAliquotaItemDomain (ALWAYS): o que não foi resolvido sai null
+    if resolucao is None:
+        return None
+    return {
+        "numero": resolucao.numero, "cAtivSN": resolucao.c_ativ_sn, "anexoAplicado": resolucao.anexo,
+        "tipoAliquota": resolucao.tipo_aliquota, "regraAliquota": resolucao.regra,
+        "pIBSSN": _texto_integral(resolucao.p_ibssn), "pCBSSN": _texto_integral(resolucao.p_cbssn),
+        "motivo": resolucao.motivo, "avisos": list(resolucao.avisos),
+    }
+
+
+def _objeto_json(objeto):
+    # ObjetoSimplesDomain (NON_NULL)
+    return _sem_nulos({
+        "nObj": objeto.n_obj, "estadoItem": objeto.estado, "motivoEstado": objeto.motivo,
+        "tribCalc": None if objeto.trib_calc is None else _tributos_json(objeto.trib_calc),
+        "erros": objeto.erros,
+    })
+
+
+def _tributos_json(t):
+    # TributosSimplesDomain (NON_NULL), na ordem do @JsonPropertyOrder
+    memoria = None
+    if t.memoria_cbs is not None or t.memoria_ibs is not None:
+        memoria = _sem_nulos({"cbs": t.memoria_cbs, "ibs": t.memoria_ibs})
+    return _sem_nulos({
+        "vRBSNitem": _moeda(t.v_rbsn_item), "tpRBSN": t.tp_rbsn, "tpRBSNDescricao": t.tp_rbsn_descricao,
+        "vBC": _moeda(t.v_bc), "pIBSSN": _aliquota_publicada(t.p_ibssn), "vIBSSN": _moeda(t.v_ibssn),
+        "vIBSPendSusp": _moeda(t.v_ibs_pend_susp), "pCBSSN": _aliquota_publicada(t.p_cbssn),
+        "vCBSSN": _moeda(t.v_cbssn), "vCBSPendSusp": _moeda(t.v_cbs_pend_susp),
+        "IS": None if t.imposto_seletivo is None else {"valor": _moeda(t.imposto_seletivo)},
+        "totalItem": _moeda(t.total_item), "memoriaCalculo": memoria,
+    })
 
 
 def calcular(operacao, base, base_url="", *, instancia=None, agora=None):
@@ -1280,7 +2343,7 @@ def calcular(operacao, base, base_url="", *, instancia=None, agora=None):
 
     `operacao` é o corpo JSON (dict, lido com decimal.Decimal nos números). Devolve (status, corpo) como a
     oficial: 422 com a lista de erros globais, 400 para corpo fora do contrato, 500 para falha da
-    oficial; com a operação válida, segue para os itens (Tarefa 6).
+    oficial; com a operação válida, 200 com os itens calculados.
 
     `base_url` é esquema://host da requisição (HttpUtils.getBaseURL, sem porta), que entra no `type` dos
     erros. `instancia` é o caminho pedido, com o /api do perfil offline (padrão: o do endpoint não
