@@ -34,7 +34,7 @@ Os princípios do projeto 1 continuam valendo, nas palavras de quem pediu: o plu
 
 ## 4. O que a CD2 já tem do regime regular
 
-- O site https://calc-imposto.cd2.com.br/ é a calculadora gratuita da CD2 para o regime regular. O código está no repositório privado `cd2tec/cd2-calc-imposto` (TypeScript). Ele já faz, à mão, o que o robô faz para o Simples: `npm run sync` traz a base da Receita e `npm run paridade` compara com a calculadora oficial. Se a conta deste novo agente não tiver acesso a esse repositório, peça; é a melhor referência de port que existe.
+- O site https://calc-imposto.cd2.com.br/ é a calculadora gratuita da CD2 para o regime regular. O código está no repositório privado do miniapp `calc-imposto`, na organização da CD2 no GitHub (TypeScript; o nome não vai aqui porque os testes barram citar repositório privado). Ele já faz, à mão, o que o robô faz para o Simples: `npm run sync` traz a base da Receita e `npm run paridade` compara com a calculadora oficial. Se a conta deste novo agente não tiver acesso a esse repositório, peça; é a melhor referência de port que existe.
 - O `retail-profile.json` desse miniapp (da CD2, MIT) é a fonte do perfil de varejo que a `sugestao.py` do Simples usa para sugerir `cClassTrib`. A sugestão do regime regular nasce do mesmo arquivo.
 - Atenção à diferença que o projeto 1 descobriu: no Simples, o motor oficial não aplica o percentual de redução do regime regular (todo `tpRBSN` do perfil é 1, e a conta sai igual byte a byte com ou sem redução). No regime regular a redução vale de verdade. Não copie para cá a frase do Simples sobre redução sem efeito.
 
