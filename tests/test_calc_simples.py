@@ -12,8 +12,15 @@ no `type` de cada erro. O `instance` ("/api/calculadora/observabilidade/simples-
 import copy
 import importlib.util
 import json
+import shutil
+import socket
+import sqlite3
+import subprocess
 import sys
+import tempfile
 import unittest
+import urllib.error
+from urllib.parse import parse_qsl, urlsplit
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
@@ -42,6 +49,7 @@ def load_module(name, path):
 simples_base = load_module("simples_base", SKILL / "scripts" / "simples_base.py")
 simples_motor = load_module("simples_motor", SKILL / "scripts" / "simples_motor.py")
 receita_paridade = load_module("receita_paridade", ROOT / "scripts" / "receita_paridade.py")
+calc = load_module("calc_simples", SKILL / "scripts" / "calc.py")
 
 Base = simples_base.Base
 ESPERADAS = receita_paridade.ler_json((PASTA_CONFERENCIA / "esperadas.json").read_text(encoding="utf-8"))
@@ -555,10 +563,416 @@ class LeituraDoItemTest(ComBase):
         self.assertEqual(corpo["objetos"][0]["erros"][0]["code"], "VSN-051")
 
 
+CALC_PY = SKILL / "scripts" / "calc.py"
+
+
+def rodar_cli(*args, entrada=None, script=CALC_PY):
+    return subprocess.run([sys.executable, "-I", str(script), *args], input=entrada, capture_output=True,
+                          text=True, encoding="utf-8")
+
+
+def saida_json(processo):
+    return receita_paridade.ler_json(processo.stdout)
+
+
+def argumentos_da_consulta(caminho):
+    """Traduz o caminho de uma consulta oficial gravada nos argumentos da linha de comando."""
+    partes = urlsplit(caminho)
+    consulta = parse_qsl(partes.query, keep_blank_values=True)
+    args = []
+    resto = partes.path.rsplit("/atividades", 1)[1]
+    if resto:
+        args += ["--atividade", resto.lstrip("/")]
+    for nome, valor in consulta:
+        args += {"data": ["--data" if resto else "--atividades"], "anexos": ["--anexo"], "tpDoc": ["--tp-doc"],
+                 "cClassTrib": ["--cclasstrib"]}[nome] + [valor]
+    if not resto and not any(n == "data" for n, _ in consulta):
+        args += ["--atividades", ""]  # a oficial recusa a data ausente
+    return args
+
+
+class CliTest(unittest.TestCase):
+    def test_cli_roda_um_exemplo_oficial(self):
+        caso = next(c for c in casos("item") if c["resposta"]["status"] == 200)
+        entrada = receita_paridade.escrever_json(caso["requisicao"]["corpo"], None)
+        processo = rodar_cli(entrada=entrada)
+        self.assertEqual(processo.returncode, 0, processo.stderr)
+        saida = saida_json(processo)
+        self.assertEqual(receita_paridade.comparar(
+            caso["resposta"], {"status": saida["status"], "corpo": saida["corpo"]}, IGNORAR), [])
+        self.assertEqual(saida["versao"], {"calculadora": "1.0.2", "base": "V0073", "conferida_em": ""})
+        self.assertNotIn("normalizacoes", saida)
+
+    def test_cli_le_arquivo_e_mantem_os_valores_em_texto(self):
+        caso = next(c for c in casos("item") if c["resposta"]["status"] == 200)
+        with tempfile.TemporaryDirectory() as pasta:
+            arquivo = Path(pasta) / "operacao.json"
+            arquivo.write_text(receita_paridade.escrever_json(caso["requisicao"]["corpo"], None), encoding="utf-8")
+            processo = rodar_cli("--input", str(arquivo))
+        self.assertEqual(processo.returncode, 0, processo.stderr)
+        total = json.loads(processo.stdout)["corpo"]["total"]
+        self.assertTrue(all(isinstance(v, (str, int, bool, type(None), dict, list)) for v in total.values()))
+
+    def test_cli_grupo_consulta_bate_com_a_oficial(self):
+        # o `type` dos erros 400 muda de propósito: a CLI aponta para a documentação, não para 127.0.0.1
+        ignorar = IGNORAR + ["type"]
+        for caso in casos("consulta"):
+            caminho = caso["requisicao"]["caminho"]
+            if caminho == "/versao":
+                continue
+            with self.subTest(caso["id"], caminho=caminho):
+                processo = rodar_cli(*argumentos_da_consulta(caminho))
+                self.assertEqual(processo.returncode, 0, processo.stderr)
+                saida = saida_json(processo)
+                self.assertEqual(receita_paridade.comparar(
+                    caso["resposta"], {"status": saida["status"], "corpo": saida["corpo"]}, ignorar), [])
+
+    def test_cli_grupo_erro_bate_com_a_oficial(self):
+        for caso in casos("erro")[:6]:
+            codigo = caso["requisicao"]["caminho"].split("codigo=", 1)[1]
+            with self.subTest(codigo):
+                saida = saida_json(rodar_cli("--erro", codigo))
+                self.assertEqual(receita_paridade.comparar(
+                    caso["resposta"], {"status": saida["status"], "corpo": saida["corpo"]}, IGNORAR), [])
+
+    def test_cli_codigo_de_erro_desconhecido_sai_0_com_404(self):
+        processo = rodar_cli("--erro", "VSN-998")
+        self.assertEqual(processo.returncode, 0)
+        self.assertEqual(json.loads(processo.stdout)["status"], 404)
+
+    def test_cli_versao(self):
+        caso = next(c for c in casos("consulta") if c["requisicao"]["caminho"] == "/versao")
+        processo = rodar_cli("--versao")
+        self.assertEqual(processo.returncode, 0)
+        corpo = saida_json(processo)["corpo"]
+        for chave in ("versaoApp", "versaoDb", "descricaoVersaoDb", "dataVersaoDb"):
+            self.assertEqual(corpo[chave], caso["resposta"]["corpo"][chave])
+
+    def test_json_invalido_sai_2_com_errors(self):
+        for entrada in ("{nao e json", "", '{"a": NaN}'):
+            with self.subTest(entrada):
+                processo = rodar_cli(entrada=entrada)
+                self.assertEqual(processo.returncode, 2)
+                self.assertIn("errors", json.loads(processo.stdout))
+                self.assertNotIn("Traceback", processo.stderr)
+
+    def test_arquivo_ilegivel_sai_2(self):
+        processo = rodar_cli("--input", "/nao/existe/operacao.json")
+        self.assertEqual(processo.returncode, 2)
+        self.assertIn("errors", json.loads(processo.stdout))
+
+    def test_json_que_nao_e_objeto_fica_com_a_resposta_do_motor(self):
+        for entrada in ("[]", "3", '"x"', "null"):
+            with self.subTest(entrada):
+                processo = rodar_cli(entrada=entrada)
+                self.assertEqual(processo.returncode, 0)
+                self.assertEqual(json.loads(processo.stdout)["status"], 400)
+
+    def test_base_ausente_sai_2_sem_traceback(self):
+        with tempfile.TemporaryDirectory() as pasta:
+            scripts = Path(pasta) / "scripts"
+            scripts.mkdir()
+            for nome in ("calc.py", "simples_motor.py", "simples_base.py", "numeros.py"):
+                shutil.copy(SKILL / "scripts" / nome, scripts / nome)
+            processo = rodar_cli("--versao", script=scripts / "calc.py")
+        self.assertEqual(processo.returncode, 2)
+        self.assertIn("errors", json.loads(processo.stdout))
+        self.assertNotIn("Traceback", processo.stderr)
+
+    def test_atividade_sem_data_tem_a_resposta_400_da_oficial(self):
+        processo = rodar_cli("--atividade", "01")
+        self.assertEqual(processo.returncode, 0)
+        self.assertEqual(json.loads(processo.stdout)["status"], 400)
+
+    def test_help_em_portugues(self):
+        processo = rodar_cli("--help")
+        self.assertEqual(processo.returncode, 0)
+        self.assertIn("contador", processo.stdout)
+        self.assertIn("--checar-versao", processo.stdout)
+
+
+class CaminhoDaCliTest(ComBase):
+    def test_a_funcao_da_cli_bate_com_as_oficiais_com_a_base_url_do_teste(self):
+        for grupo in ("global", "item"):
+            for caso in casos(grupo):
+                with self.subTest(caso["id"]):
+                    saida = calc.executar_operacao(copy.deepcopy(caso["requisicao"]["corpo"]), self.base,
+                                                   base_url=BASE_URL_OFICIAL, agora=AGORA)
+                    self.assertEqual(receita_paridade.comparar(
+                        caso["resposta"], {"status": saida["status"], "corpo": saida["corpo"]}, IGNORAR), [])
+
+    def test_type_dos_erros_aponta_para_a_documentacao(self):
+        saida = calc.executar_operacao(operacao(id=None), self.base, agora=AGORA)
+        self.assertEqual(saida["status"], 422)
+        self.assertTrue(saida["corpo"]["errors"][0]["type"].startswith(calc.BASE_URL_CLI))
+        self.assertNotIn("127.0.0.1", json.dumps(saida))
+        self.assertTrue(calc.BASE_URL_CLI.startswith("https://github.com/ReceitaFederal/"))
+
+    def test_sem_humano_a_entrada_chega_intacta(self):
+        entrada = operacao(data="15/03/2027")
+        entrada["itens"][0]["baseCalculo"] = "1.000,00"
+        original = copy.deepcopy(entrada)
+        saida = calc.executar_operacao(entrada, self.base, agora=AGORA)
+        self.assertEqual(entrada, original)
+        self.assertNotIn("normalizacoes", saida)
+        self.assertEqual(saida["status"], 422)
+        self.assertEqual(saida, {**saida, "status": simples_motor.calcular(
+            copy.deepcopy(original), self.base, calc.BASE_URL_CLI, agora=AGORA)[0]})
+
+    def test_com_humano_a_operacao_calcula_e_lista_os_avisos(self):
+        entrada = operacao(data="15/03/2027")
+        entrada["itens"][0]["baseCalculo"] = "1.000,00"
+        saida = calc.executar_operacao(entrada, self.base, humano=True, agora=AGORA)
+        esperado = simples_motor.calcular(operacao(), self.base, calc.BASE_URL_CLI, agora=AGORA)
+        self.assertEqual(saida["status"], 200)
+        self.assertEqual(saida["corpo"], esperado[1])
+        self.assertEqual(len(saida["normalizacoes"]), 2)
+
+    def test_humano_pela_linha_de_comando(self):
+        entrada = operacao(data="15/03/2027")
+        entrada["itens"][0]["baseCalculo"] = "1.000,00"
+        processo = rodar_cli("--humano", entrada=json.dumps(entrada))
+        self.assertEqual(processo.returncode, 0, processo.stderr)
+        saida = json.loads(processo.stdout)
+        self.assertEqual(saida["status"], 200)
+        self.assertEqual(len(saida["normalizacoes"]), 2)
+
+
+class NormalizarTest(unittest.TestCase):
+    def test_normalizar_virgula_decimal(self):
+        op, avisos = calc.normalizar({"aliquotasEfetivas": {"anexoI": {"pCBSSN": "2,3591"}},
+                                      "itens": [{"baseCalculo": "1.000,00"}]})
+        self.assertEqual(op["aliquotasEfetivas"]["anexoI"]["pCBSSN"], "2.3591")
+        self.assertEqual(op["itens"][0]["baseCalculo"], "1000.00")
+        self.assertEqual(len(avisos), 2)
+        self.assertIn("aliquotasEfetivas.anexoI.pCBSSN", avisos[0])
+        self.assertIn("2,3591", avisos[0])
+        self.assertIn("2.3591", avisos[0])
+
+    def corrigir(self, texto):
+        op, avisos = calc.normalizar({"itens": [{"baseCalculo": texto}]})
+        return op["itens"][0]["baseCalculo"], avisos
+
+    def test_regra_do_ponto_e_da_virgula(self):
+        casos_ok = {"1.000,00": "1000.00", "1,000.50": "1000.50", "1.234.567,89": "1234567.89",
+                    "0,5": "0.5", "1,000": "1.000", "-2,5": "-2.5"}
+        for entrada, saida in casos_ok.items():
+            with self.subTest(entrada):
+                self.assertEqual(self.corrigir(entrada)[0], saida)
+
+    def test_ponto_sozinho_nunca_e_milhar(self):
+        for texto in ("1.000", "1000.00", "1.5", "1.000.000"):
+            with self.subTest(texto):
+                valor, avisos = self.corrigir(texto)
+                self.assertEqual(valor, texto)
+                self.assertEqual(avisos, [])
+
+    def test_ambiguo_ou_nao_numero_fica_como_esta_sem_aviso(self):
+        for texto in ("1,2,3", "1.00,0.5", "abc", "1.0000,00", "12,", ",5", "1 000,00", "", "1,00 reais"):
+            with self.subTest(texto):
+                valor, avisos = self.corrigir(texto)
+                self.assertEqual(valor, texto)
+                self.assertEqual(avisos, [])
+
+    def test_normalizar_numero_json_vira_texto_sem_perder_casa(self):
+        op, avisos = calc.normalizar(json.loads(
+            '{"tpDoc": 55, "itens": [{"numero": 1, "baseCalculo": 1000.00, "cAtivSN": 1,'
+            ' "valorImpostoSeletivo": 0.10}]}', parse_float=Decimal))
+        self.assertEqual(op["tpDoc"], "55")
+        item = op["itens"][0]
+        self.assertEqual(item["baseCalculo"], "1000.00")
+        self.assertEqual(item["valorImpostoSeletivo"], "0.10")
+        self.assertEqual(item["cAtivSN"], "1")  # sem zero a mais: completar seria mudar o conteúdo
+        self.assertEqual(item["numero"], 1)
+        self.assertEqual(len(avisos), 4)
+
+    def test_normalizar_ncm_com_pontos(self):
+        op, avisos = calc.normalizar({"itens": [{"ncm": "1006.30.21", "NBS": "1.0101.20.00", "nbs": "abc.12"}]})
+        self.assertEqual(op["itens"][0]["ncm"], "10063021")
+        self.assertEqual(op["itens"][0]["NBS"], "1010120" + "00")
+        self.assertEqual(op["itens"][0]["nbs"], "abc.12")
+        self.assertEqual(len(avisos), 2)
+
+    def test_data_brasileira(self):
+        op, avisos = calc.normalizar({"data": "15/03/2027"})
+        self.assertEqual(op["data"], "2027-03-15")
+        self.assertEqual(len(avisos), 1)
+        for texto in ("2027-03-15", "15-03-2027", "15/3/2027", "03/15/27"):
+            self.assertEqual(calc.normalizar({"data": texto})[0]["data"], texto)
+
+    def test_nao_inventa_campo_nem_mexe_na_entrada(self):
+        entrada = {"data": "15/03/2027", "itens": [{"baseCalculo": "1,5"}, 7, None]}
+        copia = copy.deepcopy(entrada)
+        op, _ = calc.normalizar(entrada)
+        self.assertEqual(entrada, copia)
+        self.assertEqual(set(op), {"data", "itens"})
+        self.assertEqual(op["itens"][1:], [7, None])
+        self.assertEqual(calc.normalizar([1, 2]), ([1, 2], []))
+        self.assertEqual(calc.normalizar({}), ({}, []))
+
+    def test_booleanos_e_aliquotas_com_ponto_ficam(self):
+        entrada = {"aliquotasEfetivas": {"fatorR": True, "anexoIII": {"pCBSSN": "2.2154",
+                   "semRedistribuicaoISS": {"pCBSSN": "1,99"}}}}
+        op, avisos = calc.normalizar(entrada)
+        self.assertIs(op["aliquotasEfetivas"]["fatorR"], True)
+        self.assertEqual(op["aliquotasEfetivas"]["anexoIII"]["semRedistribuicaoISS"]["pCBSSN"], "1.99")
+        self.assertEqual(len(avisos), 1)
+
+
+class _Resposta:
+    def __init__(self, texto):
+        self.texto = texto
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        return False
+
+    def read(self, limite=-1):
+        return self.texto.encode("utf-8")[:limite]
+
+
+class ChecarVersaoTest(unittest.TestCase):
+    META = {"calculadora": {"versao": "1.0.2"}}
+
+    def setUp(self):
+        self.original = calc._abrir
+        self.addCleanup(setattr, calc, "_abrir", self.original)
+        self.pedidos = []
+
+    def trocar(self, resposta=None, erro=None):
+        def falso(pedido, timeout=None):
+            self.pedidos.append((pedido, timeout))
+            if erro is not None:
+                raise erro
+            return _Resposta(resposta)
+        calc._abrir = falso
+
+    def test_checar_versao_sem_rede(self):
+        self.trocar(erro=urllib.error.URLError("sem rede"))
+        r = calc.checar_versao(self.META)
+        self.assertEqual(r["consultado"], False)
+        self.assertIsNone(r["ha_versao_nova"])
+        self.assertTrue(r["mensagem"])
+
+    def test_checar_versao_resposta_estranha(self):
+        for texto in ("<html>oi</html>", "[]", '{"tag_name": 3}', '{"tag_name": "nightly"}', '{"x": 1}', ""):
+            with self.subTest(texto):
+                self.trocar(texto)
+                self.assertFalse(calc.checar_versao(self.META)["consultado"])
+
+    def test_checar_versao_demorada(self):
+        for erro in (socket.timeout("lento"), TimeoutError(), ConnectionResetError(), ValueError("x")):
+            with self.subTest(type(erro).__name__):
+                self.trocar(erro=erro)
+                self.assertFalse(calc.checar_versao(self.META)["consultado"])
+
+    def test_checar_versao_igual_e_mais_nova(self):
+        casos_versao = {"1.0.2": False, "v1.0.2": False, "1.0.1": False, "1.0.10": True, "1.1.0": True,
+                        "2.0.0": True, "1.0": False, "0.9.9": False}
+        for tag, nova in casos_versao.items():
+            with self.subTest(tag):
+                self.trocar(json.dumps({"tag_name": tag}))
+                r = calc.checar_versao(self.META)
+                self.assertTrue(r["consultado"])
+                self.assertEqual(r["ha_versao_nova"], nova)
+                self.assertEqual(r["calculadora"], tag)
+
+    def test_versao_se_compara_por_numero_e_nao_por_texto(self):
+        self.trocar(json.dumps({"tag_name": "1.0.10"}))
+        self.assertTrue(calc.checar_versao({"calculadora": {"versao": "1.0.9"}})["ha_versao_nova"])
+
+    def test_sem_versao_espelhada_ainda_informa_a_ultima(self):
+        self.trocar(json.dumps({"tag_name": "1.0.2"}))
+        r = calc.checar_versao({})
+        self.assertTrue(r["consultado"])
+        self.assertIsNone(r["ha_versao_nova"])
+
+    def test_nenhum_numero_da_pessoa_vai_para_url(self):
+        self.trocar(json.dumps({"tag_name": "1.0.2"}))
+        calc.checar_versao(self.META, prazo=2.5)
+        pedido, prazo = self.pedidos[0]
+        self.assertEqual(pedido.full_url,
+                         "https://api.github.com/repos/ReceitaFederal/calculadora-rtc-simples-nacional/releases/latest")
+        self.assertNotIn("?", pedido.full_url)
+        self.assertIsNone(pedido.data)
+        self.assertEqual(pedido.get_header("User-agent"), "cd2-super-skill")
+        self.assertEqual(prazo, 2.5)
+
+    def test_checar_versao_pela_main_sai_0_mesmo_sem_rede(self):
+        import contextlib
+        import io
+        self.trocar(erro=urllib.error.URLError("sem rede"))
+        saida = io.StringIO()
+        with contextlib.redirect_stdout(saida):
+            codigo = calc.main(["--checar-versao"])
+        self.assertEqual(codigo, 0)
+        resposta = json.loads(saida.getvalue())
+        self.assertEqual(set(resposta), {"consultado", "ha_versao_nova", "calculadora", "mensagem"})
+        self.assertFalse(resposta["consultado"])
+
+
+class BaseDanificadaTest(unittest.TestCase):
+    PAGINA = 4096
+    RAIZ_CLASSIFICACAO_TRIBUTARIA = 4  # página raiz da tabela, lida em sqlite_master
+
+    def copia(self, pasta, dados):
+        destino = Path(pasta) / "danificada.db"
+        destino.write_bytes(dados)
+        return destino
+
+    def original(self):
+        return (SKILL / "references" / "base-receita.db").read_bytes()
+
+    def test_pagina_estragada_chega_como_base_indisponivel_na_consulta(self):
+        from datetime import date
+        dados = bytearray(self.original())
+        inicio = (self.RAIZ_CLASSIFICACAO_TRIBUTARIA - 1) * self.PAGINA
+        dados[inicio:inicio + self.PAGINA] = b"\xff" * self.PAGINA
+        with tempfile.TemporaryDirectory() as pasta:
+            with Base(self.copia(pasta, bytes(dados))) as base:  # a base abre: o dano só aparece na consulta
+                with self.assertRaises(simples_base.BaseIndisponivel) as contexto:
+                    base.classificacao("000001", date(2027, 1, 1))
+        self.assertIn("danificada", str(contexto.exception))
+        self.assertNotIsInstance(contexto.exception, sqlite3.Error)
+
+    def test_base_cortada_em_60_por_cento_vira_base_indisponivel(self):
+        from datetime import date
+        dados = self.original()
+        with tempfile.TemporaryDirectory() as pasta:
+            caminho = self.copia(pasta, dados[: int(len(dados) * 0.6)])
+            with self.assertRaises(simples_base.BaseIndisponivel):
+                with Base(caminho) as base:
+                    base.classificacao("000001", date(2027, 1, 1))
+
+    def test_cli_com_base_danificada_sai_2_sem_traceback(self):
+        dados = bytearray(self.original())
+        inicio = (self.RAIZ_CLASSIFICACAO_TRIBUTARIA - 1) * self.PAGINA
+        dados[inicio:inicio + self.PAGINA] = b"\xff" * self.PAGINA
+        with tempfile.TemporaryDirectory() as pasta:
+            scripts = Path(pasta) / "scripts"
+            (Path(pasta) / "references").mkdir()
+            scripts.mkdir()
+            for nome in ("calc.py", "simples_motor.py", "simples_base.py", "numeros.py"):
+                shutil.copy(SKILL / "scripts" / nome, scripts / nome)
+            (Path(pasta) / "references" / "base-receita.db").write_bytes(bytes(dados))
+            processo = rodar_cli("--atividades", "2027-01-01", "--cclasstrib", "000001", script=scripts / "calc.py")
+        self.assertEqual(processo.returncode, 2)
+        self.assertIn("errors", json.loads(processo.stdout))
+        self.assertNotIn("Traceback", processo.stderr)
+
+    def test_erro_de_sqlite_na_consulta_vira_base_indisponivel(self):
+        with Base() as base:
+            with self.assertRaises(simples_base.BaseIndisponivel):
+                base._consultar("SELECT * FROM TABELA_QUE_NAO_EXISTE")
+
+
 class FonteTest(unittest.TestCase):
     def test_sem_travessao_literal_nos_scripts_e_nos_testes(self):
         # texto copiado do Java com U+2014 ou U+2013 fica escrito com o escape
         arquivos = [SKILL / "scripts" / "simples_motor.py", SKILL / "scripts" / "simples_base.py",
+                    SKILL / "scripts" / "calc.py",
                     Path(__file__)]
         for arquivo in arquivos:
             with self.subTest(arquivo.name):

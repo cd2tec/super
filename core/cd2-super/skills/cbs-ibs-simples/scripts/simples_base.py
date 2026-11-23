@@ -397,8 +397,13 @@ class Base:
         """Roda a consulta e guarda as linhas (tuplas, imutáveis) no dicionário da instância."""
         chave = (sql, tuple(sorted(parametros.items())))
         if chave not in self._cache:
-            cursor = self._con.execute(sql, parametros)
-            self._cache[chave] = (tuple(c[0] for c in cursor.description), tuple(cursor.fetchall()))
+            try:
+                cursor = self._con.execute(sql, parametros)
+                self._cache[chave] = (tuple(c[0] for c in cursor.description), tuple(cursor.fetchall()))
+            except sqlite3.DatabaseError as erro:  # página danificada, arquivo cortado, tabela que sumiu
+                raise BaseIndisponivel(
+                    f"A base {self.caminho} está danificada ou incompleta: {erro}. "
+                    "Baixe a skill de novo para recuperar o arquivo.") from erro
         return self._cache[chave]
 
     def _linhas(self, mapa, sql, **parametros):
