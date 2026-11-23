@@ -714,14 +714,52 @@ class QuemERoboTest(unittest.TestCase):
         self.assertIsNone(robo.issue_do_robo(issues[:1], titulo_issue))
 
     def test_marcas_de_fora_nao_contam(self):
+        # comentários como a API REST devolve (gh api .../issues/<n>/comments --paginate --slurp: páginas)
         up = TextosTest.UP
         marca = robo.marca("congelado", up, "2026-12-02")
-        comentarios = {"comments": [{"author": GENTE, "body": marca}]}
-        corpos = robo.corpos_do_robo(comentarios)
+        paginas = [[{"user": {"login": "alguem", "type": "User"}, "body": marca},
+                    {"user": {"login": "github-actions[bot]", "type": "User"}, "body": marca},
+                    {"user": {"login": "outro-bot[bot]", "type": "Bot"}, "body": marca}]]
+        corpos = robo.corpos_do_robo(paginas)
         self.assertEqual(corpos, [])
         self.assertTrue(robo.deve_comentar(corpos, "congelado", up, "2026-12-02"))
-        comentarios["comments"].append({"author": {"login": "github-actions[bot]", "is_bot": True}, "body": marca})
-        self.assertFalse(robo.deve_comentar(robo.corpos_do_robo(comentarios), "congelado", up, "2026-12-02"))
+        paginas.append([{"user": {"login": "github-actions[bot]", "type": "Bot"}, "body": marca}])
+        self.assertEqual(robo.corpos_do_robo(paginas), [marca])
+        self.assertFalse(robo.deve_comentar(robo.corpos_do_robo(paginas), "congelado", up, "2026-12-02"))
+
+    def test_comentario_no_formato_do_gh_json_nao_e_confiavel(self):
+        # o gh --json comments dá só {"author": {"login": "github-actions"}}, sem is_bot: nunca vale
+        marca = robo.marca("congelado", TextosTest.UP, "2026-12-02")
+        for formato in ({"comments": [{"author": {"login": "github-actions"}, "body": marca}]},
+                        [{"author": {"login": "github-actions"}, "body": marca}],
+                        [{"author": {"login": "github-actions", "is_bot": True}, "body": marca}]):
+            self.assertEqual(robo.corpos_do_robo(formato), [], formato)
+
+    def test_corpo_do_robo_conta_como_ja_comentado(self):
+        # a issue (ou o PR) que o robô abriu já traz a marca no corpo: o dia seguinte igual não comenta
+        with tempfile.TemporaryDirectory() as pasta:
+            pasta = Path(pasta)
+            _artefato(pasta / "art")
+            estado = json.loads((pasta / "art" / "estado.json").read_text(encoding="utf-8"))
+            corpo = robo.texto_issue("issue-divergencia", skill=SKILL, meta=META, upstream=estado["upstream"],
+                                     paridade=MENOS, hoje="2026-12-02")
+            (pasta / "corpo.json").write_text(json.dumps({"author": ROBO, "body": corpo}), encoding="utf-8")
+            (pasta / "comentarios.json").write_text("[[]]", encoding="utf-8")
+            (pasta / "par.txt").write_text("3 casos, 2 iguais, 1 s\nDIVERGE a\n", encoding="utf-8")
+            args = ["texto", "--tipo", "issue-divergencia", "--skill", SKILL, "--estado", str(pasta / "art" / "estado.json"),
+                    "--paridade", str(pasta / "par.txt"), "--codigo", "1", "--comentarios", str(pasta / "comentarios.json"),
+                    "--corpo-atual", str(pasta / "corpo.json"), "--saida", str(pasta / "saida.md")]
+            rodar_cli(args + ["--hoje", "2026-12-03"])
+            self.assertFalse((pasta / "saida.md").exists())
+            # corpo de outra pessoa não conta
+            (pasta / "corpo.json").write_text(json.dumps({"author": GENTE, "body": corpo}), encoding="utf-8")
+            rodar_cli(args + ["--hoje", "2026-12-03"])
+            self.assertTrue((pasta / "saida.md").exists())
+
+    def test_corpo_do_pr_de_regra_traz_a_marca_do_estado(self):
+        texto = robo.texto_pr_regra(META, TextosTest.UP, CEM, "", hoje="2026-12-02")
+        self.assertIn(robo.marca("regra-atualizada", TextosTest.UP, "2026-12-02"), texto)
+        self.assertFalse(robo.deve_comentar([texto], "regra-atualizada", TextosTest.UP, "2026-12-03"))
 
     def test_versao_no_ar_so_do_corpo_do_robo(self):
         with tempfile.TemporaryDirectory() as pasta:
@@ -767,12 +805,14 @@ class Rodada2Test(unittest.TestCase):
         # continua legível: só caracteres de largura zero foram somados
         self.assertIn("fulano", seguro)
         self.assertIn("exemplo.invalido/x", seguro)
+        self.assertIn("WWW\u200b.", robo.texto_seguro("WWW.exemplo"))
         texto = robo.texto_issue("issue-falha", skill=SKILL, meta=META, motivo="@alguem veja https://x.invalido")
         linha = next(l for l in texto.splitlines() if l.startswith("Motivo:"))
         self.assertNotRegex(linha, r"@[A-Za-z0-9]")
         self.assertNotIn("://", linha)
 
     def test_paridade_com_numero_absurdo_e_none(self):
+        self.assertIsNone(robo.ler_paridade("1" * 5000 + " casos, 1 iguais, 1 s\n", 0))
         self.assertIsNone(robo.ler_paridade("99999999999999999999 casos, 99999999999999999999 iguais, 1 s\n", 0))
         self.assertIsNone(robo.ler_paridade(f"{robo.MAX_CASOS + 1} casos, {robo.MAX_CASOS + 1} iguais, 1 s\n", 0))
         self.assertEqual(robo.ler_paridade(f"{robo.MAX_CASOS} casos, {robo.MAX_CASOS} iguais, 1 s\n", 0)["casos"],

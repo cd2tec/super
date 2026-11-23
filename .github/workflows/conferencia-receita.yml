@@ -456,11 +456,14 @@ jobs:
             --diff "$ART/diff-java.txt" --saida "$RUNNER_TEMP/corpo.md"
           if [ -n "$PR" ]; then
             # O ramo do PR é de quem porta: o robô só atualiza o corpo e comenta o que mais mudou.
-            gh pr edit "$PR" --body-file "$RUNNER_TEMP/corpo.md"
-            gh pr view "$PR" --json comments > "$RUNNER_TEMP/comentarios.json"
+            # Comentários pela API REST (só ela diz que o autor é bot); o corpo de antes também conta.
+            gh pr view "$PR" --json body,author > "$RUNNER_TEMP/corpo-atual.json"
+            gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate --slurp > "$RUNNER_TEMP/comentarios.json"
             python3 scripts/receita_robo.py texto --tipo regra-atualizada --skill "$SKILL" --estado "$ART/estado.json" --base-nova "$ART/meta.json" \
               --paridade "$ART/paridade.txt" --codigo "$(head -c 10 "$ART/paridade-codigo.txt")" \
-              --comentarios "$RUNNER_TEMP/comentarios.json" --saida "$RUNNER_TEMP/comentario.md"
+              --comentarios "$RUNNER_TEMP/comentarios.json" --corpo-atual "$RUNNER_TEMP/corpo-atual.json" \
+              --saida "$RUNNER_TEMP/comentario.md"
+            gh pr edit "$PR" --body-file "$RUNNER_TEMP/corpo.md"
             if [ -s "$RUNNER_TEMP/comentario.md" ]; then gh pr comment "$PR" --body-file "$RUNNER_TEMP/comentario.md"; fi
             exit 0
           fi
@@ -497,10 +500,10 @@ jobs:
           set -euo pipefail
           echo "Comentar no PR de regra" > "$ETAPA"
           [[ "$PR" =~ ^[0-9]+$ ]] || { echo "Sem PR de regra do robô."; exit 1; }
-          gh pr view "$PR" --json comments > "$RUNNER_TEMP/comentarios.json"
+          gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate --slurp > "$RUNNER_TEMP/comentarios.json"
           python3 scripts/receita_robo.py texto --tipo congelado --skill "$SKILL" --estado "$ART/estado.json" --base-nova "$ART/meta.json" \
             --paridade "$ART/paridade.txt" --codigo "$(head -c 10 "$ART/paridade-codigo.txt" 2>/dev/null || true)" \
-            --comentarios "$RUNNER_TEMP/comentarios.json" --saida "$RUNNER_TEMP/comentario.md"
+            --comentarios "$RUNNER_TEMP/comentarios.json" --corpo-atual "$RUNNER_TEMP/corpo-atual.json" --saida "$RUNNER_TEMP/comentario.md"
           if [ -s "$RUNNER_TEMP/comentario.md" ]; then gh pr comment "$PR" --body-file "$RUNNER_TEMP/comentario.md"; fi
 
       - name: Abrir ou atualizar a issue de divergência
@@ -519,9 +522,10 @@ jobs:
             gh issue create --title "$titulo" --body-file "$RUNNER_TEMP/corpo.md"
             exit 0
           fi
-          gh issue view "$numero" --json comments > "$RUNNER_TEMP/comentarios.json"
+          gh issue view "$numero" --json body,author > "$RUNNER_TEMP/corpo-atual.json"
+          gh api "repos/$GITHUB_REPOSITORY/issues/$numero/comments" --paginate --slurp > "$RUNNER_TEMP/comentarios.json"
           python3 scripts/receita_robo.py texto --tipo issue-divergencia --skill "$SKILL" "${args[@]}" \
-            --comentarios "$RUNNER_TEMP/comentarios.json" --saida "$RUNNER_TEMP/comentario.md"
+            --comentarios "$RUNNER_TEMP/comentarios.json" --corpo-atual "$RUNNER_TEMP/corpo-atual.json" --saida "$RUNNER_TEMP/comentario.md"
           if [ -s "$RUNNER_TEMP/comentario.md" ]; then gh issue comment "$numero" --body-file "$RUNNER_TEMP/comentario.md"; fi
 
       - name: Abrir ou atualizar a issue de falha
@@ -538,9 +542,10 @@ jobs:
             gh issue create --title "$titulo" --body-file "$RUNNER_TEMP/corpo.md"
             exit 0
           fi
-          gh issue view "$numero" --json comments > "$RUNNER_TEMP/comentarios.json"
+          gh issue view "$numero" --json body,author > "$RUNNER_TEMP/corpo-atual.json"
+          gh api "repos/$GITHUB_REPOSITORY/issues/$numero/comments" --paginate --slurp > "$RUNNER_TEMP/comentarios.json"
           python3 scripts/receita_robo.py texto --tipo issue-falha "${args[@]}" \
-            --comentarios "$RUNNER_TEMP/comentarios.json" --saida "$RUNNER_TEMP/comentario.md"
+            --comentarios "$RUNNER_TEMP/comentarios.json" --corpo-atual "$RUNNER_TEMP/corpo-atual.json" --saida "$RUNNER_TEMP/comentario.md"
           if [ -s "$RUNNER_TEMP/comentario.md" ]; then gh issue comment "$numero" --body-file "$RUNNER_TEMP/comentario.md"; fi
 
   manter:
@@ -585,9 +590,10 @@ jobs:
           if [ -z "$numero" ]; then
             gh issue create --title "$titulo" --body-file "$RUNNER_TEMP/corpo.md"
           else
-            gh issue view "$numero" --json comments > "$RUNNER_TEMP/comentarios.json"
+            gh issue view "$numero" --json body,author > "$RUNNER_TEMP/corpo-atual.json"
+            gh api "repos/$GITHUB_REPOSITORY/issues/$numero/comments" --paginate --slurp > "$RUNNER_TEMP/comentarios.json"
             python3 scripts/receita_robo.py texto --tipo issue-falha-geral "${args[@]}" \
-              --comentarios "$RUNNER_TEMP/comentarios.json" --saida "$RUNNER_TEMP/comentario.md"
+              --comentarios "$RUNNER_TEMP/comentarios.json" --corpo-atual "$RUNNER_TEMP/corpo-atual.json" --saida "$RUNNER_TEMP/comentario.md"
             if [ -s "$RUNNER_TEMP/comentario.md" ]; then gh issue comment "$numero" --body-file "$RUNNER_TEMP/comentario.md"; fi
           fi
 

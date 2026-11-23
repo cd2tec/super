@@ -159,6 +159,16 @@ class WorkflowTest(unittest.TestCase):
         self.assertEqual(len(re.findall(r"diff -z --no-renames --name-only", text)), 2)
         self.assertNotRegex(text, r"diff --no-renames --name-only")
 
+    def test_comentarios_so_pela_api_rest(self):
+        # o gh --json comments não diz se o autor do comentário é bot: o robô se perderia e comentaria todo dia
+        text = wf("conferencia-receita.yml")
+        self.assertNotIn("--json comments", text)
+        leituras = re.findall(r'gh api "repos/\$GITHUB_REPOSITORY/issues/\$[A-Za-z]+/comments" --paginate --slurp', text)
+        self.assertEqual(len(leituras), 5)
+        # o corpo de antes é lido antes de o PR ser editado
+        passo = next(c for j, _, c in steps(text) if "name: Abrir ou atualizar o PR de regra" in c)
+        self.assertLess(passo.index('gh pr view "$PR" --json body,author'), passo.index('gh pr edit "$PR"'))
+
     def test_agir_le_o_meta_do_commit_do_comeco(self):
         text = wf("conferencia-receita.yml")
         agir = text[text.index("\n  agir:"):text.index("\n  manter:")]

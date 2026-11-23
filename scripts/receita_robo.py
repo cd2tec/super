@@ -56,11 +56,16 @@ MAX_DIVERGENTES = 50
 MAX_CASOS = 1_000_000
 # A API de comparação do GitHub lista no máximo 300 arquivos.
 LIMITE_ARQUIVOS_COMPARE = 300
-# Quem é o robô nas respostas do `gh` (GraphQL, REST e o prefixo que o gh põe em app).
-LOGINS_DO_ROBO = frozenset({"github-actions", "app/github-actions", "github-actions[bot]"})
+# Quem é o robô. Autor de issue e de PR vem do `gh ... --json author` (GraphQL), com `is_bot`: o login
+# do bot do Actions ali é "app/github-actions" ou "github-actions" (não deu para confirmar qual sem uma
+# execução de verdade, então valem só esses dois, e sempre com is_bot verdadeiro). Autor de comentário
+# vem da API REST, que diz o tipo: login "github-actions[bot]" com type "Bot". O `gh --json comments`
+# não traz is_bot no autor do comentário e não serve para isso.
+LOGINS_DO_ROBO = frozenset({"github-actions", "app/github-actions"})
+LOGIN_REST_DO_ROBO = "github-actions[bot]"
 TAG_RELEASE = "cd2-super-v{versao}"
 
-_LINHA_PARIDADE = re.compile(r"^(\d+) casos, (\d+) iguais, ", re.MULTILINE)
+_LINHA_PARIDADE = re.compile(r"^(\d{1,7}) casos, (\d{1,7}) iguais, ", re.MULTILINE)
 _DIVERGE = re.compile(r"^DIVERGE (\S+)", re.MULTILINE)
 _ID_CASO = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$")
 _SEMVER = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
@@ -582,10 +587,22 @@ def issue_do_robo(issues: list, titulo_issue: str) -> int | None:
 
 
 def corpos_do_robo(comentarios) -> list[str]:
-    """Os corpos escritos pelo robô; aceita a lista ou o {"comments": [...]} do `gh ... --json comments`."""
-    if isinstance(comentarios, dict):
-        comentarios = comentarios.get("comments", [])
-    return [c.get("body") or "" for c in comentarios if isinstance(c, dict) and _do_robo(c.get("author"))]
+    """Os corpos dos comentários escritos pelo robô, da API REST
+    (`gh api repos/<repo>/issues/<n>/comments --paginate --slurp`, que dá uma lista de páginas).
+
+    Só conta comentário com user.type "Bot" e user.login "github-actions[bot]". Comentário no formato
+    do `gh --json comments` ({"author": {"login": ...}}) não conta: ali não há como saber se é bot."""
+    if not isinstance(comentarios, list):
+        return []
+    planos = []
+    for item in comentarios:
+        planos.extend(item if isinstance(item, list) else [item])
+    corpos = []
+    for c in planos:
+        usuario = c.get("user") if isinstance(c, dict) else None
+        if isinstance(usuario, dict) and usuario.get("type") == "Bot" and usuario.get("login") == LOGIN_REST_DO_ROBO:
+            corpos.append(c.get("body") or "")
+    return corpos
 
 
 # --- textos -------------------------------------------------------------------------
@@ -609,7 +626,7 @@ def texto_seguro(texto: str, limite: int = 500) -> str:
     # que não aparece na leitura e quebra o reconhecimento do GitHub.
     texto = texto.replace("@", "@\u200b")
     texto = texto.replace("://", ":\u200b//")
-    texto = re.sub(r"(?i)\bwww\.", "www\u200b.", texto)
+    texto = re.sub(r"(?i)\b(www)\.", "\\1\u200b.", texto)
     return re.sub(r"([\\`*_\[\]{}()#+!|~-])", r"\\\1", texto)
 
 
@@ -690,7 +707,8 @@ def _cerca(texto: str) -> str:
     return "`" * max(3, maior + 1)
 
 
-def texto_pr_regra(meta: dict, upstream: dict, paridade: dict | None, diff_java: str, classe: str = "regra") -> str:
+def texto_pr_regra(meta: dict, upstream: dict, paridade: dict | None, diff_java: str, classe: str = "regra",
+                   hoje: str | None = None) -> str:
     skill = meta["skill"]
     calc_repo = meta["calculadora"]["repo"]
     de, para = meta["calculadora"]["commit"], upstream["calculadora"]["commit"]
@@ -754,7 +772,9 @@ def texto_pr_regra(meta: dict, upstream: dict, paridade: dict | None, diff_java:
         corpo += ["", cerca + "diff", diff.rstrip("\n"), cerca]
     if nota:
         corpo += ["", nota]
-    return "\n".join(topo + corpo + fim) + "\n"
+    # A marca diz de que estado da Receita o corpo fala: no dia seguinte, sem mudança, não há comentário.
+    marca_corpo = marca("regra-atualizada", upstream, hoje or _dt.date.today().isoformat())
+    return "\n".join(topo + corpo + fim + ["", marca_corpo]) + "\n"
 
 
 def texto_issue(tipo: str, skill: str, meta: dict, upstream: dict | None = None, paridade: dict | None = None,
@@ -1068,7 +1088,7 @@ def _cmd_texto(args) -> int:
         motivo = Path(args.motivo_arquivo).read_text(encoding="utf-8", errors="replace")
     if args.tipo == "pr-regra":
         diff = Path(args.diff).read_text(encoding="utf-8", errors="replace") if args.diff and Path(args.diff).is_file() else ""
-        texto = texto_pr_regra(meta, upstream, paridade, diff, estado.get("classe", "regra"))
+        texto = texto_pr_regra(meta, upstream, paridade, diff, estado.get("classe", "regra"), hoje)
     elif args.tipo == "issue-gpt":
         meta_atual = _ler(_pasta(raiz, skill) / "meta.json")
         no_ar = None
@@ -1081,6 +1101,11 @@ def _cmd_texto(args) -> int:
     else:
         if args.comentarios:
             comentarios = corpos_do_robo(_ler(args.comentarios)) if Path(args.comentarios).is_file() else []
+            # o corpo da issue ou do PR também conta, se for do robô (o autor vem do gh --json author)
+            if args.corpo_atual and Path(args.corpo_atual).is_file():
+                atual = _ler(args.corpo_atual)
+                if isinstance(atual, dict) and _do_robo(atual.get("author")):
+                    comentarios.append(atual.get("body") or "")
             if not deve_comentar(comentarios, args.tipo,
                                  upstream or {"calculadora": {"versao": "-"}, "migracoes": {"commit": "-"}}, hoje):
                 return 0
