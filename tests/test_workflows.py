@@ -115,6 +115,19 @@ class WorkflowTest(unittest.TestCase):
                     self.assertIn(expressao, EXPRESSOES_PERMITIDAS_NO_RUN, f"{path.name}: {expressao}")
                 self.assertNotIn("${{", bloco, path.name)
 
+    def test_saida_comparada_a_numero_exige_o_passo_rodado(self):
+        # Passo pulado deixa a saída nula, e nas expressões do GitHub nulo == '0' dá verdadeiro: na primeira
+        # rodada real o robô tentou regravar as respostas sem a calculadora no ar. Quem compara a saída de
+        # um passo com um número tem de exigir também que esse passo terminou.
+        for nome in sorted(p.name for p in WF.glob("*.yml")):
+            for job, condicao, _ in steps(wf(nome)):
+                for passo in re.findall(r"steps\.([a-z_]+)\.outputs\.[a-z_]+\s*[!=]=\s*'\d+'", condicao):
+                    self.assertIn(f"steps.{passo}.conclusion == 'success'", condicao, f"{nome} {job}: {condicao}")
+        quebrado = [(j, c.replace("steps.paridade.conclusion == 'success' && ", ""), t)
+                    for j, c, t in steps(wf("conferencia-receita.yml"))]
+        self.assertTrue(any(re.search(r"steps\.paridade\.outputs\.codigo == '0'", c)
+                            and "conclusion" not in c for _, c, _ in quebrado))
+
     def test_parser_de_run_acha_os_blocos(self):
         blocos = run_blocks(wf("conferencia-receita.yml"))
         self.assertGreater(len(blocos), 15)
