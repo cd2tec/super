@@ -391,13 +391,178 @@ class LinksEFormatosTest(unittest.TestCase):
         self.assertIn("data:font/woff2;base64,", pagina)
         self.assertIn("<svg", pagina)
         self.assertIn('class="cd2-assinatura"', pagina)
-        self.assertIn("overflow-x", pagina)
+        self.assertNotIn("overflow-x: hidden", pagina)  # nada de esconder estouro: o texto longo quebra
+        self.assertIn("overflow-wrap", pagina)
 
     def test_formato_invalido(self):
         with self.assertRaises(ValueError):
             render.render(entrega(C_OK), "pdf")
         with self.assertRaises(ValueError):
             render.render({"operacao": {}}, "html")
+
+
+HOSTIL = "<script>alert(1)</script><img src=x onerror=y>[x](javascript:alert(1)) `rm` java\u2028script:\u00a0\u2009x"
+IS_TEXTO = "Este NCM está na leitura da CD2 da lista do Imposto Seletivo (Lei X), que começa em 2027. Informe o valor no documento."
+
+
+def _tudo_hostil(valor, texto):
+    if isinstance(valor, str):
+        return texto
+    if isinstance(valor, list):
+        return [_tudo_hostil(v, texto) for v in valor]
+    if isinstance(valor, dict):
+        return {k: _tudo_hostil(v, texto) for k, v in valor.items()}
+    return valor
+
+
+
+
+class RobustezTest(unittest.TestCase):
+    def _entregas(self):
+        base = entrega(C_MISTO, sugestoes={"1": {**sugestao_do_item()["1"], "reducao": "100",
+                                                 "imposto_seletivo": {"na_lista": True, "texto": IS_TEXTO}}},
+                       aviso_versao={"consultado": True, "ha_versao_nova": True, "calculadora": "1.0.3", "mensagem": "m"})
+        base["calculo"]["normalizacoes"] = ["a"]
+        base["calculo"]["corpo"]["resolucaoAliquotas"]["avisos"] = ["a"]
+        yield "misto", base
+        for caso in (C_422, C_NAO_CALC, C_INCONS, C_500, C_400, C_OK):
+            yield caso, entrega(caso, sugestoes={"1": {"cClassTrib": "1", "cst": "1", "descricao": "d", "reducao": "0"}},
+                                aviso_versao={"consultado": True, "ha_versao_nova": True, "calculadora": "1.0.3"})
+        yield "2026", vsn015_de_2026()
+
+    def test_campo_hostil_em_toda_a_entrega_nao_sobrevive(self):
+        for nome, e in self._entregas():
+            hostil = _tudo_hostil(e, HOSTIL)
+            for formato in FORMATOS:
+                with self.subTest(caso=nome, formato=formato):
+                    texto = render.render(hostil, formato)
+                    if formato == "html":
+                        for tag in ("<script", "<img src=x"):
+                            self.assertNotIn(tag, texto)
+                        self.assertNotIn("\u2028", texto)
+                    else:
+                        for proibido in ("<", ">", "`", "javascript:"):
+                            self.assertNotIn(proibido, texto)
+                        # o único link possível é o nosso, da Receita, no Markdown
+                        self.assertEqual(texto.count("]("), 1 if formato == "markdown" else 0)
+
+    def test_versao_hostil_vira_desconhecida_em_todos_os_formatos(self):
+        e = entrega(C_OK, aviso_versao={"consultado": True, "ha_versao_nova": True,
+                                        "calculadora": 'javascript:alert(1)"><i>x'})
+        e["calculo"]["versao"] = {"calculadora": '<b>1</b>](javascript:alert(1))', "base": 'V"><img onerror=x>',
+                                  "conferida_em": "<i>2026-11-22"}
+        for formato in FORMATOS:
+            with self.subTest(formato):
+                texto = render.render(e, formato)
+                self.assertIn("versão desconhecida, base desconhecida.", texto)
+                self.assertIn("A Receita já publicou a versão desconhecida.", texto)
+                self.assertNotIn("conferida em", texto)
+                self.assertNotIn("javascript:", texto)
+                self.assertNotIn("<img", texto)
+        ok = entrega(C_OK)
+        ok["calculo"]["versao"] = {"calculadora": "v1.0.2", "base": "V0073", "conferida_em": "2026-11-22"}
+        self.assertIn("versão v1.0.2, base V0073, conferida em 22/11/2026.", render.render(ok, "markdown"))
+        ok["calculo"]["versao"]["calculadora"] = "1." * 20 + "1"
+        self.assertIn("versão desconhecida", render.render(ok, "markdown"))
+
+    def test_whatsapp_nunca_passa_de_mil_com_campos_gigantes(self):
+        grande = "Z" * 2000
+        cenarios = []
+        for caso in (C_OK, C_MISTO, C_422, C_500, C_NAO_CALC):
+            e = _tudo_hostil(entrega(caso, exemplo=True, sugestoes=sugestao_do_item(),
+                                     aviso_versao={"consultado": True, "ha_versao_nova": True, "calculadora": "1.0.3"}), grande)
+            cenarios.append((caso + "-texto", e))
+        vsn = vsn015_de_2026()
+        vsn["exemplo"] = True
+        vsn["calculo"]["versao"]["calculadora"] = "V" + "1." * 9 + "1"
+        vsn["calculo"]["versao"]["base"] = "V" + "9" * 19
+        vsn["calculo"]["corpo"]["errors"][0]["title"] = grande
+        vsn["operacao"]["id"] = grande
+        cenarios.append(("2026-exemplo", vsn))
+        numeros = entrega(C_MISTO, exemplo=True, sugestoes=sugestao_do_item())
+        numeros["calculo"]["versao"] = {"calculadora": "V" + "1." * 9 + "1", "base": "V" + "9" * 19, "conferida_em": "2026-11-22"}
+        numeros["calculo"]["corpo"]["total"]["vCBSSNtot"] = "9" * 40 + ".99"
+        numeros["calculo"]["corpo"]["total"]["vIBSSNtot"] = "8" * 40 + ".99"
+        numeros["operacao"]["id"] = grande
+        cenarios.append(("numeros", numeros))
+        for nome, e in cenarios:
+            with self.subTest(nome):
+                texto = render.render(e, "whatsapp")
+                self.assertLessEqual(len(texto), 1000)
+                self.assertIn(AVISO_FIXO, texto)
+                self.assertIn("CD2 Tech", texto)
+                if "-texto" not in nome:
+                    self.assertTrue("Conta igual" in texto)
+
+    def test_whatsapp_com_o_pior_caso_mantem_total_selo_e_aviso(self):
+        e = entrega(C_OK, exemplo=True, sugestoes=sugestao_do_item(),
+                    aviso_versao={"consultado": True, "ha_versao_nova": True, "calculadora": "1.0.3"})
+        e["calculo"]["versao"] = {"calculadora": "V" + "1." * 9 + "1", "base": "V" + "9" * 19, "conferida_em": "2026-11-22"}
+        e["operacao"]["id"] = "o" * 2000
+        texto = render.render(e, "whatsapp")
+        self.assertLessEqual(len(texto), 1000)
+        for trecho in ("R$ 11,61", "R$ 0,13", "Conta igual", AVISO_FIXO):
+            self.assertIn(trecho, texto)
+
+    def test_total_nao_numerico_com_itens_calculados_diz_indisponivel(self):
+        e = entrega(C_OK)
+        e["calculo"]["corpo"]["total"]["vCBSSNtot"] = "abc"
+        for formato in FORMATOS:
+            with self.subTest(formato):
+                texto = render.render(e, formato)
+                self.assertIn("Total indisponível", texto)
+                self.assertNotIn("Nenhum item foi calculado", texto)
+
+    def test_espacos_unicode_viram_espaco_e_separadores_somem(self):
+        e = entrega(C_422)
+        e["calculo"]["corpo"]["errors"][0]["detail"] = "a\u00a0b\u2009c\u3000d\u2028e\u2029f\u200bg\ufeffh"
+        for formato in FORMATOS:
+            with self.subTest(formato):
+                texto = render.render(e, formato)
+                self.assertIn("a b c de" + "fgh", texto)
+                for c in "\u00a0\u2009\u3000\u2028\u2029\u200b\ufeff":
+                    self.assertNotIn(c, texto)
+
+    def test_codigo_nunca_e_cortado_no_whatsapp(self):
+        e = entrega(C_422)
+        e["calculo"]["corpo"]["errors"][0]["title"] = "T" * 500
+        texto = render.render(e, "whatsapp")
+        self.assertIn("(VSN-018)", texto)
+        self.assertLessEqual(len(texto), 1000)
+
+
+class SugestaoDaCd2Test(unittest.TestCase):
+    def _com_is(self, na_lista):
+        s = {**sugestao_do_item()["1"], "reducao": "60",
+             "imposto_seletivo": {"na_lista": na_lista, "texto": IS_TEXTO}}
+        return entrega(C_OK, sugestoes={"1": s})
+
+    def test_reducao_aparece_na_linha_da_sugestao(self):
+        for formato in ("html", "markdown"):
+            with self.subTest(formato):
+                self.assertIn("cClassTrib 200003 (CST 200), redução de 60%", render.render(self._com_is(False), formato))
+        zero = entrega(C_OK, sugestoes={"1": {**sugestao_do_item()["1"], "reducao": "0"}})
+        self.assertIn("redução de 0%", render.render(zero, "html"))
+        sem = entrega(C_OK, sugestoes={"1": sugestao_do_item()["1"]})
+        self.assertNotIn("redução de", render.render(sem, "html"))
+        invalida = entrega(C_OK, sugestoes={"1": {**sugestao_do_item()["1"], "reducao": "<b>x</b>"}})
+        self.assertNotIn("redução de", render.render(invalida, "html"))
+
+    def test_imposto_seletivo_na_lista_aparece_ao_lado_do_item(self):
+        for formato in ("html", "markdown"):
+            with self.subTest(formato):
+                self.assertIn(IS_TEXTO, render.render(self._com_is(True), formato))
+                self.assertNotIn(IS_TEXTO, render.render(self._com_is(False), formato))
+        zap = render.render(self._com_is(True), "whatsapp")
+        self.assertIn("Imposto Seletivo: veja o item 1", zap)
+        self.assertNotIn("Imposto Seletivo", render.render(self._com_is(False), "whatsapp"))
+        self.assertNotIn("Imposto Seletivo", render.render(entrega(C_OK, sugestoes=sugestao_do_item()), "html"))
+
+    def test_imposto_seletivo_e_escapado(self):
+        e = self._com_is(True)
+        e["sugestoes"]["1"]["imposto_seletivo"]["texto"] = "<script>x</script>"
+        self.assertNotIn("<script", render.render(e, "html"))
+        self.assertNotIn("<script", render.render(e, "markdown"))
 
 
 class CliTest(unittest.TestCase):

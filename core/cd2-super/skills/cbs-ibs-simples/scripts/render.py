@@ -22,7 +22,7 @@ import re
 import sys
 import unicodedata
 from datetime import date
-from decimal import ROUND_HALF_EVEN, Decimal, InvalidOperation
+from decimal import ROUND_HALF_EVEN, Decimal, InvalidOperation, localcontext
 from pathlib import Path
 
 # brand.py fica ao lado deste arquivo no pacote final (o sync copia). No
@@ -79,31 +79,66 @@ TEXTO_ERP = "O Archeo MCP Creator, da CD2, cria a conexão para puxar os dados d
 _TRAVESSOES = {chr(0x2014): "-", chr(0x2013): "-"}
 
 
-# ------------------------------------------------------------------ texto e números
-
 def _txt(valor) -> str:
-    """Texto de fora, limpo: sem caractere de controle, sem travessão, em uma linha só."""
+    """Texto de fora, limpo: uma linha só, sem controle, sem separador de linha, sem travessão.
+    Todo espaço Unicode vira espaço comum."""
     if valor is None:
         return ""
     saida = []
     for c in str(valor):
-        if c in "\n\r\t":
+        categoria = unicodedata.category(c)
+        if c in "\n\r\t" or categoria == "Zs":
             saida.append(" ")
-        elif unicodedata.category(c) in ("Cc", "Cf", "Cs") or c in "  ":
+        elif categoria in ("Cc", "Cf", "Cs", "Co", "Cn", "Zl", "Zp"):
             continue
         else:
             saida.append(_TRAVESSOES.get(c, c))
     return re.sub(r" {2,}", " ", "".join(saida)).strip()
 
 
+_JS = re.compile(r"java\s*script\s*:", re.IGNORECASE)
+
+
+def _sem_js(texto: str) -> str:
+    while _JS.search(texto):
+        texto = _JS.sub("", texto)
+    return texto
+
+
+def _txt_md(valor) -> str:
+    """Texto de fora seguro em Markdown: sem HTML, sem link, sem crase e sem quebrar tabela."""
+    texto = _txt(valor).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    texto = texto.replace("`", "'").replace("[", "(").replace("]", ")").replace("|", "/")
+    return re.sub(r"([\\*_#~])", r"\\\1", _sem_js(texto))
+
+
+def _txt_wa(valor) -> str:
+    """Texto de fora para o WhatsApp: sem HTML, sem colchete, sem crase."""
+    texto = re.sub(r"<[^>]*>", "", _txt(valor))
+    texto = texto.replace("<", "").replace(">", "").replace("`", "'").replace("[", "(").replace("]", ")")
+    return _sem_js(texto)
+
+
+_LIMPADORES = {"html": _txt, "markdown": _txt_md, "whatsapp": _txt_wa}
+
+
 def _dec(valor):
     if isinstance(valor, bool) or valor is None:
         return None
+    texto = str(valor).strip()
+    if len(texto) > 60:
+        return None
     try:
-        d = Decimal(str(valor).strip())
+        d = Decimal(texto)
     except (InvalidOperation, ValueError):
         return None
     return d if d.is_finite() else None
+
+
+def _arredondar(d: Decimal, casas: int) -> Decimal:
+    with localcontext() as contexto:
+        contexto.prec = 120  # o valor tem até 60 caracteres: o arredondamento não pode estourar a precisão
+        return d.quantize(Decimal(1).scaleb(-casas), rounding=ROUND_HALF_EVEN)
 
 
 def _milhar(inteiro: str) -> str:
@@ -113,8 +148,8 @@ def _milhar(inteiro: str) -> str:
 def _brl(valor) -> str:
     d = _dec(valor)
     if d is None:
-        return _txt(valor) or "s/d"
-    d = d.quantize(Decimal("0.01"), rounding=ROUND_HALF_EVEN)
+        return _corta(_txt(valor), 30) or "s/d"
+    d = _arredondar(d, 2)
     inteiro, frac = f"{abs(d):.2f}".split(".")
     sinal = "-" if d < 0 else ""
     return f"{sinal}R$ {_milhar(inteiro)},{frac}"
@@ -123,18 +158,33 @@ def _brl(valor) -> str:
 def _pct(valor) -> str:
     d = _dec(valor)
     if d is None:
-        return _txt(valor) or "s/d"
-    d = d.quantize(Decimal("0.0001"), rounding=ROUND_HALF_EVEN)
+        return _corta(_txt(valor), 30) or "s/d"
+    d = _arredondar(d, 4)
     inteiro, frac = f"{abs(d):.4f}".split(".")
     frac = frac.rstrip("0").ljust(2, "0")
     sinal = "-" if d < 0 else ""
     return f"{sinal}{_milhar(inteiro)},{frac}%"
 
 
+def _inteiro_ou_decimal(valor) -> str:
+    """Número curto sem zeros à direita, com vírgula (por exemplo, 60 ou 12,5). Vazio se não for número."""
+    d = _dec(valor)
+    if d is None or abs(d) > Decimal("100000"):
+        return ""
+    texto = f"{_arredondar(d, 2):f}"
+    if "." in texto:
+        texto = texto.rstrip("0").rstrip(".")
+    return texto.replace(".", ",")
+
+
+_DATA_ISO = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+
 def _data(texto) -> str:
     texto = _txt(texto)
-    achou = re.match(r"^(\d{4})-(\d{2})-(\d{2})", texto)
-    return f"{achou.group(3)}/{achou.group(2)}/{achou.group(1)}" if achou else texto
+    if _DATA_ISO.match(texto):
+        return f"{texto[8:10]}/{texto[5:7]}/{texto[:4]}"
+    return texto
 
 
 def _ano_da_data(texto):
@@ -147,6 +197,14 @@ def _corta(texto: str, limite: int) -> str:
     return texto if len(texto) <= limite else texto[: limite - 3].rstrip() + "..."
 
 
+def _titulo_e_codigo(titulo: str, codigo: str, limite: int) -> str:
+    """Corta o título, nunca o código."""
+    codigo = _corta(codigo, 20)
+    if not codigo:
+        return _corta(titulo, limite)
+    return f"{_corta(titulo, max(limite - len(codigo) - 3, 10))} ({codigo})".strip()
+
+
 def _dict(valor) -> dict:
     return valor if isinstance(valor, dict) else {}
 
@@ -155,28 +213,40 @@ def _lista(valor) -> list:
     return valor if isinstance(valor, list) else []
 
 
+_VERSAO = re.compile(r"[vV]?\d+(?:\.\d+)*")
+
+
 # ------------------------------------------------------------------ leitura da entrega
 
 class _Entrega:
-    """Tudo o que a entrega precisa, lido uma vez e limpo."""
+    """Tudo o que a entrega precisa, lido uma vez. Todo texto que vem de fora passa por `self.t`, o
+    limpador do formato: o que sai daqui já é seguro para o formato (o HTML ainda escapa na saída)."""
 
-    def __init__(self, dados: dict):
+    def __init__(self, dados: dict, formato: str):
+        self.t = _LIMPADORES[formato]
         calculo = dados["calculo"]
         self.status = calculo.get("status")
         corpo = calculo.get("corpo")
         self.corpo = corpo if isinstance(corpo, dict) else {}
-        self.versao = _dict(calculo.get("versao"))
-        self.normalizacoes = [t for t in (_txt(n) for n in _lista(calculo.get("normalizacoes"))) if t]
+        versao = _dict(calculo.get("versao"))
+        self.v_calculadora = self._versao(versao.get("calculadora"))
+        self.v_base = self._versao(versao.get("base"))
+        conferida = _txt(versao.get("conferida_em"))
+        self.conferida = conferida if _DATA_ISO.fullmatch(conferida) else ""
+        self.normalizacoes = [t for t in (self.t(n) for n in _lista(calculo.get("normalizacoes"))) if t]
         self.operacao = _dict(dados.get("operacao"))
         self.exemplo = bool(dados.get("exemplo"))
         sugestoes = dados.get("sugestoes")
         self.sugestoes = sugestoes if isinstance(sugestoes, dict) else {}
-        self.aviso_versao = _dict(dados.get("aviso_versao"))
+        aviso = _dict(dados.get("aviso_versao"))
+        self.versao_nova = (self._versao(aviso.get("calculadora"))
+                            if aviso.get("consultado") is True and aviso.get("ha_versao_nova") is True else "")
 
         oper = _dict(self.corpo.get("oper"))
-        self.data_iso = _txt(oper.get("data") or self.operacao.get("data"))
-        self.op_id = _txt(self.operacao.get("id"))
-        self.antes_de_2027 = (_ano_da_data(self.data_iso) or INICIO_DAS_REGRAS) < INICIO_DAS_REGRAS
+        data = _txt(oper.get("data") or self.operacao.get("data"))
+        self.data_iso = data
+        self.op_id = self.t(self.operacao.get("id"))
+        self.antes_de_2027 = (_ano_da_data(data) or INICIO_DAS_REGRAS) < INICIO_DAS_REGRAS
 
         self.nivel_operacao = not isinstance(self.corpo.get("objetos"), list)
         self.erros_operacao = self._erros_da_operacao() if self.nivel_operacao else []
@@ -184,10 +254,30 @@ class _Entrega:
         self.calculados = [i for i in self.itens if i["estado"] == "CALCULADO"]
         self.problemas = [i for i in self.itens if i["estado"] != "CALCULADO"]
         self.avisos = self._avisos()
-        self.total = _dict(self.corpo.get("total"))
-        self.tem_total = bool(self.calculados) and _dec(self.total.get("vCBSSNtot")) is not None \
-            and _dec(self.total.get("vIBSSNtot")) is not None
-        self.alguma_sugestao = bool(self.sugestoes)
+        total = _dict(self.corpo.get("total"))
+        self.total = {k: self.num(total.get(k)) for k in
+                      ("vBC", "vCBSSNtot", "vIBSSNtot", "totalTributos", "vCBSSNtotPendSusp",
+                       "vIBSSNtotPendSusp", "totalIs")}
+        self.tem_total = bool(self.calculados) and _dec(self.total["vCBSSNtot"]) is not None \
+            and _dec(self.total["vIBSSNtot"]) is not None
+        self.alguma_sugestao = any(i["sugestao"] for i in self.itens) or (bool(self.sugestoes) and self.nivel_operacao)
+        self.itens_com_is = [i["numero"] for i in self.itens if i["sugestao"] and i["sugestao"]["is_texto"]]
+
+    # --- campos de valor e de versão
+    def num(self, valor):
+        """Valor numérico do corpo oficial: o texto original se for número, senão texto limpo e curto."""
+        if valor is None:
+            return None
+        if _dec(valor) is not None:
+            return str(valor).strip()
+        return _corta(self.t(valor), 30)
+
+    @staticmethod
+    def _versao(valor) -> str:
+        texto = _txt(valor)
+        if not texto:
+            return ""
+        return texto if len(texto) <= 20 and _VERSAO.fullmatch(texto) else "desconhecida"
 
     # --- erros da operação (400, 422, 500...)
     def _erros_da_operacao(self) -> list:
@@ -195,12 +285,12 @@ class _Entrega:
         for e in _lista(self.corpo.get("errors")):
             if not isinstance(e, dict):
                 continue
-            codigo = _txt(e.get("code"))
-            erros.append({"titulo": _txt(e.get("title")), "codigo": codigo,
-                          "texto": self._texto_do_erro(codigo, _txt(e.get("detail")))})
+            codigo = self.t(e.get("code"))
+            erros.append({"titulo": self.t(e.get("title")), "codigo": codigo,
+                          "texto": self._texto_do_erro(codigo, self.t(e.get("detail")))})
         if not erros:
-            titulo = _txt(self.corpo.get("title")) or "A calculadora oficial não fez a conta"
-            erros.append({"titulo": titulo, "codigo": "", "texto": _txt(self.corpo.get("detail"))})
+            titulo = self.t(self.corpo.get("title")) or "A calculadora oficial não fez a conta"
+            erros.append({"titulo": titulo, "codigo": "", "texto": self.t(self.corpo.get("detail"))})
         return erros
 
     def _texto_do_erro(self, codigo: str, detalhe: str) -> str:
@@ -215,85 +305,97 @@ class _Entrega:
         return "Falha técnica: a calculadora oficial não fez a conta"
 
     # --- itens
-    def _item_da_operacao(self, posicao: int, numero) -> dict:
+    def _item_da_operacao(self, posicao: int, numero: str) -> dict:
         itens = [i for i in _lista(self.operacao.get("itens")) if isinstance(i, dict)]
         for item in itens:
-            if numero is not None and _txt(item.get("numero")) == _txt(numero):
+            if _txt(item.get("numero")) == numero:
                 return item
         return itens[posicao] if posicao < len(itens) else {}
 
     def _itens(self) -> list:
         saida = []
         for posicao, obj in enumerate(o for o in _lista(self.corpo.get("objetos")) if isinstance(o, dict)):
-            numero = obj.get("nObj")
-            rotulo_numero = _txt(numero) or str(posicao + 1)
-            estado = obj.get("estadoItem")
-            rotulo, cor = ESTADOS.get(estado, (_txt(estado) or "Estado desconhecido", "amber"))
+            bruto = _txt(obj.get("nObj"))
+            numero = bruto if re.fullmatch(r"\d{1,6}", bruto) else str(posicao + 1)
+            estado = obj.get("estadoItem") if isinstance(obj.get("estadoItem"), str) else ""
+            rotulo, cor = ESTADOS.get(estado, (self.t(estado) or "Estado desconhecido", "amber"))
             trib = _dict(obj.get("tribCalc"))
             origem = self._item_da_operacao(posicao, numero)
             descricao = ""
             for campo in ("descricao", "nome", "produto", "xProd"):
-                if _txt(origem.get(campo)):
-                    descricao = _txt(origem.get(campo))
+                if self.t(origem.get(campo)):
+                    descricao = self.t(origem.get(campo))
                     break
-            sugestao = self.sugestoes.get(rotulo_numero)
+            sugestao = self.sugestoes.get(numero)
             memoria = _dict(trib.get("memoriaCalculo"))
+            base = trib.get("vBC") if trib.get("vBC") is not None else trib.get("vRBSNitem")
             saida.append({
-                "numero": rotulo_numero, "estado": estado if isinstance(estado, str) else "", "rotulo": rotulo,
-                "cor": cor, "descricao": descricao,
-                "base": trib.get("vBC") if trib.get("vBC") is not None else trib.get("vRBSNitem"),
-                "p_cbs": trib.get("pCBSSN"), "p_ibs": trib.get("pIBSSN"),
-                "v_cbs": trib.get("vCBSSN"), "v_ibs": trib.get("vIBSSN"), "total": trib.get("totalItem"),
-                "sugestao": _sugestao(sugestao) if isinstance(sugestao, dict) else None,
+                "numero": numero, "estado": estado, "rotulo": rotulo, "cor": cor, "descricao": descricao,
+                "base": self.num(base), "p_cbs": self.num(trib.get("pCBSSN")), "p_ibs": self.num(trib.get("pIBSSN")),
+                "v_cbs": self.num(trib.get("vCBSSN")), "v_ibs": self.num(trib.get("vIBSSN")),
+                "total": self.num(trib.get("totalItem")),
+                "sugestao": self._sugestao(sugestao) if isinstance(sugestao, dict) else None,
                 "motivos": self._motivos(obj),
-                "memoria": {k: _txt(memoria.get(k)) for k in ("cbs", "ibs") if _txt(memoria.get(k))},
+                "memoria": {k: self.t(memoria.get(k)) for k in ("cbs", "ibs") if self.t(memoria.get(k))},
             })
         return saida
+
+    def _sugestao(self, s: dict) -> dict:
+        imposto = _dict(s.get("imposto_seletivo"))
+        return {"classificacao": self.t(s.get("cClassTrib")), "cst": self.t(s.get("cst")),
+                "descricao": self.t(s.get("descricao")), "reducao": _inteiro_ou_decimal(s.get("reducao")),
+                "is_texto": self.t(imposto.get("texto")) if imposto.get("na_lista") is True else ""}
 
     def _motivos(self, obj: dict) -> list:
         motivos = []
         estado = _dict(obj.get("motivoEstado"))
         if estado:
-            motivos.append({"titulo": "", "codigo": _txt(estado.get("codigo")),
-                            "texto": _txt(estado.get("descricao")), "detalhe": ""})
+            motivos.append({"titulo": "", "codigo": self.t(estado.get("codigo")),
+                            "texto": self.t(estado.get("descricao")), "detalhe": ""})
         for e in _lista(obj.get("erros")):
             if not isinstance(e, dict):
                 continue
-            codigo = _txt(e.get("code"))
-            oficial = simples_motor.CODIGOS.get(codigo)
-            detalhe = _txt(e.get("detail"))
+            codigo = self.t(e.get("code"))
+            oficial = simples_motor.CODIGOS.get(_txt(e.get("code")))
+            detalhe = self.t(e.get("detail"))
             if codigo == "VSN-015" and self.antes_de_2027:
                 texto, detalhe = TEXTO_VSN015_DATA, ""
             elif oficial:
-                texto = _txt(oficial["descricao"])
+                texto = self.t(oficial["descricao"])
                 detalhe = "" if detalhe == texto else detalhe
             else:
                 texto, detalhe = detalhe, ""
-            motivos.append({"titulo": _txt(e.get("title")), "codigo": codigo, "texto": texto, "detalhe": detalhe})
+            motivos.append({"titulo": self.t(e.get("title")), "codigo": codigo, "texto": texto, "detalhe": detalhe})
         return motivos
 
     def _avisos(self) -> list:
-        avisos = [t for t in (_txt(a) for a in _lista(self.corpo.get("avisos"))) if t]
+        avisos = [t for t in (self.t(a) for a in _lista(self.corpo.get("avisos"))) if t]
         resolucao = _dict(self.corpo.get("resolucaoAliquotas"))
-        avisos += [t for t in (_txt(a) for a in _lista(resolucao.get("avisos"))) if t]
+        avisos += [t for t in (self.t(a) for a in _lista(resolucao.get("avisos"))) if t]
         for item in _lista(resolucao.get("itens")):
             if isinstance(item, dict):
-                avisos += [f"Item {_txt(item.get('numero'))}: {t}"
-                           for t in (_txt(a) for a in _lista(item.get("avisos"))) if t]
+                avisos += [f"Item {self.t(item.get('numero'))}: {t}"
+                           for t in (self.t(a) for a in _lista(item.get("avisos"))) if t]
         return avisos
 
     # --- selo, versão e rodapé
+    def _selo(self, com_data: bool) -> str:
+        if not self.v_calculadora and not self.v_base:
+            return ""
+        partes = [f"versão {self.v_calculadora}" if self.v_calculadora else "",
+                  f"base {self.v_base}" if self.v_base else ""]
+        texto = "Conta igual à da calculadora oficial do Simples Nacional " + ", ".join(p for p in partes if p)
+        if com_data and self.conferida:
+            texto += f", conferida em {_data(self.conferida)}"
+        return texto + "."
+
     @property
     def selo(self) -> str:
-        versao, base = _txt(self.versao.get("calculadora")), _txt(self.versao.get("base"))
-        if not versao and not base:
-            return ""
-        partes = [f"versão {versao}" if versao else "", f"base {base}" if base else ""]
-        texto = "Conta igual à da calculadora oficial do Simples Nacional " + ", ".join(p for p in partes if p)
-        conferida = _data(self.versao.get("conferida_em"))
-        if conferida:
-            texto += f", conferida em {conferida}"
-        return texto + "."
+        return self._selo(True)
+
+    @property
+    def selo_curto(self) -> str:
+        return self._selo(False)
 
     @property
     def selo_extra(self) -> str:
@@ -301,23 +403,22 @@ class _Entrega:
 
     @property
     def linha_versao_nova(self) -> str:
-        aviso = self.aviso_versao
-        nova = _txt(aviso.get("calculadora"))
-        if aviso.get("consultado") is True and aviso.get("ha_versao_nova") is True and nova:
-            return f"A Receita já publicou a versão {nova}. Atualize o plugin para a conta mais recente."
+        if self.versao_nova:
+            return f"A Receita já publicou a versão {self.versao_nova}. Atualize o plugin para a conta mais recente."
         return ""
 
     @property
     def data_do_rodape(self) -> str:
-        return _data(self.versao.get("conferida_em")) or date.today().strftime("%d/%m/%Y")
+        return _data(self.conferida) if self.conferida else date.today().strftime("%d/%m/%Y")
 
     @property
     def linha_operacao(self) -> str:
         partes = []
         if self.op_id:
             partes.append(f"Operação {self.op_id}")
-        if self.data_iso:
-            partes.append(f"data {_data(self.data_iso)}")
+        data = self.t(self.data_iso)
+        if data:
+            partes.append(f"data {_corta(_data(data), 30)}")
         return ", ".join(partes)
 
     @property
@@ -327,16 +428,17 @@ class _Entrega:
         texto += "calculado" if len(self.calculados) == 1 else "calculados"
         return texto + (f", {k} com problema" if k else "")
 
-
-def _sugestao(s: dict) -> dict:
-    return {"classificacao": _txt(s.get("cClassTrib")), "cst": _txt(s.get("cst")),
-            "descricao": _txt(s.get("descricao"))}
+    @property
+    def sem_total(self) -> str:
+        return "Total indisponível" if self.calculados else SEM_ITEM.rstrip(".")
 
 
 def _linha_sugestao(s: dict) -> str:
     texto = f"cClassTrib {s['classificacao']}" if s["classificacao"] else "classificação"
     if s["cst"]:
         texto += f" (CST {s['cst']})"
+    if s["reducao"]:
+        texto += f", redução de {s['reducao']}%"
     return texto + (f": {s['descricao']}" if s["descricao"] else "")
 
 
@@ -425,23 +527,27 @@ def _html_motivos(motivos: list) -> str:
     return f'<ul class="motivos">{"".join(itens)}</ul>'
 
 
+def _celula(rotulo: str, valor, formatar) -> str:
+    texto = esc(formatar(valor)) if valor is not None else ""
+    return f'<td class="n" data-label="{rotulo}">{texto}</td>'
+
+
 def _html_linha_item(i: dict) -> str:
     extra = ""
     if i["sugestao"]:
         extra += (f'<span><span class="sugerida">{esc(AVISO_SUGESTAO)}</span> '
                   f'{esc(_linha_sugestao(i["sugestao"]))}</span>')
+        if i["sugestao"]["is_texto"]:
+            extra += f'<span><b>Imposto Seletivo:</b> {esc(i["sugestao"]["is_texto"])}</span>'
     extra += _html_motivos(i["motivos"])
     desc = f'<span class="item-desc">{esc(i["descricao"])}</span>' if i["descricao"] else ""
     extra_html = f'<div class="item-extra">{extra}</div>' if extra else ""
-    cod = f"Item {esc(i['numero'])}"
     return (
-        f'<tr><th scope="row">{cod}{desc}{extra_html}</th>'
+        f'<tr><th scope="row">Item {esc(i["numero"])}{desc}{extra_html}</th>'
         f'<td data-label="Situação"><span class="pill {i["cor"]}">{esc(i["rotulo"])}</span></td>'
-        f'<td class="n" data-label="Base">{esc(_brl(i["base"])) if i["base"] is not None else ""}</td>'
-        f'<td class="n" data-label="Alíquota CBS">{esc(_pct(i["p_cbs"])) if i["p_cbs"] is not None else ""}</td>'
-        f'<td class="n" data-label="Alíquota IBS">{esc(_pct(i["p_ibs"])) if i["p_ibs"] is not None else ""}</td>'
-        f'<td class="n" data-label="CBS">{esc(_brl(i["v_cbs"])) if i["v_cbs"] is not None else ""}</td>'
-        f'<td class="n" data-label="IBS">{esc(_brl(i["v_ibs"])) if i["v_ibs"] is not None else ""}</td></tr>'
+        + _celula("Base", i["base"], _brl) + _celula("Alíquota CBS", i["p_cbs"], _pct)
+        + _celula("Alíquota IBS", i["p_ibs"], _pct) + _celula("CBS", i["v_cbs"], _brl)
+        + _celula("IBS", i["v_ibs"], _brl) + "</tr>"
     )
 
 
@@ -487,8 +593,8 @@ def _html_hero(e: _Entrega) -> str:
     if not e.tem_total:
         return (
             '<section class="bloco b-raised hero" aria-labelledby="t-total"><p class="eyebrow mut">CBS E IBS</p>'
-            f'<h1 class="display-lg" id="t-total">{esc(SEM_ITEM)}</h1>'
-            f'<p class="stat-line">{esc(e.contagem)}. Veja abaixo o motivo de cada item.</p></section>'
+            f'<h1 class="display-lg" id="t-total">{esc(e.sem_total)}</h1>'
+            f'<p class="stat-line">{esc(e.contagem)}. Veja abaixo o detalhe de cada item.</p></section>'
         )
     t = e.total
     extras = "".join(f'<p class="stat-line">{esc(nome)}: <b class="num">{esc(valor)}</b></p>'
@@ -582,22 +688,14 @@ def _render_html(e: _Entrega, plataforma: str) -> str:
 
 
 # ------------------------------------------------------------------ Markdown
-
-_MD_ESPECIAIS = re.compile(r"([\\`*_\[\]|#<>])")
-
-
-def _md(texto) -> str:
-    """Texto de fora seguro em Markdown: sem HTML cru e sem quebrar tabela."""
-    texto = _txt(texto).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-    return _MD_ESPECIAIS.sub(r"\\\1", texto)
-
+# Os textos de fora já chegam limpos pelo `_txt_md` (ver _Entrega): aqui só se monta.
 
 def _md_motivos(motivos: list) -> list:
     linhas = []
     for m in motivos:
-        cabeca = " ".join(p for p in (f"**{_md(m['titulo'])}**" if m["titulo"] else "",
-                                      f"(`{_txt(m['codigo'])}`)" if m["codigo"] else "") if p)
-        corpo = " ".join(p for p in (_md(m["texto"]), _md(m["detalhe"])) if p)
+        cabeca = " ".join(p for p in (f"**{m['titulo']}**" if m["titulo"] else "",
+                                      f"({m['codigo']})" if m["codigo"] else "") if p)
+        corpo = " ".join(p for p in (m["texto"], m["detalhe"]) if p)
         linhas.append("- " + (f"{cabeca}: {corpo}" if cabeca and corpo else cabeca or corpo))
     return linhas
 
@@ -606,63 +704,64 @@ def _render_markdown(e: _Entrega, plataforma: str) -> str:
     links = _links(plataforma)
     linhas = [f"# {SKILL_TITLE}", ""]
     if e.linha_operacao:
-        linhas += [_md(e.linha_operacao), ""]
+        linhas += [e.linha_operacao, ""]
     if e.exemplo:
         linhas += [f"> {FAIXA_EXEMPLO}", ""]
     if e.nivel_operacao:
         linhas += [f"## {e.titulo_erro_operacao}", ""]
         for erro in e.erros_operacao:
-            cabeca = " ".join(p for p in (f"**{_md(erro['titulo'])}**" if erro["titulo"] else "",
-                                          f"(`{erro['codigo']}`)" if erro["codigo"] else "") if p)
-            texto = _md(erro["texto"])
-            linhas.append("- " + (f"{cabeca}: {texto}" if cabeca and texto else cabeca or texto))
+            cabeca = " ".join(p for p in (f"**{erro['titulo']}**" if erro["titulo"] else "",
+                                          f"({erro['codigo']})" if erro["codigo"] else "") if p)
+            linhas.append("- " + (f"{cabeca}: {erro['texto']}" if cabeca and erro["texto"] else cabeca or erro["texto"]))
         linhas.append("")
     elif not e.tem_total:
-        linhas += [f"## {SEM_ITEM}", "", f"{_md(e.contagem)}.", ""]
+        linhas += [f"## {e.sem_total}", "", f"{e.contagem}.", ""]
     else:
         t = e.total
         linhas += ["## CBS e IBS do Simples Nacional", "", f"- **CBS:** {_brl(t['vCBSSNtot'])}",
                    f"- **IBS:** {_brl(t['vIBSSNtot'])}"]
         linhas += [f"- {nome}: {valor}" for nome, valor in _extras_do_total(e)]
-        linhas += [f"- {_md(e.contagem)}", ""]
+        linhas += [f"- {e.contagem}", ""]
     if e.itens:
         linhas += ["## Itens da operação", "", "| Item | Situação | Base | Alíquota CBS | Alíquota IBS | CBS | IBS |",
                    "| --- | --- | ---: | ---: | ---: | ---: | ---: |"]
         for i in e.itens:
-            nome = f"{i['numero']}" + (f" ({_md(i['descricao'])})" if i["descricao"] else "")
+            nome = i["numero"] + (f" ({i['descricao']})" if i["descricao"] else "")
             valores = [_brl(i["base"]) if i["base"] is not None else "",
                        _pct(i["p_cbs"]) if i["p_cbs"] is not None else "",
                        _pct(i["p_ibs"]) if i["p_ibs"] is not None else "",
                        _brl(i["v_cbs"]) if i["v_cbs"] is not None else "",
                        _brl(i["v_ibs"]) if i["v_ibs"] is not None else ""]
-            linhas.append("| " + " | ".join([_md(nome), _md(i["rotulo"])] + [_md(v) for v in valores]) + " |")
+            linhas.append("| " + " | ".join([nome, i["rotulo"]] + valores) + " |")
         if e.tem_total:
             t = e.total
             base = _brl(t["vBC"]) if _dec(t.get("vBC")) is not None else ""
-            linhas.append(f"| **Total** |  | {_md(base)} |  |  | {_md(_brl(t['vCBSSNtot']))} | {_md(_brl(t['vIBSSNtot']))} |")
+            linhas.append(f"| **Total** |  | {base} |  |  | {_brl(t['vCBSSNtot'])} | {_brl(t['vIBSSNtot'])} |")
         linhas.append("")
         for i in e.itens:
             extra = []
             if i["sugestao"]:
-                extra.append(f"- {AVISO_SUGESTAO} {_md(_linha_sugestao(i['sugestao']))}")
+                extra.append(f"- {AVISO_SUGESTAO} {_linha_sugestao(i['sugestao'])}")
+                if i["sugestao"]["is_texto"]:
+                    extra.append(f"- **Imposto Seletivo:** {i['sugestao']['is_texto']}")
             extra += _md_motivos(i["motivos"])
             if extra:
-                linhas += [f"**Item {_md(i['numero'])}**", ""] + extra + [""]
+                linhas += [f"**Item {i['numero']}**", ""] + extra + [""]
         memoria = [i for i in e.calculados if i["memoria"]]
         if memoria:
             linhas += ["## Memória de cálculo", ""]
             for i in memoria:
-                linhas.append(f"**Item {_md(i['numero'])}**")
-                linhas += [f"- {nome}: {_md(i['memoria'][chave])}"
+                linhas.append(f"**Item {i['numero']}**")
+                linhas += [f"- {nome}: {i['memoria'][chave]}"
                            for chave, nome in (("cbs", "CBS"), ("ibs", "IBS")) if chave in i["memoria"]]
                 linhas.append("")
     if e.avisos:
-        linhas += ["## Avisos da operação", ""] + [f"- {_md(a)}" for a in e.avisos] + [""]
+        linhas += ["## Avisos da operação", ""] + [f"- {a}" for a in e.avisos] + [""]
     if e.normalizacoes:
-        linhas += ["## O que arrumamos na entrada", ""] + [f"- {_md(n)}" for n in e.normalizacoes] + [""]
+        linhas += ["## O que arrumamos na entrada", ""] + [f"- {n}" for n in e.normalizacoes] + [""]
     selo = [t for t in (e.selo, e.selo_extra, e.linha_versao_nova) if t]
     if selo:
-        linhas += ["## Selo de conferência", ""] + [_md(t) for t in selo[:1]] + [t for t in selo[1:]] + [""]
+        linhas += ["## Selo de conferência", ""] + selo + [""]
     linhas += [f"**{AVISO_FIXO}**", "", f"Fonte do código e das tabelas: [repositório da calculadora da Receita Federal]({RECEITA_URL}).", "",
                f"## {TITULO_COMERCIAL}", "", TEXTO_COMERCIAL, "",
                f"- Fale com a CD2 no WhatsApp: {links['whatsapp']}", f"- Conheça a CD2: {links['cd2']}",
@@ -673,61 +772,77 @@ def _render_markdown(e: _Entrega, plataforma: str) -> str:
 
 # ------------------------------------------------------------------ WhatsApp
 
-def _sem_html(texto: str) -> str:
-    return re.sub(r"<[^>]*>", "", texto).replace("<", "").replace(">", "")
-
-
-def _render_whatsapp(e: _Entrega, plataforma: str) -> str:
-    """Resumo curto. Cada parte é (texto, obrigatória); se passar de 1000 caracteres, cai a última opcional."""
-    def limpo(texto, limite):
-        return _corta(_sem_html(_txt(texto)), limite)
-
+def _whatsapp_partes(e: _Entrega, nivel: int) -> list:
+    """Partes do resumo como (texto, obrigatória). Quanto maior o nível, mais enxuto. Os campos variáveis
+    já chegam limpos e aqui são cortados."""
     partes = [(f"*{SKILL_TITLE}*", True)]
     if e.exemplo:
-        partes.append((FAIXA_EXEMPLO, True))
+        partes.append((FAIXA_EXEMPLO if nivel < 2 else "Exemplo ilustrativo. Não é a conta da sua empresa.", True))
     if e.linha_operacao:
-        partes.append((limpo(e.linha_operacao, 60), False))
+        partes.append((_corta(e.linha_operacao, 60), False))
+    limite_titulo = 90 if nivel == 0 else 50
     if e.nivel_operacao:
-        partes.append((limpo(e.titulo_erro_operacao, 70) + ".", True))
+        partes.append((_corta(e.titulo_erro_operacao, 70) + ".", True))
         for n, erro in enumerate(e.erros_operacao[:3]):
-            codigo = f" ({_sem_html(erro['codigo'])})" if erro["codigo"] else ""
-            partes.append((f"- {limpo(erro['titulo'] + codigo, 90)}", n == 0))
+            partes.append((f"- {_titulo_e_codigo(erro['titulo'], erro['codigo'], limite_titulo)}", n == 0))
             if erro["texto"] and n == 0:
-                partes.append((limpo(erro["texto"], 150), n == 0 and erro["codigo"] == "VSN-015" and e.antes_de_2027))
+                data = erro["codigo"] == "VSN-015" and e.antes_de_2027
+                partes.append((_corta(erro["texto"], 150), data and nivel < 3))
         if len(e.erros_operacao) > 3:
             partes.append((f"Mais {len(e.erros_operacao) - 3} erros na página completa.", False))
     elif not e.tem_total:
-        partes.append((SEM_ITEM, True))
-        partes.append((limpo(e.contagem, 80) + ".", False))
-        for i in e.problemas[:2]:
-            codigos = ", ".join(m["codigo"] for m in i["motivos"] if m["codigo"])
-            partes.append((limpo(f"- Item {i['numero']}: {i['rotulo']}" + (f" ({codigos})" if codigos else ""), 90), False))
+        partes.append((e.sem_total + ".", True))
+        partes.append((_corta(e.contagem, 80) + ".", False))
     else:
         t = e.total
         partes += [(f"CBS: {_brl(t['vCBSSNtot'])}", True), (f"IBS: {_brl(t['vIBSSNtot'])}", True)]
         if _dec(t.get("totalTributos")) is not None:
             partes.append((f"Total: {_brl(t['totalTributos'])}", False))
-        partes.append((limpo(e.contagem, 80) + ".", False))
+        partes.append((_corta(e.contagem, 80) + ".", False))
+    if not e.nivel_operacao:
         for i in e.problemas[:2]:
             codigos = ", ".join(m["codigo"] for m in i["motivos"] if m["codigo"])
-            partes.append((limpo(f"- Item {i['numero']}: {i['rotulo']}" + (f" ({codigos})" if codigos else ""), 90), False))
+            partes.append((_corta(f"- Item {i['numero']}: {i['rotulo']}" + (f" ({_corta(codigos, 30)})" if codigos else ""), 90), False))
+        if e.itens_com_is:
+            partes.append((_corta("Imposto Seletivo: veja o item " + ", ".join(e.itens_com_is[:5]) + " na página completa.", 90), False))
     if e.alguma_sugestao:
         partes.append((AVISO_SUGESTAO, True))
-    if e.selo:
-        partes.append((e.selo + (" " + e.selo_extra if e.selo_extra else ""), True))
+    selo = e.selo if nivel < 3 else e.selo_curto
+    if selo:
+        partes.append((selo + (" " + e.selo_extra if e.selo_extra else ""), True))
     if e.linha_versao_nova:
-        partes.append((limpo(e.linha_versao_nova, 120), False))
-    partes += [(AVISO_FIXO, True), (_sem_html(brand.footer_text(REGRA, e.data_do_rodape)), True)]
+        partes.append((e.linha_versao_nova, False))
+    partes += [(AVISO_FIXO, True), (brand.footer_text(REGRA, e.data_do_rodape), True)]
+    return partes
 
-    def juntar(lista):
-        return "\n".join(texto for texto, _ in lista) + "\n"
 
-    while len(juntar(partes)) > LIMITE_WHATSAPP:
-        opcionais = [n for n, (_, obrigatoria) in enumerate(partes) if not obrigatoria]
-        if not opcionais:
-            break
-        partes.pop(opcionais[-1])
-    return juntar(partes)
+def _juntar(partes: list) -> str:
+    return "\n".join(texto for texto, _ in partes) + "\n"
+
+
+def _render_whatsapp(e: _Entrega, plataforma: str) -> str:
+    """Resumo curto, sempre com no máximo 1000 caracteres. Se não couber, cai a última parte opcional;
+    se ainda não couber, o resumo fica mais enxuto, nível a nível."""
+    for nivel in range(4):
+        partes = _whatsapp_partes(e, nivel)
+        while len(_juntar(partes)) > LIMITE_WHATSAPP:
+            opcionais = [n for n, (_, obrigatoria) in enumerate(partes) if not obrigatoria]
+            if not opcionais:
+                break
+            partes.pop(opcionais[-1])
+        if len(_juntar(partes)) <= LIMITE_WHATSAPP:
+            return _juntar(partes)
+    # Último recurso: só o essencial (título, total ou erro, selo, aviso fixo e assinatura curta).
+    essencial = [(f"*{SKILL_TITLE}*", True)]
+    if e.nivel_operacao:
+        essencial.append((_titulo_e_codigo(e.erros_operacao[0]["titulo"], e.erros_operacao[0]["codigo"], 80), True))
+    elif e.tem_total:
+        essencial += [(f"CBS: {_brl(e.total['vCBSSNtot'])}", True), (f"IBS: {_brl(e.total['vIBSSNtot'])}", True)]
+    else:
+        essencial.append((e.sem_total + ".", True))
+    essencial += [(e.selo_curto, True)] if e.selo_curto else []
+    essencial += [(AVISO_FIXO, True), ("CD2 Tech", True)]
+    return _juntar(essencial)
 
 
 # ------------------------------------------------------------------ API e linha de comando
@@ -739,7 +854,7 @@ def render(entrega: dict, formato: str, plataforma: str = "Claude") -> str:
     if not isinstance(entrega, dict) or not isinstance(entrega.get("calculo"), dict) \
             or "corpo" not in entrega["calculo"]:
         raise ValueError('a entrega precisa trazer "calculo" com a saída do calc.py (status, corpo, versao)')
-    modelo = _Entrega(entrega)
+    modelo = _Entrega(entrega, formato)
     plataforma = _txt(plataforma) or "Claude"
     return {"html": _render_html, "markdown": _render_markdown, "whatsapp": _render_whatsapp}[formato](modelo, plataforma)
 
