@@ -1,0 +1,617 @@
+name: Conferência com a Receita
+
+# Robô de conferência das skills que espelham a calculadora da Receita Federal (veja o AGENTS.md).
+# Todo dia olha a Receita, monta a base, compila a calculadora oficial, roda a bateria inteira e decide:
+# publica sozinho (só tabelas ou release sem código, com 100%), abre PR de regra, abre issue ou não faz nada.
+#
+# Cuidados:
+# - o código da Receita (Maven, Flyway, o JAR) roda só dentro de contêineres, no job `conferir`, que só
+#   lê o repositório. Os contêineres veem só cópias dos clones da Receita e uma pasta própria de produtos,
+#   nunca o checkout nem a pasta dos resultados. O JAR roda numa rede sem saída para a internet;
+# - quem escreve (commit, PR, issue) é o job `agir`, que não roda código da Receita, valida o artefato
+#   inteiro e refaz pela API do GitHub o que dá para refazer antes de usar qualquer coisa dele;
+# - nenhuma expressão vai dentro de um `run:`: tudo entra por `env:` e entre aspas;
+# - fora da main o robô só confere e não escreve nada;
+# - o GitHub desliga workflow agendado depois de 60 dias sem atividade no repositório: o job `manter`
+#   reativa este workflow ao fim de toda execução, abre a issue de falha geral quando um job some
+#   (cancelado, tempo esgotado, matriz vazia) e dispara de novo a release que não saiu.
+
+on:
+  schedule:
+    - cron: "17 9 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: conferencia-receita
+  cancel-in-progress: false
+
+jobs:
+  listar:
+    runs-on: ubuntu-latest
+    outputs:
+      skills: ${{ steps.listar.outputs.skills }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - id: listar
+        name: Uma entrada da matriz por pasta de conferencia/
+        run: |
+          set -euo pipefail
+          skills=$(python3 -c 'import json,pathlib,re; n=sorted(p.parent.name for p in pathlib.Path("conferencia").glob("*/config.json")); assert all(re.fullmatch(r"[a-z0-9-]+", s) for s in n); print(json.dumps(n))')
+          if [ "$skills" = "[]" ]; then
+            echo "Nenhuma pasta de conferencia/ com config.json: o robô não teria o que conferir."
+            exit 1
+          fi
+          echo "skills=$skills" >> "$GITHUB_OUTPUT"
+          echo "Skills: $skills"
+
+  conferir:
+    needs: listar
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        skill: ${{ fromJSON(needs.listar.outputs.skills) }}
+    env:
+      SKILL: ${{ matrix.skill }}
+      SAIDA: ${{ runner.temp }}/saida
+      TRAB: ${{ runner.temp }}/trabalho
+      ETAPA: ${{ runner.temp }}/saida/etapa.txt
+      RECEITA: ${{ runner.temp }}/receita
+      # Fora do checkout e fora do runner.temp: é o que os contêineres enxergam.
+      ISOL: /tmp/receita-isolada
+      # A mesma família de imagem do ensaio local (Maven com Temurin 25), presa pelo digest.
+      IMAGEM: maven:3-eclipse-temurin-25@sha256:84bd96155bf37d1be2858433aee89320f487c2d21faf06406640e7dc2b82d686
+      PORTA: "8082"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Olhar a Receita
+        id: detectar
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$SAIDA" "$TRAB" "$RECEITA"
+          echo "Olhar a Receita" > "$ETAPA"
+          CFG="conferencia/$SKILL/config.json"
+          META="conferencia/$SKILL/meta.json"
+          CALC_REPO=$(jq -er .calculadora.repo "$CFG")
+          CALC_CODIGO=$(jq -er .calculadora.caminho_codigo "$CFG")
+          MIGR_REPO=$(jq -er .migracoes.repo "$CFG")
+          MIGR_CAMINHO=$(jq -er .migracoes.caminho "$CFG")
+          CALC_ANTES=$(jq -er .calculadora.commit "$META")
+          MIGR_ANTES=$(jq -er .migracoes.commit "$META")
+          # A última release (o GitHub já deixa de fora rascunho e pré-release).
+          TAG=$(gh api "repos/$CALC_REPO/releases/latest" --jq .tag_name)
+          case "$TAG" in ""|*[!A-Za-z0-9._-]*) echo "Tag fora do padrão."; exit 1;; esac
+          # Clone sem blobs: o histórico basta para o diff de nomes; o checkout baixa o resto.
+          # Sem links simbólicos no checkout: link vira arquivo de texto e o nosso Python nunca segue um
+          # link da Receita para fora do clone.
+          git clone --quiet --filter=blob:none -c core.symlinks=false "https://github.com/$CALC_REPO.git" "$RECEITA/sn"
+          git -C "$RECEITA/sn" -c advice.detachedHead=false checkout --quiet "refs/tags/$TAG"
+          CALC_DEPOIS=$(git -C "$RECEITA/sn" rev-parse HEAD)
+          git clone --quiet --filter=blob:none -c core.symlinks=false "https://github.com/$MIGR_REPO.git" "$RECEITA/rr"
+          MIGR_DEPOIS=$(git -C "$RECEITA/rr" rev-parse HEAD)
+          # Caminhos mudados: tudo o que mudou na calculadora e, das migrações, só o que está no caminho delas.
+          # Separados por NUL (-z): nome com acento ou com quebra de linha chega inteiro e sem aspas.
+          # Commit espelhado que sumiu do histórico faz o git falhar aqui: vira issue de falha.
+          : > "$SAIDA/caminhos.txt"
+          if [ "$CALC_ANTES" != "$CALC_DEPOIS" ]; then
+            git -C "$RECEITA/sn" diff -z --no-renames --name-only "$CALC_ANTES" "$CALC_DEPOIS" >> "$SAIDA/caminhos.txt"
+            git -C "$RECEITA/sn" -c core.quotePath=false diff --no-renames "$CALC_ANTES" "$CALC_DEPOIS" -- "$CALC_CODIGO" > "$SAIDA/diff-java.txt"
+          fi
+          if [ "$MIGR_ANTES" != "$MIGR_DEPOIS" ]; then
+            git -C "$RECEITA/rr" diff -z --no-renames --name-only "$MIGR_ANTES" "$MIGR_DEPOIS" -- "$MIGR_CAMINHO" >> "$SAIDA/caminhos.txt"
+          fi
+          jq -n --arg v "${TAG#v}" --arg c "$CALC_DEPOIS" --arg m "$MIGR_DEPOIS" \
+            '{calculadora: {versao: $v, commit: $c}, migracoes: {commit: $m}}' > "$SAIDA/upstream.json"
+          cat "$SAIDA/upstream.json"
+          # Versão para trás, tag movida ou valor fora do padrão: para aqui, com o motivo na etapa.
+          python3 scripts/receita_robo.py detectar --skill "$SKILL" --upstream "$SAIDA/upstream.json" \
+            --caminhos "$SAIDA/caminhos.txt" --saida "$SAIDA/estado.json" --motivo-saida "$ETAPA"
+
+      - name: Montar a base pelo Flyway e compilar a calculadora oficial, num contêiner
+        if: steps.detectar.outputs.classe != 'nada'
+        env:
+          CONSTRUIR: |
+            cd /rr
+            mkdir -p calculadora/db
+            mvn -B -q -Dmaven.repo.local=/m2/repository flyway:migrate -Dflyway.configFiles=./flyway/flyway-pro.conf
+            cp calculadora/db/calculadora-pro.db /produtos/
+            cd /sn
+            mkdir -p calculadora/db
+            cp /produtos/calculadora-pro.db calculadora/db/
+            mvn -B -q -Dmaven.repo.local=/m2/repository clean package -DskipTests
+            cp target/api-simples-nacional.jar /produtos/
+        run: |
+          set -euo pipefail
+          echo "Montar a base pelo Flyway e compilar a calculadora oficial" > "$ETAPA"
+          rm -rf "$ISOL"
+          mkdir -p "$ISOL/rr" "$ISOL/sn" "$ISOL/m2" "$ISOL/produtos"
+          # Cópias: o contêiner nunca mexe nos clones que o nosso Python lê.
+          cp -a "$RECEITA/rr/." "$ISOL/rr/"
+          cp -a "$RECEITA/sn/." "$ISOL/sn/"
+          docker run --rm --name receita-build --user "$(id -u):$(id -g)" -e HOME=/tmp \
+            -v "$ISOL/rr:/rr" -v "$ISOL/sn:/sn" -v "$ISOL/m2:/m2" -v "$ISOL/produtos:/produtos" \
+            "$IMAGEM" bash -euo pipefail -c "$CONSTRUIR"
+          # Produto do build só se for arquivo comum (nunca link) e de dentro da pasta de produtos.
+          produto() {
+            local p="$ISOL/produtos/$1"
+            if [ ! -f "$p" ] || [ -L "$p" ]; then echo "Produto do build fora do esperado: $1" >&2; exit 1; fi
+            case "$(realpath "$p")" in
+              "$(realpath "$ISOL/produtos")"/*) printf '%s\n' "$p" ;;
+              *) echo "Produto do build fora da pasta de produtos: $1" >&2; exit 1 ;;
+            esac
+          }
+          test -s "$(produto calculadora-pro.db)"
+          test -s "$(produto api-simples-nacional.jar)"
+
+      - name: Montar a base pelo receita_base.py e comparar as duas
+        if: steps.detectar.outputs.classe != 'nada'
+        run: |
+          set -euo pipefail
+          echo "Montar a base pelo receita_base.py" > "$ETAPA"
+          python3 scripts/receita_base.py --skill "$SKILL" --repo "$RECEITA/rr" --completa "$TRAB/base-completa.db"
+          # Produto do build só se for arquivo comum (nunca link) e de dentro da pasta de produtos.
+          produto() {
+            local p="$ISOL/produtos/$1"
+            if [ ! -f "$p" ] || [ -L "$p" ]; then echo "Produto do build fora do esperado: $1" >&2; exit 1; fi
+            case "$(realpath "$p")" in
+              "$(realpath "$ISOL/produtos")"/*) printf '%s\n' "$p" ;;
+              *) echo "Produto do build fora da pasta de produtos: $1" >&2; exit 1 ;;
+            esac
+          }
+          BANCO=$(produto calculadora-pro.db)
+          cp "$BANCO" "$TRAB/flyway.db"
+          echo "Comparar as duas bases" > "$ETAPA"
+          python3 scripts/receita_robo.py comparar-bases --skill "$SKILL" \
+            --flyway "$TRAB/flyway.db" --montada "$TRAB/base-completa.db"
+
+      - name: Subir a calculadora oficial num contêiner sem saída para a internet
+        if: steps.detectar.outputs.classe != 'nada'
+        env:
+          VERSAO: ${{ steps.detectar.outputs.versao }}
+        run: |
+          set -euo pipefail
+          echo "Isolar a rede da calculadora oficial" > "$ETAPA"
+          docker network create --driver bridge -o com.docker.network.bridge.name=br-receita receita-oficial
+          # Nada que sai do contêiner passa (DOCKER-USER), e ele não abre conexão com a máquina (INPUT).
+          # A porta publicada em 127.0.0.1 continua: quem abre a conexão é a máquina.
+          sudo iptables -I DOCKER-USER -i br-receita -j DROP
+          sudo iptables -I INPUT -i br-receita -m conntrack ! --ctstate ESTABLISHED,RELATED -j DROP
+          if docker run --rm --network receita-oficial --dns 127.0.0.1 "$IMAGEM" \
+              bash -c 'timeout 10 bash -c "exec 3<>/dev/tcp/140.82.112.3/443"'; then
+            echo "A rede da calculadora oficial alcançou a internet: o isolamento não funcionou."
+            exit 1
+          fi
+          echo "Subir a calculadora oficial" > "$ETAPA"
+          # Produto do build só se for arquivo comum (nunca link) e de dentro da pasta de produtos.
+          produto() {
+            local p="$ISOL/produtos/$1"
+            if [ ! -f "$p" ] || [ -L "$p" ]; then echo "Produto do build fora do esperado: $1" >&2; exit 1; fi
+            case "$(realpath "$p")" in
+              "$(realpath "$ISOL/produtos")"/*) printf '%s\n' "$p" ;;
+              *) echo "Produto do build fora da pasta de produtos: $1" >&2; exit 1 ;;
+            esac
+          }
+          JAR=$(produto api-simples-nacional.jar)
+          BANCO=$(produto calculadora-pro.db)
+          docker run -d --name receita-oficial --network receita-oficial --dns 127.0.0.1 \
+            -p "127.0.0.1:$PORTA:$PORTA" --user "$(id -u):$(id -g)" -e HOME=/tmp -w /app \
+            -v "$JAR:/app/api.jar:ro" \
+            -v "$BANCO:/app/calculadora/db/calculadora-pro.db:ro" \
+            "$IMAGEM" java -Dspring.profiles.active=offline -jar /app/api.jar
+          BASE=$(jq -er .base.versao "conferencia/$SKILL/meta.json")
+          python3 scripts/receita_robo.py esperar-oficial --url "http://127.0.0.1:$PORTA/api" \
+            --versao "$VERSAO" --base "$BASE" --prazo 600
+
+      - name: Conferência completa
+        id: paridade
+        if: steps.detectar.outputs.classe != 'nada'
+        run: |
+          # O shell do GitHub roda com -e: sem o +e, a divergência (código 1) derrubaria o passo antes de o
+          # código ser guardado, e viraria falha em vez de issue de divergência.
+          set +e
+          set -uo pipefail
+          echo "Conferência completa" > "$ETAPA"
+          python3 scripts/receita_paridade.py --skill "$SKILL" --oficial "http://127.0.0.1:$PORTA/api" \
+            --completa --base-completa "$TRAB/base-completa.db" > "$TRAB/paridade.txt" 2>&1
+          codigo=$?
+          case "$codigo" in ""|*[!0-9]*) exit 1;; esac
+          echo "$codigo" > "$TRAB/paridade-codigo.txt"
+          head -n 200 "$TRAB/paridade.txt"
+          echo "codigo=$codigo" >> "$GITHUB_OUTPUT"
+
+      - name: Regravar as respostas oficiais gravadas
+        # Toda resposta oficial gravada no repositório mora no esperadas.json: com 100%, ela é regravada
+        # da calculadora oficial desta execução, antes de o agir rodar os testes.
+        if: steps.paridade.outputs.codigo == '0'
+        run: |
+          set -euo pipefail
+          echo "Regravar as respostas oficiais" > "$ETAPA"
+          python3 scripts/receita_paridade.py --skill "$SKILL" --oficial "http://127.0.0.1:$PORTA/api" --gravar-esperadas --amostra 400
+
+      - name: Desligar os contêineres
+        if: always()
+        run: |
+          docker rm -f receita-oficial receita-build > /dev/null 2>&1 || true
+          docker network rm receita-oficial > /dev/null 2>&1 || true
+
+      - name: Guardar o que o job agir precisa
+        # Depois dos contêineres desligados: só agora entram na pasta dos resultados as bases, as respostas
+        # oficiais e o relatório da paridade. Antes dela só chegam arquivos que o nosso código escreve
+        # no primeiro passo (etapa, caminhos, upstream, estado e diff do Java), e nenhum contêiner a monta.
+        if: always()
+        env:
+          STATUS: ${{ job.status }}
+        run: |
+          set -uo pipefail
+          mkdir -p "$SAIDA"
+          base=$(jq -er .base_destino "conferencia/$SKILL/config.json")
+          [ -f "$base" ] && cp "$base" "$SAIDA/base-receita.db"
+          cp "conferencia/$SKILL/meta.json" "$SAIDA/meta.json"
+          cp "conferencia/$SKILL/esperadas.json" "$SAIDA/esperadas.json"
+          for f in base-completa.db paridade.txt paridade-codigo.txt; do
+            [ -f "$TRAB/$f" ] && cp "$TRAB/$f" "$SAIDA/$f"
+          done
+          printf '%s\n' "$STATUS" > "$SAIDA/resultado.txt"
+          true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: conferencia-${{ matrix.skill }}
+          path: ${{ runner.temp }}/saida
+          retention-days: 14
+
+  agir:
+    needs: [listar, conferir]
+    if: always() && needs.listar.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      actions: write
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        skill: ${{ fromJSON(needs.listar.outputs.skills) }}
+    env:
+      SKILL: ${{ matrix.skill }}
+      ART: ${{ runner.temp }}/art
+      ETAPA: ${{ runner.temp }}/etapa.txt
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      RAMO: ${{ github.ref }}
+      EXECUCAO: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # A ponta do ramo agora, não a do começo da execução, com o histórico para ler o meta.json do
+          # commit que o conferir usou: se a main andou no meio, o robô não age e confere amanhã.
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: conferencia-${{ matrix.skill }}
+          path: ${{ runner.temp }}/art
+
+      - name: Reconferir o artefato e a Receita
+        id: reconferir
+        run: |
+          set -euo pipefail
+          echo "Reconferir o artefato e a Receita" > "$ETAPA"
+          if [ ! -f "$ART/estado.json" ] || [ "$(head -c 20 "$ART/resultado.txt" 2>/dev/null)" != "success" ]; then
+            echo "Sem artefato completo: o decidir abre a issue de falha."
+            exit 0
+          fi
+          CFG="conferencia/$SKILL/config.json"
+          META="conferencia/$SKILL/meta.json"
+          CALC_REPO=$(jq -er .calculadora.repo "$CFG")
+          MIGR_REPO=$(jq -er .migracoes.repo "$CFG")
+          CALC_ANTES=$(jq -er .calculadora.commit "$META")
+          MIGR_ANTES=$(jq -er .migracoes.commit "$META")
+          TAG=$(gh api "repos/$CALC_REPO/releases/latest" --jq .tag_name)
+          case "$TAG" in ""|*[!A-Za-z0-9._-]*) echo "Tag fora do padrão."; exit 1;; esac
+          CALC=$(gh api "repos/$CALC_REPO/commits/$TAG" --jq .sha)
+          MIGR=$(git ls-remote "https://github.com/$MIGR_REPO.git" HEAD | awk '$2 == "HEAD" {print $1}')
+          for c in "$CALC" "$MIGR"; do
+            [[ "$c" =~ ^[0-9a-f]{40}$ ]] || { echo "Commit fora do padrão na API do GitHub."; exit 1; }
+          done
+          extra=()
+          if [ "$CALC" != "$CALC_ANTES" ]; then
+            gh api "repos/$CALC_REPO/compare/$CALC_ANTES...$CALC" > "$RUNNER_TEMP/compare-calc.json"
+            extra+=(--compare-calc "$RUNNER_TEMP/compare-calc.json")
+          fi
+          if [ "$MIGR" != "$MIGR_ANTES" ]; then
+            gh api "repos/$MIGR_REPO/compare/$MIGR_ANTES...$MIGR" > "$RUNNER_TEMP/compare-migr.json"
+            extra+=(--compare-migr "$RUNNER_TEMP/compare-migr.json")
+          fi
+          git show "$GITHUB_SHA:conferencia/$SKILL/meta.json" > "$RUNNER_TEMP/meta-do-comeco.json"
+          python3 scripts/receita_robo.py reconferir --skill "$SKILL" --artefato "$ART" --tag "$TAG" \
+            --meta-do-comeco "$RUNNER_TEMP/meta-do-comeco.json" \
+            --commit-calc "$CALC" --commit-migr "$MIGR" ${extra[@]+"${extra[@]}"} --motivo-saida "$ETAPA"
+
+      - name: Achar o PR de regra do robô
+        id: pr
+        run: |
+          set -euo pipefail
+          echo "Achar o PR de regra do robô" > "$ETAPA"
+          gh pr list --state open --limit 100 \
+            --json number,title,headRefName,headRepository,headRepositoryOwner,isCrossRepository,author \
+            > "$RUNNER_TEMP/prs.json"
+          python3 scripts/receita_robo.py achar --tipo pr --de pr-regra --skill "$SKILL" \
+            --lista "$RUNNER_TEMP/prs.json" --repo "$REPO"
+
+      - name: Decidir
+        id: decidir
+        env:
+          PR: ${{ steps.pr.outputs.numero }}
+        run: |
+          set -euo pipefail
+          echo "Decidir" > "$ETAPA"
+          resultado=$(head -c 20 "$ART/resultado.txt" 2>/dev/null || echo "sem-artefato")
+          codigo=$(head -c 10 "$ART/paridade-codigo.txt" 2>/dev/null || true)
+          python3 scripts/receita_robo.py decidir --skill "$SKILL" --estado "$ART/estado.json" \
+            --paridade "$ART/paridade.txt" --codigo "$codigo" --pr "$PR" \
+            --resultado-conferencia "$resultado" --etapa "$ART/etapa.txt" --ramo "$RAMO" --motivo-saida "$ETAPA"
+
+      - name: Parar com falha
+        if: steps.decidir.outputs.acao == 'issue-falha'
+        run: |
+          cat "$ETAPA"
+          exit 1
+
+      - name: Publicar
+        if: github.ref == 'refs/heads/main' && steps.decidir.outputs.acao == 'publicar'
+        id: publicar
+        run: |
+          set -euo pipefail
+          echo "Publicar: aplicar a base, a meta e as respostas oficiais novas" > "$ETAPA"
+          base=$(jq -er .base_destino "conferencia/$SKILL/config.json")
+          cp "$ART/base-receita.db" "$base"
+          cp "$ART/meta.json" "$ART/esperadas.json" "conferencia/$SKILL/"
+          python3 scripts/receita_robo.py publicar --estado "$ART/estado.json" \
+            --paridade "$ART/paridade.txt" --codigo "$(head -c 10 "$ART/paridade-codigo.txt")"
+          echo "Publicar: sync_plugins.py" > "$ETAPA"
+          python3 scripts/sync_plugins.py
+          echo "Publicar: sync_plugins.py --check" > "$ETAPA"
+          python3 scripts/sync_plugins.py --check
+          echo "Publicar: testes" > "$ETAPA"
+          # Sem o GITHUB_OUTPUT: teste nenhum escreve nas saídas deste passo.
+          env -u GITHUB_OUTPUT CD2_BASE_COMPLETA="$ART/base-completa.db" python3 -m unittest discover -s tests
+          echo "Publicar: commit e push na main" > "$ETAPA"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A -- core conferencia plugins gpts CHANGELOG.md README.md docs
+          if ! git diff --quiet || [ -n "$(git ls-files --others --exclude-standard)" ]; then
+            git status --short
+            echo "Sobrou arquivo fora do que o robô publica."
+            exit 1
+          fi
+          versao=$(jq -er .version core/cd2-super/plugin.core.json)
+          basev=$(jq -er .base.versao "conferencia/$SKILL/meta.json")
+          # O robô não é uma pessoa nem um assistente: o commit não leva linha de coautoria.
+          git commit -q -m "chore($SKILL): conferência com a Receita, base $basev (versão $versao)" \
+            -m "Publicado pelo robô de conferência: $EXECUCAO"
+          git push origin HEAD:main
+          echo "Publicar: disparar a release" > "$ETAPA"
+          gh workflow run release.yml --ref main
+
+      - name: Abrir ou atualizar a issue do GPT
+        if: github.ref == 'refs/heads/main' && steps.decidir.outputs.acao == 'publicar'
+        env:
+          VERSAO_NOVA: ${{ steps.publicar.outputs.versao }}
+        run: |
+          set -euo pipefail
+          echo "Abrir ou atualizar a issue do GPT" > "$ETAPA"
+          titulo=$(python3 scripts/receita_robo.py titulo --de issue-gpt --skill "$SKILL")
+          anterior=$(git show HEAD~1:core/cd2-super/plugin.core.json | jq -er .version)
+          gh issue list --state open --limit 100 --json number,title,author > "$RUNNER_TEMP/issues.json"
+          numero=$(python3 scripts/receita_robo.py achar --tipo issue --de issue-gpt --skill "$SKILL" \
+            --lista "$RUNNER_TEMP/issues.json" | sed -n 's/^numero=//p')
+          if [ -n "$numero" ]; then gh issue view "$numero" --json body,author > "$RUNNER_TEMP/corpo-atual.json"; fi
+          python3 scripts/receita_robo.py texto --tipo issue-gpt --skill "$SKILL" \
+            --versao-nova "$VERSAO_NOVA" --versao-anterior "$anterior" \
+            --corpo-atual "$RUNNER_TEMP/corpo-atual.json" --saida "$RUNNER_TEMP/corpo.md"
+          if [ -n "$numero" ]; then
+            gh issue edit "$numero" --body-file "$RUNNER_TEMP/corpo.md"
+          else
+            gh issue create --title "$titulo" --body-file "$RUNNER_TEMP/corpo.md"
+          fi
+
+      - name: Abrir ou atualizar o PR de regra
+        if: github.ref == 'refs/heads/main' && steps.decidir.outputs.acao == 'pr-regra'
+        env:
+          PR: ${{ steps.pr.outputs.numero }}
+        run: |
+          set -euo pipefail
+          echo "Abrir ou atualizar o PR de regra" > "$ETAPA"
+          titulo=$(python3 scripts/receita_robo.py titulo --de pr-regra --skill "$SKILL")
+          python3 scripts/receita_robo.py texto --tipo pr-regra --skill "$SKILL" --estado "$ART/estado.json" --base-nova "$ART/meta.json" \
+            --paridade "$ART/paridade.txt" --codigo "$(head -c 10 "$ART/paridade-codigo.txt")" \
+            --diff "$ART/diff-java.txt" --saida "$RUNNER_TEMP/corpo.md"
+          if [ -n "$PR" ]; then
+            # O ramo do PR é de quem porta: o robô só atualiza o corpo e comenta o que mais mudou.
+            # Comentários pela API REST (só ela diz que o autor é bot); o corpo de antes também conta.
+            gh pr view "$PR" --json body,author > "$RUNNER_TEMP/corpo-atual.json"
+            gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate --slurp > "$RUNNER_TEMP/comentarios.json"
+            python3 scripts/receita_robo.py texto --tipo regra-atualizada --skill "$SKILL" --estado "$ART/estado.json" --base-nova "$ART/meta.json" \
+              --paridade "$ART/paridade.txt" --codigo "$(head -c 10 "$ART/paridade-codigo.txt")" \
+              --comentarios "$RUNNER_TEMP/comentarios.json" --corpo-atual "$RUNNER_TEMP/corpo-atual.json" \
+              --saida "$RUNNER_TEMP/comentario.md"
+            gh pr edit "$PR" --body-file "$RUNNER_TEMP/corpo.md"
+            if [ -s "$RUNNER_TEMP/comentario.md" ]; then gh pr comment "$PR" --body-file "$RUNNER_TEMP/comentario.md"; fi
+            exit 0
+          fi
+          versao=$(jq -er .upstream.calculadora.versao "$ART/estado.json")
+          [[ "$versao" =~ ^[0-9]+(\.[0-9]+){0,3}$ ]] || { echo "Versão fora do padrão."; exit 1; }
+          ramo="receita/$SKILL-$versao"
+          if git ls-remote --exit-code --heads origin "$ramo" > /dev/null; then
+            echo "O ramo $ramo já existe sem PR aberto do robô. Feche ou apague o ramo, ou abra o PR à mão."
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$ramo"
+          base=$(jq -er .base_destino "conferencia/$SKILL/config.json")
+          cp "$ART/base-receita.db" "$base"
+          cp "$ART/meta.json" "conferencia/$SKILL/meta.json"
+          python3 scripts/receita_robo.py meta --skill "$SKILL"
+          python3 scripts/sync_plugins.py
+          git add -A -- core conferencia plugins gpts README.md docs
+          if ! git diff --quiet || [ -n "$(git ls-files --others --exclude-standard)" ]; then
+            git status --short
+            echo "Sobrou arquivo fora do que o robô publica."
+            exit 1
+          fi
+          git commit -q -m "chore($SKILL): base nova da Receita para portar a $versao" -m "Aberto pelo robô de conferência: $EXECUCAO"
+          git push origin "$ramo"
+          gh pr create --base main --head "$ramo" --title "$titulo" --body-file "$RUNNER_TEMP/corpo.md"
+
+      - name: Comentar no PR de regra que as tabelas estão paradas
+        if: github.ref == 'refs/heads/main' && steps.decidir.outputs.acao == 'congelado'
+        env:
+          PR: ${{ steps.pr.outputs.numero }}
+        run: |
+          set -euo pipefail
+          echo "Comentar no PR de regra" > "$ETAPA"
+          [[ "$PR" =~ ^[0-9]+$ ]] || { echo "Sem PR de regra do robô."; exit 1; }
+          gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate --slurp > "$RUNNER_TEMP/comentarios.json"
+          python3 scripts/receita_robo.py texto --tipo congelado --skill "$SKILL" --estado "$ART/estado.json" --base-nova "$ART/meta.json" \
+            --paridade "$ART/paridade.txt" --codigo "$(head -c 10 "$ART/paridade-codigo.txt" 2>/dev/null || true)" \
+            --comentarios "$RUNNER_TEMP/comentarios.json" --corpo-atual "$RUNNER_TEMP/corpo-atual.json" --saida "$RUNNER_TEMP/comentario.md"
+          if [ -s "$RUNNER_TEMP/comentario.md" ]; then gh pr comment "$PR" --body-file "$RUNNER_TEMP/comentario.md"; fi
+
+      - name: Abrir ou atualizar a issue de divergência
+        if: github.ref == 'refs/heads/main' && steps.decidir.outputs.acao == 'issue-divergencia'
+        run: |
+          set -euo pipefail
+          echo "Abrir ou atualizar a issue de divergência" > "$ETAPA"
+          titulo=$(python3 scripts/receita_robo.py titulo --de issue-divergencia --skill "$SKILL")
+          args=(--estado "$ART/estado.json" --base-nova "$ART/meta.json" --paridade "$ART/paridade.txt"
+                --codigo "$(head -c 10 "$ART/paridade-codigo.txt")" --execucao "$EXECUCAO")
+          python3 scripts/receita_robo.py texto --tipo issue-divergencia --skill "$SKILL" "${args[@]}" --saida "$RUNNER_TEMP/corpo.md"
+          gh issue list --state open --limit 100 --json number,title,author > "$RUNNER_TEMP/issues.json"
+          numero=$(python3 scripts/receita_robo.py achar --tipo issue --de issue-divergencia --skill "$SKILL" \
+            --lista "$RUNNER_TEMP/issues.json" | sed -n 's/^numero=//p')
+          if [ -z "$numero" ]; then
+            gh issue create --title "$titulo" --body-file "$RUNNER_TEMP/corpo.md"
+            exit 0
+          fi
+          gh issue view "$numero" --json body,author > "$RUNNER_TEMP/corpo-atual.json"
+          gh api "repos/$GITHUB_REPOSITORY/issues/$numero/comments" --paginate --slurp > "$RUNNER_TEMP/comentarios.json"
+          python3 scripts/receita_robo.py texto --tipo issue-divergencia --skill "$SKILL" "${args[@]}" \
+            --comentarios "$RUNNER_TEMP/comentarios.json" --corpo-atual "$RUNNER_TEMP/corpo-atual.json" --saida "$RUNNER_TEMP/comentario.md"
+          if [ -s "$RUNNER_TEMP/comentario.md" ]; then gh issue comment "$numero" --body-file "$RUNNER_TEMP/comentario.md"; fi
+
+      - name: Abrir ou atualizar a issue de falha
+        if: failure() && github.ref == 'refs/heads/main'
+        run: |
+          set -uo pipefail
+          titulo=$(python3 scripts/receita_robo.py titulo --de issue-falha --skill "$SKILL")
+          args=(--skill "$SKILL" --estado "$ART/estado.json" --motivo-arquivo "$ETAPA" --execucao "$EXECUCAO")
+          python3 scripts/receita_robo.py texto --tipo issue-falha "${args[@]}" --saida "$RUNNER_TEMP/corpo.md"
+          gh issue list --state open --limit 100 --json number,title,author > "$RUNNER_TEMP/issues.json"
+          numero=$(python3 scripts/receita_robo.py achar --tipo issue --de issue-falha --skill "$SKILL" \
+            --lista "$RUNNER_TEMP/issues.json" | sed -n 's/^numero=//p')
+          if [ -z "$numero" ]; then
+            gh issue create --title "$titulo" --body-file "$RUNNER_TEMP/corpo.md"
+            exit 0
+          fi
+          gh issue view "$numero" --json body,author > "$RUNNER_TEMP/corpo-atual.json"
+          gh api "repos/$GITHUB_REPOSITORY/issues/$numero/comments" --paginate --slurp > "$RUNNER_TEMP/comentarios.json"
+          python3 scripts/receita_robo.py texto --tipo issue-falha "${args[@]}" \
+            --comentarios "$RUNNER_TEMP/comentarios.json" --corpo-atual "$RUNNER_TEMP/corpo-atual.json" --saida "$RUNNER_TEMP/comentario.md"
+          if [ -s "$RUNNER_TEMP/comentario.md" ]; then gh issue comment "$numero" --body-file "$RUNNER_TEMP/comentario.md"; fi
+
+  manter:
+    needs: [listar, conferir, agir]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      LISTAR: ${{ needs.listar.result }}
+      AGIR: ${{ needs.agir.result }}
+      EXECUCAO: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+        if: github.ref == 'refs/heads/main'
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        if: github.ref == 'refs/heads/main'
+        with:
+          python-version: "3.12"
+
+      - name: Abrir ou atualizar a issue de falha geral
+        # Matriz vazia, listar que falhou, agir cancelado ou sem tempo (o GitHub cancela o job que estoura o
+        # timeout-minutes, e aí o passo de falha do agir não roda): nenhum job da skill abriu a issue.
+        if: >-
+          github.ref == 'refs/heads/main' &&
+          (needs.listar.result != 'success' || needs.agir.result == 'cancelled')
+        run: |
+          set -uo pipefail
+          printf 'o job listar terminou como %s e o job agir como %s\n' "$LISTAR" "$AGIR" > "$RUNNER_TEMP/motivo.txt"
+          titulo=$(python3 scripts/receita_robo.py titulo --de issue-falha-geral)
+          args=(--motivo-arquivo "$RUNNER_TEMP/motivo.txt" --execucao "$EXECUCAO")
+          python3 scripts/receita_robo.py texto --tipo issue-falha-geral "${args[@]}" --saida "$RUNNER_TEMP/corpo.md"
+          gh issue list --state open --limit 100 --json number,title,author > "$RUNNER_TEMP/issues.json"
+          numero=$(python3 scripts/receita_robo.py achar --tipo issue --de issue-falha-geral \
+            --lista "$RUNNER_TEMP/issues.json" | sed -n 's/^numero=//p')
+          if [ -z "$numero" ]; then
+            gh issue create --title "$titulo" --body-file "$RUNNER_TEMP/corpo.md"
+          else
+            gh issue view "$numero" --json body,author > "$RUNNER_TEMP/corpo-atual.json"
+            gh api "repos/$GITHUB_REPOSITORY/issues/$numero/comments" --paginate --slurp > "$RUNNER_TEMP/comentarios.json"
+            python3 scripts/receita_robo.py texto --tipo issue-falha-geral "${args[@]}" \
+              --comentarios "$RUNNER_TEMP/comentarios.json" --corpo-atual "$RUNNER_TEMP/corpo-atual.json" --saida "$RUNNER_TEMP/comentario.md"
+            if [ -s "$RUNNER_TEMP/comentario.md" ]; then gh issue comment "$numero" --body-file "$RUNNER_TEMP/comentario.md"; fi
+          fi
+
+      - name: Disparar a release que não saiu
+        # Se o gh workflow run do agir falhou depois do push, a versão do core fica sem release: tenta de novo.
+        if: github.ref == 'refs/heads/main'
+        run: |
+          set -euo pipefail
+          gh release list --limit 100 --json tagName > "$RUNNER_TEMP/releases.json"
+          gh run list --workflow release.yml --limit 20 --json status > "$RUNNER_TEMP/execucoes.json"
+          if python3 scripts/receita_robo.py release --versao "$(jq -er .version core/cd2-super/plugin.core.json)" \
+              --releases "$RUNNER_TEMP/releases.json" --execucoes "$RUNNER_TEMP/execucoes.json" | grep -qx 'disparar=true'; then
+            gh workflow run release.yml --ref main
+          fi
+
+      - name: Manter o agendamento ligado
+        if: github.ref == 'refs/heads/main'
+        run: |
+          # Workflow já ativo faz o gh recusar o enable; a chamada da API vale nos dois casos.
+          gh workflow enable conferencia-receita.yml --repo "$GITHUB_REPOSITORY" \
+            || gh api -X PUT "repos/$GITHUB_REPOSITORY/actions/workflows/conferencia-receita.yml/enable"

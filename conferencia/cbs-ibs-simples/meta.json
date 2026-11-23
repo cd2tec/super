@@ -1,0 +1,24 @@
+{
+  "skill": "cbs-ibs-simples",
+  "calculadora": {
+    "repo": "ReceitaFederal/calculadora-rtc-simples-nacional",
+    "versao": "1.0.2",
+    "commit": "f90b6525e6d5823e784baecfc6fef0ad2f04b74f",
+    "arquivoDb": "calculadora-pro.db",
+    "ambiente": "offline"
+  },
+  "migracoes": {
+    "repo": "ReceitaFederal/calculadora-rtc-regime-regular",
+    "commit": "f1eebd7ce3157423b1a6aaca7dc1d6c3395452c4"
+  },
+  "base": {
+    "versao": "V0073",
+    "data": "2026-11-09",
+    "hash": "sha256:f510fae4078f5be78ad23583a2b2bc11bc3a28898346cc449b97d6219f9b0840"
+  },
+  "conferencia": {
+    "data": "2026-11-22",
+    "casos": 12013,
+    "iguais": 12013
+  }
+}

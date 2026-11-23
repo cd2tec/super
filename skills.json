@@ -22,6 +22,18 @@
     "departamento": "Financeiro"
   },
   {
+    "name": "cbs-ibs-simples",
+    "title": "CBS e IBS no Simples Nacional",
+    "summary": "Calcula a CBS e o IBS de uma operação do Simples Nacional com a mesma conta da calculadora oficial da Receita Federal.",
+    "site_url": "https://github.com/ReceitaFederal/calculadora-rtc-simples-nacional",
+    "rule": "Lei Complementar 214/2025",
+    "status": "disponível",
+    "tipo": "calculadora",
+    "gpt": true,
+    "departamento": "Fiscal",
+    "fonte_externa": true
+  },
+  {
     "name": "briefing-do-dia",
     "title": "Briefing do dia",
     "summary": "Monta o briefing da manhã, com venda contra a meta, ruptura, validade, contas, agenda e três ações.",

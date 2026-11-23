@@ -1,6 +1,6 @@
 # Instruções para agentes neste repositório
 
-Este repositório publica o plugin `cd2-super`, da CD2 Tech, para mais de uma plataforma: Claude Code e Claude Cowork, Codex e ChatGPT Work, DeepSeek Harness e GPT Store. São vinte e sete skills de cinco tipos: duas calculadoras (cada uma leva para dentro do assistente a conta de uma calculadora gratuita da CD2), oito relatórios gerenciais `relatorio-*`, o painel `painel-varejo`, a ficha `ficha-archeo-mcp` e quinze rotinas do dia. Relatório não é painel: só o `painel-varejo` entrega painel visual, e as outras palavras ficam separadas nos textos.
+Este repositório publica o plugin `cd2-super`, da CD2 Tech, para mais de uma plataforma: Claude Code e Claude Cowork, Codex e ChatGPT Work, DeepSeek Harness e GPT Store. São vinte e oito skills de cinco tipos: três calculadoras (duas levam para dentro do assistente a conta de uma calculadora gratuita da CD2, e a `cbs-ibs-simples` leva a da calculadora oficial do Simples Nacional da Receita Federal), oito relatórios gerenciais `relatorio-*`, o painel `painel-varejo`, a ficha `ficha-archeo-mcp` e quinze rotinas do dia. Relatório não é painel: só o `painel-varejo` entrega painel visual, e as outras palavras ficam separadas nos textos.
 
 Nomes fixos: repositório `cd2tec/super`, marketplace `super`, plugin `cd2-super`. A titular é só a CD2 Tech, em todos os arquivos.
 
@@ -25,7 +25,7 @@ O CI roda o `--check` e os testes. O `--check` falha se uma cópia divergir de `
 | `core/cd2-super/kits/<kit>/` | O que vai só para as skills dos tipos que usam o kit (veja a tabela de kits abaixo). Mesma estrutura de `shared/`: `scripts/`, `references/`, `assets/` | Sim |
 | `core/cd2-super/gpts/` | `_preamble.md` comum e, por skill, `instructions.md` e `gpt.json` do GPT | Sim |
 | `core/cd2-super/plugin.core.json` | Nome e versão de referência do plugin | Sim |
-| `skills.json` | Lista das skills: nome, título, resumo, site, regra, status, `tipo`, `gpt`, `departamento` e, nas rotinas, `reaproveita`. Gera a tabela do README e os cards do site | Sim |
+| `skills.json` | Lista das skills: nome, título, resumo, site, regra, status, `tipo`, `gpt`, `departamento`, nas rotinas `reaproveita` e, na skill cujo site não é da CD2, `fonte_externa`. Gera a tabela do README e os cards do site | Sim |
 | `harnesses.json` | Plataformas do plugin (caminho, manifesto, layout e `utm_source` de cada uma) e, em `kits`, quais kits cada `tipo` recebe | Sim |
 | `plugins/<plataforma>/cd2-super/` (manifesto, `README.md`, no Claude o ícone `.claude-plugin/icon.png` e o `.mcp.json` do Archeo e, no DSH, `install.py`) | Empacotamento próprio da plataforma. O ícone do Claude é cópia de `docs/assets/icon-512.png` | Sim |
 | `plugins/<plataforma>/cd2-super/skills/` e `gpts/<skill>/` | Cópias geradas | **Não** |
@@ -41,7 +41,7 @@ Cada item do `skills.json` tem `tipo` e `gpt`. O `tipo` escolhe os kits que o sy
 
 | `tipo` | Skills | Kits | Entrega |
 |---|---|---|---|
-| `calculadora` | `fim-escala-6x1`, `custo-vrva` | `calculadora` | A conta da calculadora gratuita, em `calc.py` e `render.py` |
+| `calculadora` | `fim-escala-6x1`, `custo-vrva`, `cbs-ibs-simples` | `calculadora` | A conta da calculadora gratuita da CD2 ou, na `cbs-ibs-simples`, a da calculadora oficial da Receita, em `calc.py` e `render.py` |
 | `relatorio` | os oito `relatorio-*` | `sql`, `dados`, `relatorio` | Relatório gerencial com a prova, em `render_relatorio.py` |
 | `painel` | `painel-varejo` | `sql`, `dados` | Painel visual, em `build_dashboard.py` |
 | `ficha` | `ficha-archeo-mcp` | `sql` | Ficha de ferramenta do Archeo MCP Creator da CD2 |
@@ -57,6 +57,8 @@ O que cada kit traz:
 
 O campo `departamento` diz em que área da loja a skill aparece no README e no site, um dos nomes de `DEPARTAMENTOS` em `scripts/sync_plugins.py`, que também define a ordem das áreas. Dentro de cada área, vale a ordem do `skills.json`, da skill que mais chama a atenção para a que menos chama.
 
+O campo `fonte_externa` é opcional e booleano. Com `true`, o `site_url` da skill aponta para uma fonte que não é da CD2 (hoje, o GitHub da calculadora oficial do Simples Nacional): o README e o site levam o link sem UTM e o card diz "Ver a calculadora oficial" em vez de "Abrir a calculadora gratuita".
+
 O campo `gpt` é booleano e **vale só para calculadoras**: só as skills com `gpt: true` viram pacote de GPT, e relatório, painel e ficha ficam em `false`. O sync acusa GPT faltando em skill com `gpt: true`.
 
 ## Layouts de plataforma
@@ -71,7 +73,7 @@ Um arquivo de `shared/` ou de um kit com o mesmo caminho de um arquivo da skill 
 
 ## Somar uma calculadora nova
 
-Cada calculadora gratuita nova da CD2 ganha uma skill aqui. Esta lista vale só para calculadoras: relatório, painel e ficha seguem as seções abaixo. Em ordem:
+Cada calculadora gratuita nova da CD2 ganha uma skill aqui. Esta lista vale só para calculadoras: relatório, painel e ficha seguem as seções abaixo. Uma calculadora que espelha a da Receita Federal segue esta lista com as trocas de [Skills que espelham a calculadora da Receita](#skills-que-espelham-a-calculadora-da-receita). Em ordem:
 
 1. **Crie `core/cd2-super/skills/<nome>/`** com:
    - `SKILL.md`, com frontmatter `name` igual ao nome da pasta e `description` com as palavras que a pessoa usaria;
@@ -120,12 +122,15 @@ Os nomes `relatorio-*`, `painel-varejo` e `ficha-archeo-mcp` são fixos. Nenhum 
 
 ## Sincronia com os sites
 
-Esta seção vale para as calculadoras. As calculadoras ficam em repositórios privados da organização `cd2tec` no GitHub e nunca são citadas como fonte para quem usa a skill. A sincronia é manual, sem job no CI, para não exigir segredo num repositório público.
+Esta seção vale para as calculadoras da CD2. Elas ficam em repositórios privados da organização `cd2tec` no GitHub e nunca são citadas como fonte para quem usa a skill. A sincronia é manual, sem job no CI, para não exigir segredo num repositório público.
 
 | Skill | Site |
 |---|---|
 | `fim-escala-6x1` | https://calc-fim-escala6x1.cd2.com.br/ |
 | `custo-vrva` | https://calc-vrva.cd2.com.br/ |
+| `cbs-ibs-simples` | Nenhum site da CD2. A fonte é a calculadora oficial da Receita, no GitHub |
+
+A `cbs-ibs-simples` não tem site da CD2 e não segue esta seção: veja [Skills que espelham a calculadora da Receita](#skills-que-espelham-a-calculadora-da-receita). Quem a mantém em dia é o robô de conferência, um workflow agendado descrito na mesma seção.
 
 Quando o `legal-params.json` ou o `assumptions.json` de uma calculadora mudar:
 
@@ -137,6 +142,120 @@ Quando o `legal-params.json` ou o `assumptions.json` de uma calculadora mudar:
 6. Suba a versão (patch, ou minor se a conta mudou) e escreva no `CHANGELOG.md` o que mudou na regra e a nova data de conferência.
 
 Cada skill mostra a data de conferência dos parâmetros, e a pergunta sobre novidades (etapa 3 da conversa) cobre o intervalo entre uma atualização e outra.
+
+## Skills que espelham a calculadora da Receita
+
+A `cbs-ibs-simples` porta para Python a calculadora oficial do Simples Nacional da Receita Federal (https://github.com/ReceitaFederal/calculadora-rtc-simples-nacional) e leva dentro a base montada das migrações de https://github.com/ReceitaFederal/calculadora-rtc-regime-regular. Os dois repositórios são públicos e MIT; o aviso de copyright e a licença estão no `NOTICE`. A skill não é um aplicativo da Receita Federal, e todo resultado diz isso.
+
+**A exceção ao "sem job no CI".** As calculadoras da CD2 sincronizam à mão porque a fonte é privada e um job exigiria segredo num repositório público. Aqui a fonte é pública, e por isso esta skill pode ter um job agendado, o robô de conferência, que não precisa de segredo nenhum além do `GITHUB_TOKEN` do próprio repositório. A meta é que mudança de tabela na Receita chegue à skill sem depender de alguém lembrar.
+
+**No roteiro de [Somar uma calculadora nova](#somar-uma-calculadora-nova), mudam:**
+
+- no lugar de `legal-params.json` e `assumptions.json`, a skill leva `references/base-receita.db`, e as versões ficam no `meta.json` da conferência (veja abaixo);
+- os testes são `tests/test_calc_simples.py` (o motor contra as respostas oficiais gravadas), `tests/test_render_simples.py`, `tests/test_sugestao_simples.py`, `tests/test_simples_base.py` e `tests/test_simples_cobertura.py`;
+- no `skills.json`, o `site_url` é o GitHub da Receita, sem barra no fim, com `"fonte_externa": true`;
+- o fechamento não cita site de calculadora, e a etapa 3 da conversa é o `calc.py --checar-versao`, não a pesquisa de novidades.
+
+**O que é gerado e nunca editado à mão**, tudo a partir das fontes da Receita:
+
+| Arquivo | O que é | Quem gera |
+|---|---|---|
+| `core/cd2-super/skills/cbs-ibs-simples/references/base-receita.db` | A base oficial, reduzida às tabelas de `config.json` (`tabelas` e `tabelas_da_sugestao`), com o `meta.json` dentro, na tabela `CD2_META` | `scripts/receita_base.py` |
+| `conferencia/cbs-ibs-simples/meta.json` | Versão e commit da calculadora espelhada, commit das migrações, versão e hash da base e o resultado da última conferência completa | `scripts/receita_base.py` e a conferência |
+| `conferencia/cbs-ibs-simples/esperadas.json` | As respostas oficiais de uma amostra da bateria, que os testes do dia a dia usam sem a calculadora oficial | `scripts/receita_paridade.py --gravar-esperadas` |
+
+Escritos à mão, na mesma pasta: `config.json` (tabelas, lista `ignorar` e exceções de cobertura, cada uma com o motivo), `bateria.py` (gera os casos da base) e `casos-escritos.json` (os cenários dos testes da Receita). A lista `ignorar` é curta e justificada campo a campo na `metodologia.md` da skill.
+
+**Rodar a conferência local.** Precisa de Docker, de um clone de cada repositório da Receita nas versões do `meta.json` e de alguns minutos.
+
+1. Monte a base a partir do clone das migrações. O script regrava a base da skill e o `meta.json`; com as mesmas migrações, o hash da base no `meta.json` não muda:
+
+   ```
+   python3 scripts/receita_base.py --skill cbs-ibs-simples --repo <clone de calculadora-rtc-regime-regular> --completa <base-completa.db>
+   ```
+
+2. Suba a calculadora oficial na porta 8082, compilada do clone do Simples e rodando no perfil `offline` contra a base que o Flyway oficial monta. Com os clones em `$RR` e `$SN`:
+
+   ```
+   docker run -d --name rfb-simples -p 127.0.0.1:8082:8082 -v "$RR:/rr:ro" -v "$SN:/sn:ro" maven:3-eclipse-temurin-25 bash -c "cp -r /rr /app-rr && cd /app-rr && mkdir -p calculadora/db && mvn -B -q flyway:migrate -Dflyway.configFiles=./flyway/flyway-pro.conf && cp -r /sn /app && mkdir -p /app/calculadora/db && cp calculadora/db/calculadora-pro.db /app/calculadora/db/ && cd /app && mvn -B -q clean package -DskipTests && exec java -Dspring.profiles.active=offline -jar target/api-simples-nacional.jar"
+   ```
+
+3. Compare a bateria inteira, com a base completa do passo 1 (a mesma em `CD2_BASE_COMPLETA` liga o teste de deriva da base nos testes):
+
+   ```
+   python3 scripts/receita_paridade.py --skill cbs-ibs-simples --oficial http://127.0.0.1:8082/api --completa --base-completa <base-completa.db>
+   ```
+
+   A saída diz quantos casos e quantos iguais. Só vale 100%.
+4. Com 100%, regrave a amostra dos testes: `python3 scripts/receita_paridade.py --skill cbs-ibs-simples --oficial http://127.0.0.1:8082/api --gravar-esperadas --amostra 400`. Depois rode o sync, o `--check` e os testes.
+
+**Portar uma mudança de regra.** Mudança em `src/main` do repositório do Simples é mudança de regra.
+
+1. Leia o diff do Java entre a versão espelhada e a nova e ache o método correspondente em `scripts/simples_motor.py`, `scripts/simples_base.py` ou `scripts/numeros.py` da skill. O port é método a método: o Python faz o que o Java faz, inclusive nos erros.
+2. Porte os testes novos da Receita que passam por HTTP para `casos-escritos.json`, e os que chamam serviço direto para os testes em Python.
+3. Monte a base da versão nova, rode a conferência completa até 100%, regrave as esperadas e atualize a versão da calculadora no `meta.json` com a da release nova.
+4. Atualize a `metodologia.md`, o `SKILL.md` e as instruções do GPT se citarem algo que mudou. Rode o sync, o `--check` e os testes, suba a versão (minor, porque a conta mudou) e escreva no `CHANGELOG.md` o que mudou na regra.
+
+**O robô de conferência.** O workflow `.github/workflows/conferencia-receita.yml` roda todo dia às 9h17 UTC (e por disparo manual), uma vez para cada pasta de `conferencia/` com `config.json`. A lógica mora em `scripts/receita_robo.py`, com testes em `tests/test_receita_robo.py`. Ele não usa segredo: só o `GITHUB_TOKEN`. Cada dia:
+
+1. **Olha a Receita.** Lê a última release do repositório do Simples e o último commit do repositório das migrações, clona os dois e lista os caminhos que mudaram desde o que está no `meta.json`. Nada mudou: termina. As versões são comparadas por número: uma release anterior à espelhada (a "latest" do GitHub segue a marca e a data, não a ordem) ou a mesma versão com outro commit nunca se publica e vira issue de falha.
+2. **Monta a base de dois jeitos**: pelo Flyway oficial, dentro de um contêiner, e pelo `receita_base.py`, na máquina. Compara o conteúdo de todas as tabelas (`receita_robo.py comparar-bases`). Diferença é defeito do montador e vira issue de falha.
+3. **Sobe a calculadora oficial** compilada da release, num contêiner próprio, no perfil `offline`, e confere que `/versao` responde a versão da release e a base montada.
+4. **Roda a bateria inteira** (`receita_paridade.py --completa`) e, com 100%, regrava as respostas oficiais. Todas as respostas oficiais gravadas no repositório moram no `esperadas.json` (o `casos-escritos.json` só tem as requisições), e ele é regravado da calculadora oficial da mesma execução antes de os testes rodarem.
+5. **Decide**, pela tabela abaixo, e age.
+
+| O que mudou | Conferência | PR de regra aberto | O que o robô faz |
+|---|---|---|---|
+| Nada | | Não | Termina |
+| Só as tabelas (`flyway/sql`) | 100% | Não | Publica sozinho |
+| Só as tabelas | Menos de 100% | Não | Abre ou atualiza a issue de divergência |
+| Release nova sem mudança em `src/main` | 100% | Não | Publica sozinho, e o `CHANGELOG.md` diz que o código de cálculo não mudou |
+| Release nova sem mudança em `src/main` | Menos de 100% | Não | Abre o PR de regra |
+| Código de cálculo (`src/main`) | Qualquer | Não | Abre o PR de regra |
+| Código de cálculo | Qualquer | Sim | Atualiza o corpo do PR e comenta o que mais mudou |
+| Qualquer outra coisa | Qualquer | Sim | Comenta no PR que as tabelas seguem paradas, no máximo uma vez por dia |
+| Qualquer coisa | Sem resultado | Qualquer | Abre ou atualiza a issue de falha |
+
+O robô só publica quando tudo isto passa, nesta ordem: as duas bases iguais, a calculadora oficial na versão certa, a bateria inteira em 100%, o `sync_plugins.py --check` e os testes inteiros com `CD2_BASE_COMPLETA` apontando para a base completa. Publicar é: trocar a base, o `meta.json` e as esperadas, subir o patch no `plugin.core.json` e nos três manifestos, escrever a entrada no `CHANGELOG.md`, rodar o sync, fazer o commit na `main` como `github-actions[bot]`, dar push (nunca forçado), disparar `release.yml` com `gh workflow run` e abrir ou atualizar a issue única "Republicar o GPT <skill>". Publicar de novo o mesmo estado da Receita não acontece: depois da publicação, o `meta.json` já espelha a Receita e o dia seguinte é "nada". Fora da `main` (disparo manual em outro ramo), o robô confere e diz o que faria, mas não escreve nada: nem commit, nem PR, nem issue (a de falha também não), nem disparo de workflow.
+
+**Como o workflow se protege.**
+
+- O código da Receita (Maven e os plugins dele, o Flyway e o JAR) roda só no job `conferir`, que só lê o repositório e não guarda credencial no checkout, e sempre dentro de contêiner, na imagem `maven:3-eclipse-temurin-25` presa pelo digest. O contêiner do build vê só cópias dos clones da Receita, um cache do Maven e uma pasta de produtos, todos em `/tmp/receita-isolada`: nunca o checkout, nunca o `runner.temp` e nunca a pasta dos resultados. O JAR roda noutro contêiner, com só o JAR e a base do Flyway montados como leitura. Os dois são desligados antes de as bases, as respostas oficiais e o relatório da conferência entrarem na pasta dos resultados (antes disso ela só recebe arquivos que o nosso código escreve, e nenhum contêiner a monta). Produto do build só é copiado ou montado se for arquivo comum, sem link simbólico, de dentro da pasta de produtos, e os clones da Receita saem sem links simbólicos (`core.symlinks=false`), para o nosso Python nunca seguir um link para fora deles. O nosso Python (a base, a comparação, a bateria) roda na máquina.
+- Rede: o build precisa da internet para baixar do Maven Central e tem a rede comum do runner. O contêiner do JAR fica numa rede própria em que a máquina bloqueia toda saída (regra `DOCKER-USER` do iptables) e todo acesso à máquina que ele mesmo abra, e sem servidor de DNS; só a porta publicada em `127.0.0.1:8082` responde, porque quem abre a conexão é a máquina. O robô testa o bloqueio antes de subir o JAR e para se um contêiner nessa rede alcançar a internet. Fora o build, o workflow só fala com o GitHub: as actions, os clones da Receita e o `gh`.
+- Quem escreve é o job `agir`, que não roda código da Receita e recebe o resultado por artefato. Antes de usar qualquer coisa do artefato, ele valida cada valor por um padrão fixo (versões, commits de 40 hexadecimais, base `Vnnnn`, a classe, os números da conferência, os tamanhos dos arquivos), confere que a base do artefato tem o hash do seu `meta.json` e que esse `meta.json` é igual à `CD2_META` de dentro dela (com as funções do `receita_base.py`), e refaz pela API do GitHub o que dá para refazer sem código da Receita: a tag e o commit da última release, o commit das migrações (`git ls-remote`) e a classe, pela lista de arquivos da comparação. Diferença em qualquer um vira issue de falha.
+- Nada que venha de fora vira expressão: no workflow, nenhum `${{ }}` vai dentro de um `run:` (tudo entra por `env:` e entre aspas, e um teste confere), e no `$GITHUB_OUTPUT` só saem valores com padrão fixo (a ação, a classe, números, versões). O motivo de uma falha vai para um arquivo que só o texto da issue lê, e lá entra escapado, numa linha só, sem menção (`@`) nem link automático.
+- Os jobs não se sobrepõem (`concurrency`), e o `agir` confere que o `meta.json` não mudou desde o começo da execução: ele lê o `meta.json` do commit que o `conferir` usou, e se o artefato traz esse meta mas a `main` já tem outro (alguém fez merge no meio), ele não age, não abre issue e deixa para o dia seguinte. Um meta que não é nem o de agora nem o do começo é falha. Se o push na `main` falhar porque alguém subiu um commit no meio, a execução falha e abre a issue de falha; nada é reescrito.
+- O risco que sobra: o build baixa e roda código de terceiros dentro de um contêiner, e a barreira é tão forte quanto esse isolamento. Um build comprometido não vê credencial nem o nosso checkout, mas pode mentir no que produz; a reconferência no `agir` pega o que dá para refazer sem ele, e o resto depende do contêiner.
+
+**Como ler o que o robô abre.** Cada título é fixo, e o robô acha o que já existe pelo título antes de abrir outro. Só conta o que o próprio robô abriu: o PR precisa ter o autor do bot do Actions, vir de um ramo `receita/` deste repositório (PR de fork não conta) e ter o título exato; a issue precisa ter o autor do bot. O autor de PR e de issue vem do `gh ... --json author`, que traz `is_bot`; o login do bot ali não pôde ser confirmado sem uma execução de verdade, então valem só `app/github-actions` e `github-actions`, sempre com `is_bot` verdadeiro. Os comentários vêm da API REST (`gh api repos/<repo>/issues/<n>/comments`, que vale também para PR), porque o `gh --json comments` não diz se o autor é bot: conta só comentário com `user.type` igual a `Bot` e `user.login` igual a `github-actions[bot]`. As marcas que o robô usa para não repetir comentário só valem no corpo e nos comentários escritos por ele; o corpo da issue e do PR já traz a marca do estado de que fala, então o dia seguinte sem mudança não ganha comentário. Assim ninguém de fora congela as tabelas abrindo um PR com o mesmo título.
+
+- PR "Receita: portar a mudança de regra da <skill>", no ramo `receita/<skill>-<versão>`. Começa pelo aviso de que as tabelas estão paradas enquanto ele estiver aberto, depois o que mudou na Receita, o resultado da conferência, o diff do Java de `src/main` (cortado, com o link da comparação no GitHub, quando passa do limite do corpo de PR) e a lista do que portar. O ramo traz a base e a meta novas, com a versão da calculadora ainda na espelhada. Depois de aberto, o robô não mexe mais no ramo, que é de quem porta: só atualiza o corpo e comenta.
+- Issue "Receita: a conferência da <skill> não fechou 100%": tabelas novas que o motor não acompanha. Traz os casos que divergiram; o relatório inteiro fica no artefato `conferencia-<skill>` da execução. Feche quando a conferência voltar a 100% e o robô publicar.
+- Issue "Receita: o robô de conferência da <skill> falhou": diz a etapa em que parou e o link da execução, e ganha um comentário por dia enquanto falhar. Falha da Receita (build quebrado, repositório fora do ar) costuma passar sozinha; falha nossa (bases diferentes, `--check` ou teste quebrado) pede correção. Feche quando uma execução terminar bem.
+- Issue "Republicar o GPT <skill>": a versão do plugin que saiu e a que o GPT tem no ar. Republique pelo `gpts/README.md` e feche.
+- Issue "Receita: o robô de conferência falhou": aberta pelo job `manter` quando nenhuma skill chegou a abrir a sua issue de falha (a pasta `conferencia/` ficou vazia, o job `listar` quebrou, o `agir` foi cancelado ou estourou o tempo, que o GitHub trata como cancelamento). Também ganha um comentário por dia enquanto falhar.
+- Se o disparo da release falhar depois do push, o `manter` vê que a versão do `plugin.core.json` não tem a release `cd2-super-v<versão>` (e que nenhuma execução da release está na fila) e dispara de novo; a release que já existe só recebe os arquivos que faltarem.
+
+**Portar a mudança de um PR de regra.** Faça o checkout do ramo do PR e siga [Portar uma mudança de regra](#skills-que-espelham-a-calculadora-da-receita) acima: o diff está no corpo do PR, a base nova já está no ramo, e o `meta.json` só precisa da versão e do commit da calculadora nova e da conferência quando ela fechar 100%. Depois de mudar o `meta.json` à mão, rode `python3 scripts/receita_robo.py meta --skill <skill>` para levar a mesma meta à base e às esperadas. O merge sobe a versão (minor) e a release sai pelo fluxo normal; no dia seguinte o robô volta a publicar tabelas sozinho.
+
+**Testes que dependem da versão da base.** Os testes da skill tiram as amostras da própria base (o primeiro NCM de uma lista, por exemplo), para continuar valendo quando o robô trocar as tabelas. Os poucos cujo sentido é o conteúdo de uma versão levam `@ancorado_na("V0073")`, de `tests/versao_da_base.py`, e são pulados com o motivo em outra base. Ao portar uma mudança de regra, reancore na base nova o que fizer sentido. Os testes de consistência (a base igual ao `meta.json`, as classificações do perfil da sugestão existindo na base) não pulam nunca: eles barram o robô de propósito.
+
+**Rodar o robô na sua máquina.** Com a calculadora oficial e os clones de [Rodar a conferência local](#skills-que-espelham-a-calculadora-da-receita), os passos são os do workflow. Escreva o `upstream.json` (`{"calculadora": {"versao", "commit"}, "migracoes": {"commit"}}`) e a lista de caminhos mudados, separados por NUL (`git diff -z --no-renames --name-only` entre o commit do `meta.json` e o novo, nas migrações só dentro de `flyway/sql`), e rode:
+
+```
+python3 scripts/receita_robo.py detectar --skill cbs-ibs-simples --upstream upstream.json --caminhos caminhos.txt --saida estado.json
+python3 scripts/receita_robo.py comparar-bases --skill cbs-ibs-simples --flyway <base do Flyway> --montada <base-completa.db>
+python3 scripts/receita_robo.py esperar-oficial --url http://127.0.0.1:8082/api --versao <versão> --base <Vnnnn>
+python3 scripts/receita_robo.py decidir --estado estado.json --paridade paridade.txt --codigo <código de saída da paridade> --ramo refs/heads/main
+```
+
+Sem `--ramo refs/heads/main`, o `decidir` responde como fora da `main`: diz o que faria e devolve `terminar`.
+
+O `publicar` mexe na versão e no `CHANGELOG.md`: rode numa cópia do repositório, nunca no checkout em que você trabalha.
+
+**Disparar à mão.** Na aba Actions do GitHub, "Conferência com a Receita", "Run workflow", ou `gh workflow run conferencia-receita.yml`. Disparado da `main`, ele age como no agendamento; de outro ramo, só confere.
+
+**O agendamento não pode morrer em silêncio.** O GitHub desliga um workflow agendado depois de 60 dias sem atividade no repositório. O último job de toda execução na `main`, `manter`, roda `gh workflow enable conferencia-receita.yml` para contar como atividade e manter o agendamento ligado. Se a aba Actions disser que o workflow está desligado, ligue de novo por lá ou com `gh workflow enable conferencia-receita.yml`.
 
 ## Versão e release
 
@@ -152,6 +271,7 @@ Cada skill mostra a data de conferência dos parâmetros, e a pergunta sobre nov
 - Todo link para `cd2.com.br`, `archeo.cd2.com.br` e os sites das calculadoras leva `utm_source=<origem>&utm_medium=skill&utm_campaign=<campanha>`.
   - Nas skills e nas referências, escreva `utm_source={{UTM_SOURCE}}`. O sync troca o placeholder pelo `utm_source` da plataforma em `harnesses.json`: `claude`, `codex`, `deepseek` e `gpt-store`.
   - No `README.md`, `utm_source=github`. No `docs/index.html`, `utm_source=site-skills`.
+  - O GitHub da calculadora oficial da Receita, fonte da `cbs-ibs-simples`, vai sem UTM, em todo lugar.
   - A campanha (`utm_campaign`) depende de quem emite o link. O que sai de uma skill (o `SKILL.md`, as instruções do GPT da skill e as entregas do `render.py`) usa o nome da skill, em todo link: calculadora, `cd2.com.br` e Archeo. Os links do repositório como um todo usam `cd2-super`: `README.md`, `docs/index.html`, as referências de `shared/`, o `COMMERCIAL.md`, os READMEs dos pacotes e os links gerais do `_preamble.md` dos GPTs.
 - Os sites das calculadoras sempre com barra no fim: `https://calc-vrva.cd2.com.br/`.
 - WhatsApp comercial: `https://wa.me/5519982355172`, com mensagem preenchida que diz a origem. Nas skills: `Oi, vim pela skill {nome_humano} no {plataforma_humana} e quero falar sobre uso na minha empresa.` No README, "vim pelo GitHub das skills da CD2"; no site, "vim pelo site das skills da CD2".

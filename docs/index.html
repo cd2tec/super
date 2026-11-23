@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Super para o varejo · CD2 Tech</title>
-<meta name="description" content="Plugin cd2-super da CD2 Tech: skills de IA para supermercados, padarias e redes do varejo alimentar. Calcula o impacto do fim da escala 6x1 e o custo real do VR/VA, gera relatórios gerenciais e um painel de varejo com o banco do ERP conectado ou com um arquivo exportado. Claude Code, Claude Cowork, Codex, ChatGPT Work e DeepSeek Harness, e em breve na GPT Store.">
+<meta name="description" content="Plugin cd2-super da CD2 Tech: skills de IA para supermercados, padarias e redes do varejo alimentar. Calcula o impacto do fim da escala 6x1, o custo real do VR/VA e a CBS e o IBS no Simples Nacional, gera relatórios gerenciais e um painel de varejo com o banco do ERP conectado ou com um arquivo exportado. Claude Code, Claude Cowork, Codex, ChatGPT Work e DeepSeek Harness, e em breve na GPT Store.">
 <meta property="og:title" content="Super para o varejo · CD2 Tech">
 <meta property="og:description" content="Skills de IA para o varejo, de graça para testar. Calculadoras, relatórios e painel com a conta conferida, com os números da sua loja.">
 <meta property="og:type" content="website">
@@ -214,6 +214,38 @@
   .notch-bl { border-bottom-left-radius: 0; }
   .block .stat-line { font-size: 14px; line-height: 20px; }
 
+  /* Reforma tributária: selo da base oficial, no mesmo desenho do calc-imposto.cd2.com.br */
+  .rfb-grid { align-items: start; }
+  .rfb, .regime { gap: var(--space-3); }
+  .rfb h3, .regime h3 { font: 700 22px/28px var(--font); }
+  .rfb p, .regime p, .regimes span, .rfb-fatos p, .rfb-nota p { font-size: 14px; line-height: 20px; }
+  .rfb-topo { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 14px; align-items: center; }
+  .rfb-marca { width: 56px; height: 56px; border-radius: 14px; background: #ffffff; border: 1px solid var(--hairline); display: flex; align-items: center; justify-content: center; }
+  .rfb-marca img { width: 80%; height: auto; display: block; }
+  .rfb-aviso { border-left: 3px solid var(--highlight); padding-left: 10px; font-weight: 600; }
+  .rfb-link { display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; min-height: 44px; padding: 0 16px; border: 1.5px solid var(--hairline); border-radius: var(--radius-pill); color: var(--ink); font: 700 14px/18px var(--font); text-decoration: none; }
+  .rfb-link:hover { border-color: var(--link); }
+  .rfb-link svg { width: 18px; height: 18px; flex: none; fill: currentColor; }
+  .rfb-link .seta { color: var(--link); }
+  .regimes { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-3); }
+  .regimes li { display: flex; flex-direction: column; gap: 4px; padding-top: var(--space-3); border-top: 1px solid var(--hairline); }
+  .regimes li:first-child { border-top: 0; padding-top: 0; }
+  .regime-topo { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-2); }
+  .regime-topo b { font-size: 16px; line-height: 22px; min-width: 0; }
+  .pill { flex: none; margin-top: 2px; border-radius: var(--radius-pill); padding: 2px 10px; font: 700 12px/18px var(--font); }
+  .pill--sim { background: #d6f5de; color: #0b5523; }
+  .pill--nao { background: #ffedb8; color: #5c4100; }
+  .regime .cap { color: var(--ink-muted); font-size: 13px; line-height: 18px; }
+  .rfb-fatos { margin-top: var(--space-6); }
+  .rfb-fatos > div { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: var(--space-3); align-items: start; }
+  .rfb-fatos svg { width: 20px; height: 20px; margin-top: 2px; fill: none; stroke: var(--link); stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+  .rfb-fatos h3 { font: 700 15px/20px var(--font); margin-bottom: 2px; }
+  .rfb-fatos p { color: var(--ink-muted); }
+  .rfb-nota { margin-top: var(--space-6); border: 1.5px solid var(--ink); border-radius: var(--radius-md); padding: var(--space-4) var(--space-6); display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: var(--space-3); }
+  .rfb-nota svg { width: 20px; height: 20px; margin-top: 2px; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; }
+  .rfb-nota h3 { font: 700 16px/22px var(--font); margin-bottom: 2px; }
+  .rfb-fonte { margin-top: var(--space-4); color: var(--ink-muted); font-size: 12px; line-height: 18px; max-width: 100ch; }
+
   .grid { display: grid; gap: var(--space-6); }
   .grid > * { min-width: 0; }
   @media (min-width: 768px) { .g2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .g3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -352,6 +384,7 @@
     </a>
     <nav aria-label="Principal">
       <a class="link" href="#skills">Skills</a>
+      <a class="link" href="#reforma">Reforma</a>
       <a class="link" href="#rotinas">Rotinas</a>
       <a class="link" href="#relatorios">Relatórios e painel</a>
       <a class="link" href="#como-funciona">Como funciona</a>
@@ -377,7 +410,7 @@
         <li>Claude Code</li><li>Claude Cowork</li><li>Codex</li><li>ChatGPT Work</li><li>DeepSeek Harness</li><li>GPT Store em breve</li>
       </ul>
       <ul class="facts">
-        <li class="block block--deep notch-tr"><span class="stat">27</span><span class="stat-line">skills prontas: quinze rotinas do dia, duas calculadoras gratuitas da CD2, oito relatórios, um painel e uma ficha</span></li>
+        <li class="block block--deep notch-tr"><span class="stat">28</span><span class="stat-line">skills prontas: quinze rotinas do dia, três calculadoras, oito relatórios, um painel e uma ficha</span></li>
         <li class="block block--deep"><span class="stat">5</span><span class="stat-line">plataformas a partir de uma fonte só, e a GPT Store em breve</span></li>
         <li class="block block--accent notch-bl"><span class="stat">Sem prazo</span><span class="stat-line">para testar na operação da sua empresa</span></li>
       </ul>
@@ -412,8 +445,8 @@
     <div class="wrap">
       <div class="section-head">
         <span class="eyebrow">As skills</span>
-        <h2 class="heading-md">Quinze rotinas, duas calculadoras, oito relatórios, um painel e uma ficha</h2>
-        <p>As duas calculadoras têm a mesma conta do site gratuito da CD2, com os números da sua loja: leem a sua convenção coletiva ou o extrato da operadora, somam várias lojas e podem pesquisar novidades antes de calcular. Os relatórios, o painel e a ficha trabalham com os dados do seu sistema, como mostra a próxima seção.</p>
+        <h2 class="heading-md">Quinze rotinas, três calculadoras, oito relatórios, um painel e uma ficha</h2>
+        <p>Duas calculadoras têm a mesma conta do site gratuito da CD2, com os números da sua loja: leem a sua convenção coletiva ou o extrato da operadora, somam várias lojas e podem pesquisar novidades antes de calcular. A terceira faz a CBS e o IBS no Simples Nacional com a mesma conta da calculadora oficial da Receita Federal, conferida caso a caso. Os relatórios, o painel e a ficha trabalham com os dados do seu sistema, como mostra a próxima seção.</p>
       </div>
 <!-- skills:start -->
 <h3 class="skills-dept">RH</h3>
@@ -582,6 +615,13 @@
 </div>
 <h3 class="skills-dept">Fiscal</h3>
 <div class="skills-grid">
+  <article class="skill-card" id="skill-cbs-ibs-simples">
+    <p class="skill-status">disponível</p>
+    <h4>CBS e IBS no Simples Nacional</h4>
+    <p>Calcula a CBS e o IBS de uma operação do Simples Nacional com a mesma conta da calculadora oficial da Receita Federal.</p>
+    <p class="skill-rule">Base: Lei Complementar 214/2025</p>
+    <a class="skill-link" href="https://github.com/ReceitaFederal/calculadora-rtc-simples-nacional">Ver a calculadora oficial</a>
+  </article>
   <article class="skill-card" id="skill-relatorio-fiscal">
     <p class="skill-status">disponível</p>
     <h4>Relatório fiscal</h4>
@@ -610,7 +650,7 @@
 <!-- skills:end -->
       <div class="examples">
         <h3 class="heading-sm">Exemplos de conversa</h3>
-        <div class="grid g2">
+        <div class="grid g3">
           <article class="chat" aria-label="Exemplo de conversa com a skill fim-escala-6x1">
             <div class="chat__bar">fim-escala-6x1</div>
             <div class="chat__body">
@@ -631,8 +671,83 @@
             </div>
             <p class="chat__foot">Padaria de exemplo: Alelo, Pluxee, Ticket e VR, dinheiro a 2% ao mês. <a href="https://github.com/cd2tec/super/blob/main/core/cd2-super/skills/custo-vrva/references/metodologia.md">Como calculamos</a></p>
           </article>
+          <article class="chat" aria-label="Exemplo de conversa com a skill cbs-ibs-simples">
+            <div class="chat__bar">cbs-ibs-simples</div>
+            <div class="chat__body">
+              <p class="u"><b>Você</b>Quanto vou pagar de CBS e IBS no Simples?</p>
+              <p class="s"><b>Skill</b>Vamos ver juntos. Primeiro: você é o dono, o contador ou da TI? E é uma loja só ou uma rede?</p>
+              <p class="gap">A skill pergunta o formato, oferece puxar os dados do sistema, confere se a Receita tem versão nova da calculadora e pede documento, data (01/01/2027, quando as regras começam), itens, atividade e a alíquota efetiva do PGDAS, que vem do contador.</p>
+              <p class="s"><b>Skill</b>Sem a alíquota do contador, rodo o exemplo ilustrativo da Receita: numa venda de R$ 1.000,00 de revenda, sai CBS de R$ 11,61 e IBS de R$ 0,13, R$ 11,74 no total. Com a sua alíquota, refaço a conta da sua empresa.</p>
+            </div>
+            <p class="chat__foot">Valores do exemplo oficial da calculadora da Receita (EXEMPLO_NFE), anexo I: CBS de 1,1612% e IBS de 0,0129%, venda de R$ 1.000,00. Não é aplicativo da Receita Federal. <a href="https://github.com/cd2tec/super/blob/main/core/cd2-super/skills/cbs-ibs-simples/references/metodologia.md">Como calculamos</a></p>
+          </article>
         </div>
       </div>
+    </div>
+  </section>
+
+  <section id="reforma">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Reforma tributária</span>
+        <h2 class="heading-md">A CBS e o IBS no Simples com a mesma conta da Receita</h2>
+        <p>A skill CBS e IBS no Simples Nacional faz a conta da calculadora oficial que a Receita Federal abriu no GitHub. Roda dentro do assistente que você já usa, sem servidor da CD2 no meio, e acompanha cada versão nova que a Receita publicar.</p>
+      </div>
+      <div class="grid g2 rfb-grid">
+        <article class="block block--raised rfb" aria-labelledby="rfb-titulo">
+          <div class="rfb-topo">
+            <span class="rfb-marca"><img src="assets/receita-simbolo.svg" alt="Símbolo da Receita Federal" width="45" height="30"></span>
+            <div>
+              <span class="eyebrow">Base oficial</span>
+              <h3 id="rfb-titulo">Feito com a calculadora da Receita Federal</h3>
+            </div>
+          </div>
+          <p>A Receita Federal abriu no GitHub, com licença MIT, o código da calculadora da reforma tributária para o Simples Nacional. A conta, os avisos de erro e as tabelas vêm de lá: calculadora na versão 1.0.2 e tabelas de 19/11/2026 (base V0073).</p>
+          <p>Conferimos com a calculadora dela rodando: 12.013 casos, nenhuma diferença.</p>
+          <p class="rfb-aviso">A skill é da CD2 Tech, não é um app da Receita. A Receita não fez, não revisou e não responde por este resultado.</p>
+          <a class="rfb-link" href="https://github.com/ReceitaFederal/calculadora-rtc-simples-nacional" target="_blank" rel="noopener" aria-label="Ver o código da calculadora do Simples Nacional da Receita Federal no GitHub, abre em outra aba">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C6.5 2 2 6.6 2 12.2c0 4.5 2.9 8.3 6.8 9.7.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.4-3.4-1.4-.5-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.6 2.4 1.1 2.9.9.1-.7.4-1.1.6-1.4-2.2-.3-4.6-1.1-4.6-5 0-1.1.4-2 1-2.7-.1-.3-.4-1.3.1-2.7 0 0 .8-.3 2.8 1a9.4 9.4 0 0 1 5 0c1.9-1.3 2.8-1 2.8-1 .5 1.4.2 2.4.1 2.7.6.7 1 1.6 1 2.7 0 3.9-2.4 4.7-4.6 5 .4.3.7.9.7 1.9v2.8c0 .3.2.6.7.5A10.2 10.2 0 0 0 22 12.2C22 6.6 17.5 2 12 2z"/></svg>
+            <span>Código da Receita no GitHub</span>
+            <span class="seta" aria-hidden="true">&#8599;</span>
+          </a>
+        </article>
+        <article class="block block--raised regime" aria-labelledby="regime-titulo">
+          <h3 id="regime-titulo">Serve para o meu regime?</h3>
+          <ul class="regimes">
+            <li>
+              <div class="regime-topo"><b>Simples Nacional</b><span class="pill pill--sim">Serve inteiro</span></div>
+              <span>O valor da CBS e do IBS de cada nota, item por item, com a alíquota efetiva do PGDAS que vem do seu contador. É o que a calculadora do Simples da Receita faz.</span>
+            </li>
+            <li>
+              <div class="regime-topo"><b>Lucro Real e Lucro Presumido</b><span class="pill pill--nao">Ainda não</span></div>
+              <span>No regime regular a conta é outra. Para ver a classificação e a alíquota de cada produto, use o <a href="https://calc-imposto.cd2.com.br/?utm_source=site-skills&amp;utm_medium=skill&amp;utm_campaign=cbs-ibs-simples">calc-imposto da CD2</a>, feito com a calculadora do regime regular da Receita.</span>
+            </li>
+          </ul>
+          <p class="cap">A Receita abriu uma calculadora para cada regime. Esta skill usa a do Simples Nacional.</p>
+        </article>
+      </div>
+      <div class="grid g3 rfb-fatos">
+        <div>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
+          <div><h3>Sem servidor</h3><p>A conta roda dentro do assistente. Não tem site da CD2 no meio, nem cadastro, nem limite de uso.</p></div>
+        </div>
+        <div>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 14l2 2 4-4"/></svg>
+          <div><h3>Conferido com a original</h3><p>Rodamos a calculadora da Receita de verdade e comparamos a resposta inteira, caso a caso. Não deu nenhuma diferença.</p></div>
+        </div>
+        <div>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg>
+          <div><h3>Sempre na versão nova</h3><p>Todo dia um robô confere se a Receita publicou versão nova. Tabela nova chega sozinha na próxima atualização do plugin; regra nova passa antes pela revisão da CD2.</p></div>
+        </div>
+      </div>
+      <div class="rfb-nota" role="note">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg>
+        <div>
+          <h3>Resultado apenas gerencial</h3>
+          <p>É uma referência, com os dados que você informou e as tabelas da calculadora oficial da Receita Federal, que mudam. As regras valem a partir de 01/01/2027. A sugestão de cClassTrib pelo NCM é uma leitura de varejo da CD2 e fica fora da conferência. A CD2 Tech não tem nenhuma responsabilidade sobre este resultado nem sobre decisões tomadas com base nele. Confira com o seu contador antes de emitir nota ou mudar preço.</p>
+        </div>
+      </div>
+      <p class="rfb-fonte">Feito com a calculadora oficial do Simples Nacional da Receita Federal, versão 1.0.2, tabelas de 19/11/2026 (base V0073), e a Lei Complementar 214/2025. Conferido em 22/11/2026. <a href="https://github.com/cd2tec/super/blob/main/core/cd2-super/skills/cbs-ibs-simples/references/metodologia.md">Como calculamos</a></p>
     </div>
   </section>
 
@@ -880,12 +995,13 @@ codex plugin add cd2-super@super</code></pre><button type="button" class="copy n
           <div class="panel__intro">
             <span class="eyebrow">Em breve</span>
             <h3 class="heading-sm">GPT Store</h3>
-            <p>Em breve na GPT Store, um GPT para cada calculadora, para quem usa o ChatGPT Plus ou o gratuito. Não vai precisar instalar nada. Os GPTs valem só para as duas calculadoras: relatórios, painel e ficha ainda não têm GPT.</p>
+            <p>Em breve na GPT Store, um GPT para cada calculadora, para quem usa o ChatGPT Plus ou o gratuito. Não vai precisar instalar nada. Os GPTs valem só para as três calculadoras: relatórios, painel e ficha ainda não têm GPT.</p>
           </div>
           <div class="panel__how">
             <ol class="steps-list">
               <li><strong>CD2 Escala 6x1</strong>, para o fim da escala 6x1.</li>
               <li><strong>CD2 VR/VA: quanto custa</strong>, para o custo do vale.</li>
+              <li><strong>CD2 CBS e IBS no Simples</strong>, para a CBS e o IBS no Simples Nacional.</li>
             </ol>
             <p>Enquanto isso, o Codex também funciona no ChatGPT Plus: veja a aba Codex.</p>
             <p class="note">O GPT não se conecta ao seu sistema. Para puxar os dados do ERP, use o plugin no Claude ou no Codex, com o Archeo. Quer saber como os GPTs são montados? Veja o <a href="https://github.com/cd2tec/super/blob/main/gpts/README.md">gpts/README.md</a>.</p>

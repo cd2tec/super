@@ -36,7 +36,9 @@ para a skill seguir autocontida com uma fonte só para cada consulta e regra.
 Em todo arquivo de texto copiado (.md, .py, .html, .json), o placeholder de UTM
 vira o utm_source da plataforma. O script também gera a tabela de skills do
 README.md e os cards do docs/index.html, entre os marcadores
-<!-- skills:start --> e <!-- skills:end -->, a partir do skills.json.
+<!-- skills:start --> e <!-- skills:end -->, a partir do skills.json. Uma skill
+com "fonte_externa": true tem como site uma fonte que não é da CD2 (o GitHub da
+Receita, por exemplo): o link sai sem UTM e o card diz "Ver a calculadora oficial".
 
 O --check falha quando: alguma cópia difere; um instructions.md de GPT passa de
 8.000 caracteres; o name do frontmatter difere da pasta; um manifesto tem nome,
@@ -351,6 +353,8 @@ def check_skills_json(skills: list[dict]) -> list[str]:
             problems.append(f"skills.json: '{s.get('name')}' com tipo '{s.get('tipo')}' (use um de: {', '.join(TIPOS)})")
         if not isinstance(s.get("gpt"), bool):
             problems.append(f"skills.json: '{s.get('name')}' sem 'gpt' true ou false")
+        if "fonte_externa" in s and not isinstance(s["fonte_externa"], bool):
+            problems.append(f"skills.json: '{s.get('name')}' com 'fonte_externa' que não é true ou false")
     return problems
 
 
@@ -465,7 +469,16 @@ def utm_url(url: str, source: str, campaign: str) -> str:
     return f"{url}{sep}utm_source={source}&utm_medium=skill&utm_campaign={campaign}"
 
 
+def site_link(skill: dict, source: str) -> str:
+    """Link do site da skill. Fonte externa (`fonte_externa`, como o GitHub da Receita) vai sem UTM."""
+    if skill.get("fonte_externa") is True:
+        return skill["site_url"]
+    return utm_url(skill["site_url"], source, skill["name"])
+
+
 def link_label(skill: dict) -> str:
+    if skill.get("fonte_externa") is True:
+        return "Ver a calculadora oficial"
     return "Abrir a calculadora gratuita" if skill["tipo"] == "calculadora" else "Conecte seu ERP"
 
 
@@ -486,7 +499,7 @@ def readme_block(skills: list[dict]) -> str:
         ]
         for s in itens:
             host = urlparse(s["site_url"]).netloc
-            url = utm_url(s["site_url"], "github", s["name"])
+            url = site_link(s, "github")
             rule = s["rule"] or "Não se aplica"
             lines.append(
                 f"| **{s['title']}** (`{s['name']}`) | {s['summary']} | {rule} | [{host}]({url}) | {s['status']} |"
@@ -507,7 +520,7 @@ def site_block(skills: list[dict]) -> str:
 
 
 def cartao_do_site(s: dict) -> str:
-    url = html.escape(utm_url(s["site_url"], "site-skills", s["name"]), quote=True)
+    url = html.escape(site_link(s, "site-skills"), quote=True)
     rule = f'    <p class="skill-rule">Base: {html.escape(s["rule"])}</p>\n' if s["rule"] else ""
     return (
         f'  <article class="skill-card" id="skill-{html.escape(s["name"])}">\n'

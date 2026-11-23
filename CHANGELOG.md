@@ -2,6 +2,18 @@
 
 As notas de cada versão entram na release do GitHub. Use um título `## <versão>` por versão, da mais recente para a mais antiga.
 
+## 0.6.0
+
+Calculadora nova: `cbs-ibs-simples`, a CBS e o IBS no Simples Nacional, com a mesma conta da calculadora oficial da Receita Federal.
+
+- **Fiscal:** `cbs-ibs-simples` calcula a CBS e o IBS de uma operação do Simples (NFC-e, NF-e ou NFS-e) para datas a partir de 01/01/2027. Até lá, a conta é uma simulação do que passa a valer.
+- A conta é um port para Python da calculadora oficial do Simples Nacional, versão 1.0.2, com a base V0073 montada das migrações oficiais. Na conferência de 22/11/2026, 12.013 casos deram o mesmo JSON da calculadora oficial rodando, em 12.013.
+- Duas portas: quem testa o ERP cola o JSON da calculadora oficial e recebe a resposta oficial intocada; quem toca a loja conversa em português, escolhe a atividade numa lista e informa a linha de alíquotas efetivas do PGDAS, que vem do contador. A skill nunca estima alíquota.
+- Sugere a classificação tributária pelo NCM, como leitura da CD2, fora do selo de conferência, e avisa quando o item está na lista do Imposto Seletivo.
+- A skill não é um aplicativo da Receita Federal. O `NOTICE` traz o aviso de copyright e a licença MIT dos dois repositórios da Receita.
+- Tem GPT, o CD2 CBS e IBS no Simples, com 19 arquivos de conhecimento.
+- O card de uma skill cujo site não é da CD2 (campo `fonte_externa` do `skills.json`) leva o link sem UTM e o rótulo "Ver a calculadora oficial". As contas de `fim-escala-6x1` e `custo-vrva` não mudaram.
+
 ## 0.5.0
 
 Segunda onda de rotinas. Oito skills novas fecham o dia e a semana, aprofundam a relação com fornecedor e olham a oferta depois de pronta.

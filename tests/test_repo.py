@@ -114,11 +114,13 @@ class RepoTest(unittest.TestCase):
         core = json.loads(read("core/cd2-super/plugin.core.json"))
         skills = json.loads(read("skills.json"))
         harnesses = json.loads(read("harnesses.json"))
-        self.assertEqual(core["version"], "0.5.0")
+        # A versão sobe a cada publicação (à mão ou pelo robô): o que vale é a entrada do CHANGELOG.md no topo.
+        self.assertRegex(core["version"], r"^\d+\.\d+\.\d+$")
+        self.assertEqual(re.search(r"(?m)^## (\S+)$", read("CHANGELOG.md")).group(1), core["version"])
         self.assertEqual(
             {s["name"] for s in skills},
             {
-                "fim-escala-6x1", "custo-vrva", "relatorio-vendas", "relatorio-estoque",
+                "fim-escala-6x1", "custo-vrva", "cbs-ibs-simples", "relatorio-vendas", "relatorio-estoque",
                 "relatorio-compras", "relatorio-precos", "relatorio-perdas", "relatorio-financeiro",
                 "relatorio-fiscal", "relatorio-contabil", "painel-varejo", "ficha-archeo-mcp",
                 "perfil-da-operacao", "briefing-do-dia", "sinais-da-operacao", "preparo-de-negociacao", "ata-de-negociacao", "plano-de-ofertas", "comunicacao-de-ofertas",
@@ -127,6 +129,53 @@ class RepoTest(unittest.TestCase):
             },
         )
         self.assertEqual(set(harnesses["plugins"]["cd2-super"]["harnesses"]), {"claude", "codex", "dsh", "gpt"})
+
+
+class AtribuicaoReceita(unittest.TestCase):
+    """A skill cbs-ibs-simples porta código e tabelas da Receita Federal, sob licença MIT."""
+
+    SN = "https://github.com/ReceitaFederal/calculadora-rtc-simples-nacional"
+    RR = "https://github.com/ReceitaFederal/calculadora-rtc-regime-regular"
+
+    def test_notice_cita_os_dois_repositorios_e_a_mit(self):
+        text = read("NOTICE")
+        for needle in (self.SN, self.RR, "cbs-ibs-simples", "MIT License",
+                       "Copyright (c) 2026 Receita Federal do Brasil",
+                       "Permission is hereby granted, free of charge, to any person obtaining a copy",
+                       'THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND'):
+            self.assertIn(needle, text, needle)
+        # Os parágrafos de antes continuam lá.
+        for needle in ("Copyright (c) 2026 CD2 Tech", "SIL Open Font License 1.1", "Condições adicionais de uso"):
+            self.assertIn(needle, text, needle)
+
+    def test_skill_e_gpt_dizem_que_nao_sao_da_receita(self):
+        for rel in ("core/cd2-super/skills/cbs-ibs-simples/SKILL.md", "core/cd2-super/gpts/cbs-ibs-simples/instructions.md"):
+            self.assertIn("não é um aplicativo da Receita Federal", read(rel), rel)
+
+    def test_skill_cobre_seletivo_desconhecido_nfse_e_entrada(self):
+        skill = read("core/cd2-super/skills/cbs-ibs-simples/SKILL.md")
+        gpt = read("core/cd2-super/gpts/cbs-ibs-simples/instructions.md")
+        for texto in (skill, gpt):
+            self.assertIn("O total não inclui o Imposto Seletivo do item {n} ({descrição}). "
+                          "A alíquota ainda não foi definida em lei.", texto)
+            self.assertIn("observacoes", texto)
+            self.assertIn("nunca conselho", texto)
+            self.assertIn("sem % nem R$", texto)
+            self.assertIn("nunca escolh", texto)
+        self.assertIn("Se a pessoa não souber o valor", skill)
+        self.assertIn("Na NFS-e, ou se `sugestoes` vier vazia", skill)
+        self.assertIn('`{"errors": [...]}`, com código de saída 2', skill)
+        self.assertIn("Onde o texto acima difere, vale esta seção", gpt)
+
+    def test_skill_json_da_skill(self):
+        item = next(s for s in json.loads(read("skills.json")) if s["name"] == "cbs-ibs-simples")
+        self.assertEqual(item, {
+            "name": "cbs-ibs-simples", "title": "CBS e IBS no Simples Nacional",
+            "summary": "Calcula a CBS e o IBS de uma operação do Simples Nacional com a mesma conta da calculadora "
+                       "oficial da Receita Federal.",
+            "site_url": self.SN, "rule": "Lei Complementar 214/2025", "status": "disponível",
+            "tipo": "calculadora", "gpt": True, "departamento": "Fiscal", "fonte_externa": True,
+        })
 
 
 class Departamentos(unittest.TestCase):
