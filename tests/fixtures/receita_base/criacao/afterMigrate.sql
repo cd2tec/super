@@ -1,0 +1,1 @@
+INSERT INTO ORDEM (ARQUIVO) VALUES ('afterMigrate');

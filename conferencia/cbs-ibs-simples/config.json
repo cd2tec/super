@@ -1,0 +1,46 @@
+{
+  "skill": "cbs-ibs-simples",
+  "calculadora": {
+    "repo": "ReceitaFederal/calculadora-rtc-simples-nacional",
+    "caminho_codigo": "src/main"
+  },
+  "migracoes": {
+    "repo": "ReceitaFederal/calculadora-rtc-regime-regular",
+    "caminho": "flyway/sql"
+  },
+  "tabelas": [
+    "ANEXO",
+    "ATIVIDADE_SIMPLES_NACIONAL",
+    "CLASSIFICACAO_TRIBUTARIA",
+    "ENQUADRAMENTO_REGIME_SIMPLES_NACIONAL",
+    "EXCECAO_NBS_APLICAVEL",
+    "EXCECAO_NCM_APLICAVEL",
+    "NBS",
+    "NBS_APLICAVEL",
+    "NCM",
+    "NCM_APLICAVEL",
+    "REGIME_APURACAO_SIMPLES_NACIONAL",
+    "SITUACAO_ISS_PAR_ALIQUOTA_SIMPLES_NACIONAL",
+    "SITUACAO_TRIBUTARIA",
+    "TIPO_DFE",
+    "TIPO_DFE_ATIVIDADE_SIMPLES_NACIONAL",
+    "TIPO_DFE_CALCULO_SIMPLES_NACIONAL",
+    "TIPO_DFE_CLASSIFICACAO",
+    "TIPO_RECEITA_BRUTA_SIMPLES_NACIONAL",
+    "TOMADOR_ESPECIFICO",
+    "TRANSICAO_ALIQUOTA_COMPRA_GOV_SIMPLES_NACIONAL",
+    "TRATAMENTO_CLASSIFICACAO",
+    "TRATAMENTO_TRIBUTARIO",
+    "TRIBUTO",
+    "TRIBUTO_SITUACAO_TRIBUTARIA",
+    "VERSAO_BASE_DADO"
+  ],
+  "base_destino": "core/cd2-super/skills/cbs-ibs-simples/references/base-receita.db",
+  "oficial": {
+    "porta": 8082,
+    "contexto": "/api",
+    "jar": "target/api-simples-nacional.jar"
+  },
+  "ignorar": [],
+  "excecoes_cobertura": []
+}
