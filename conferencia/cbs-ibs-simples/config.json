@@ -41,6 +41,9 @@
     "contexto": "/api",
     "jar": "target/api-simples-nacional.jar"
   },
+  "hash_ignorar_colunas": {
+    "VERSAO_BASE_DADO": ["VRBD_DATA"]
+  },
   "ignorar": [],
   "excecoes_cobertura": []
 }

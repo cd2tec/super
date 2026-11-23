@@ -138,6 +138,40 @@ class TestReduzirEHash(CopiaDaFixture):
         self.assertNotEqual(receita_base.hash_conteudo(c, ["T"]), receita_base.hash_conteudo(d, ["T"]))
 
 
+class TestHashIgnorandoColunas(unittest.TestCase):
+    def tabela(self, linhas):
+        con = sqlite3.connect(":memory:")
+        con.execute("CREATE TABLE T (ID INTEGER, DATA TEXT, NOME TEXT)")
+        con.executemany("INSERT INTO T VALUES (?, ?, ?)", linhas)
+        return con
+
+    def test_igual_quando_so_a_coluna_ignorada_muda(self):
+        a = self.tabela([(1, "2026-01-01", "x"), (2, "2026-01-02", "y")])
+        b = self.tabela([(1, "2030-05-05 10:00:00", "x"), (2, None, "y")])
+        ig = {"T": ["DATA"]}
+        self.assertEqual(receita_base.hash_conteudo(a, ["T"], ig), receita_base.hash_conteudo(b, ["T"], ig))
+        self.assertNotEqual(receita_base.hash_conteudo(a, ["T"]), receita_base.hash_conteudo(b, ["T"]))
+
+    def test_muda_quando_celula_nao_ignorada_muda(self):
+        a = self.tabela([(1, "2026-01-01", "x")])
+        b = self.tabela([(1, "2026-01-01", "z")])
+        ig = {"T": ["DATA"]}
+        self.assertNotEqual(receita_base.hash_conteudo(a, ["T"], ig), receita_base.hash_conteudo(b, ["T"], ig))
+
+    def test_coluna_ignorada_inexistente_falha(self):
+        a = self.tabela([(1, "d", "x")])
+        with self.assertRaisesRegex(RuntimeError, "NAO_EXISTE"):
+            receita_base.hash_conteudo(a, ["T"], {"T": ["NAO_EXISTE"]})
+
+    def test_montagens_diferentes_so_na_data_dao_o_mesmo_hash(self):
+        con = receita_base.montar(FIXTURE)
+        outra = receita_base.montar(FIXTURE)
+        ig = {"PAI": ["PAI_NOME"]}
+        outra.execute("UPDATE PAI SET PAI_NOME = 'outro'")
+        self.assertEqual(
+            receita_base.hash_conteudo(con, ["PAI"], ig), receita_base.hash_conteudo(outra, ["PAI"], ig))
+
+
 class TestMeta(CopiaDaFixture):
     def test_meta_vai_e_volta(self):
         destino = self.tmp / "m.db"
@@ -163,7 +197,7 @@ class TestBaseDaSkill(unittest.TestCase):
         self.assertEqual(receita_base.ler_meta(base), meta)
         con = sqlite3.connect(f"file:{base}?mode=ro", uri=True)
         self.addCleanup(con.close)
-        self.assertEqual(receita_base.hash_conteudo(con, CONFIG["tabelas"]), meta["base"]["hash"])
+        self.assertEqual(receita_base.hash_conteudo(con, CONFIG["tabelas"], CONFIG["hash_ignorar_colunas"]), meta["base"]["hash"])
         self.assertEqual(meta["base"]["versao"], "V0073")
 
     def test_base_tem_so_as_tabelas_do_config(self):

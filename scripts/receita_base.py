@@ -10,6 +10,9 @@ Uso:
 Tudo o que é específico da skill vem de conferencia/<skill>/config.json: lista de
 tabelas, caminho das migrações no clone e destino da base. O meta.json da mesma pasta
 recebe `base` e `migracoes`; o JSON inteiro também vai para a tabela CD2_META da base.
+
+O hash ignora as colunas de `hash_ignorar_colunas` do config (hoje VERSAO_BASE_DADO.VRBD_DATA),
+porque as migrações V0008 a V0012 gravam `datetime('now')` e a data muda a cada montagem.
 """
 
 from __future__ import annotations
@@ -110,14 +113,24 @@ def reduzir(origem: sqlite3.Connection, tabelas: list[str], destino: Path) -> No
         out.close()
 
 
-def hash_conteudo(con: sqlite3.Connection, tabelas: list[str]) -> str:
+def hash_conteudo(con: sqlite3.Connection, tabelas: list[str],
+                  ignorar_colunas: dict[str, list[str]] | None = None) -> str:
     """SHA-256 de um dump canônico: tabelas em ordem alfabética, colunas na ordem do
-    esquema, linhas ordenadas pelo valor de todas as colunas, valores em repr."""
+    esquema, linhas ordenadas pelo valor de todas as colunas, valores em repr.
+
+    `ignorar_colunas` ({tabela: [colunas]}) tira essas colunas do dump. Coluna que não
+    existe na tabela é erro."""
+    ignorar_colunas = ignorar_colunas or {}
     h = hashlib.sha256()
     for nome in sorted(set(tabelas)):
-        colunas = [c[1] for c in con.execute(f'PRAGMA table_info("{nome}")')]
-        if not colunas:
+        todas = [c[1] for c in con.execute(f'PRAGMA table_info("{nome}")')]
+        if not todas:
             raise RuntimeError(f"Tabela que não existe na base: {nome}")
+        fora = ignorar_colunas.get(nome, [])
+        inexistentes = [c for c in fora if c not in todas]
+        if inexistentes:
+            raise RuntimeError(f"Coluna ignorada que não existe em {nome}: {', '.join(inexistentes)}")
+        colunas = [c for c in todas if c not in fora]
         h.update(f"#{nome}|{','.join(colunas)}\n".encode("utf-8"))
         lista = ", ".join(f'"{c}"' for c in colunas)
         linhas = sorted(
@@ -218,7 +231,7 @@ def main(argv: list[str] | None = None) -> int:
     reduzir(con, config["tabelas"], destino)
     versao, data = _versao_da_base(con)
     meta["migracoes"] = {"repo": config["migracoes"]["repo"], "commit": _commit_do_clone(repo)}
-    meta["base"] = {"versao": versao, "data": data, "hash": hash_conteudo(con, config["tabelas"])}
+    meta["base"] = {"versao": versao, "data": data, "hash": hash_conteudo(con, config["tabelas"], config.get("hash_ignorar_colunas"))}
     meta_arquivo.write_text(json.dumps(meta, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     gravar_meta(destino, meta)
     print(f"{destino.relative_to(ROOT)}: {destino.stat().st_size} bytes, base {versao} ({data}), {meta['base']['hash']}")
