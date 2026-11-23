@@ -147,6 +147,8 @@ Cada skill mostra a data de conferência dos parâmetros, e a pergunta sobre nov
 
 A `cbs-ibs-simples` porta para Python a calculadora oficial do Simples Nacional da Receita Federal (https://github.com/ReceitaFederal/calculadora-rtc-simples-nacional) e leva dentro a base montada das migrações de https://github.com/ReceitaFederal/calculadora-rtc-regime-regular. Os dois repositórios são públicos e MIT; o aviso de copyright e a licença estão no `NOTICE`. A skill não é um aplicativo da Receita Federal, e todo resultado diz isso.
 
+A segunda skill desse tipo, a conta do regime regular (Lucro Real e Presumido), está por fazer. Quem for tocar esse projeto começa por `projetos/regime-regular.md`, que diz onde o projeto 1 parou, o que decidir antes do desenho e o que do robô ainda precisa generalizar.
+
 **A exceção ao "sem job no CI".** As calculadoras da CD2 sincronizam à mão porque a fonte é privada e um job exigiria segredo num repositório público. Aqui a fonte é pública, e por isso esta skill pode ter um job agendado, o robô de conferência, que não precisa de segredo nenhum além do `GITHUB_TOKEN` do próprio repositório. A meta é que mudança de tabela na Receita chegue à skill sem depender de alguém lembrar.
 
 **No roteiro de [Somar uma calculadora nova](#somar-uma-calculadora-nova), mudam:**
