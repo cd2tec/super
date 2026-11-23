@@ -401,3 +401,52 @@ class TestCli(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+    BATERIA_QUE_GERA = (
+        "def responder(req):\n"
+        "    return {'status': 200, 'corpo': {'v': req['corpo']['v']}}\n"
+        "def casos(base=None):\n"
+        "    return [{'id': f'g{i}', 'grupo': 'gerado', 'origem': 'gerado', 'base': str(base),\n"
+        "             'requisicao': {'metodo': 'POST', 'caminho': '/calc', 'corpo': {'v': i}}} for i in range(5)]\n"
+        "def amostra(casos, n):\n"
+        "    return casos[:n]\n")
+
+    def test_completa_compara_os_casos_que_a_bateria_gera(self):
+        (self.pasta / "bateria.py").write_text(self.BATERIA_QUE_GERA, encoding="utf-8")
+        respostas = {("POST", "/api/calc"): (200, "application/json", b'{"v": 3}')}
+        with Oficial(respostas) as of:
+            codigo, saida, _ = self.executar("--skill", "demo", "--oficial", of.url, "--completa")
+        self.assertEqual(codigo, 1)  # o oficial devolve sempre v=3: só um dos cinco casos bate
+        self.assertIn("5 casos, 1 iguais", saida)
+        self.assertFalse((self.pasta / "esperadas.json").exists())
+
+    def test_base_completa_chega_na_bateria(self):
+        (self.pasta / "bateria.py").write_text(
+            self.BATERIA_QUE_GERA.replace("'v': i}}}", "'v': 3 if 'minha.db' in str(base) else 0}}}"),
+            encoding="utf-8")
+        respostas = {("POST", "/api/calc"): (200, "application/json", b'{"v": 3}')}
+        with Oficial(respostas) as of:
+            codigo, saida, _ = self.executar("--skill", "demo", "--oficial", of.url, "--completa",
+                                             "--base-completa", "minha.db")
+        self.assertEqual(codigo, 0, saida)
+        self.assertIn("5 casos, 5 iguais", saida)
+
+    def test_gravar_esperadas_com_amostra_grava_a_amostra_da_bateria(self):
+        (self.pasta / "bateria.py").write_text(self.BATERIA_QUE_GERA, encoding="utf-8")
+        respostas = {("POST", "/api/calc"): (200, "application/json", b'{"v": 3}')}
+        with Oficial(respostas) as of:
+            codigo, saida, _ = self.executar("--skill", "demo", "--oficial", of.url, "--gravar-esperadas",
+                                             "--amostra", "2")
+        self.assertEqual(codigo, 0)
+        esperadas = paridade.ler_json((self.pasta / "esperadas.json").read_text(encoding="utf-8"))
+        self.assertEqual([c["id"] for c in esperadas["casos"]], ["g0", "g1"])
+        self.assertEqual(esperadas["casos"][0]["resposta"]["corpo"], {"v": 3})
+        self.assertEqual(esperadas["meta"]["skill"], "demo")
+
+    def test_gravar_amostra_sem_casos_e_amostra_na_bateria_diz_o_que_falta(self):
+        (self.pasta / "bateria.py").write_text("def responder(req):\n    return {'status': 200, 'corpo': None}\n",
+                                               encoding="utf-8")
+        codigo, _, erro = self.executar("--skill", "demo", "--oficial", "http://127.0.0.1:9/api",
+                                        "--gravar-esperadas", "--amostra", "2")
+        self.assertEqual(codigo, 2)
+        self.assertIn("amostra()", erro)

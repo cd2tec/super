@@ -20,6 +20,7 @@ import sys
 import tempfile
 import unittest
 import urllib.error
+from unittest import mock
 from urllib.parse import parse_qsl, urlsplit
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -600,7 +601,7 @@ class CliTest(unittest.TestCase):
         saida = saida_json(processo)
         self.assertEqual(receita_paridade.comparar(
             caso["resposta"], {"status": saida["status"], "corpo": saida["corpo"]}, IGNORAR), [])
-        self.assertEqual(saida["versao"], {"calculadora": "1.0.2", "base": "V0073", "conferida_em": ""})
+        self.assertEqual(saida["versao"], {"calculadora": "1.0.2", "base": "V0073", "conferida_em": "2026-11-22"})
         self.assertNotIn("normalizacoes", saida)
 
     def test_cli_le_arquivo_e_mantem_os_valores_em_texto(self):
@@ -1132,6 +1133,205 @@ class BaseDanificadaTest(unittest.TestCase):
         with Base() as base:
             with self.assertRaises(simples_base.BaseIndisponivel):
                 base._consultar("SELECT * FROM TABELA_QUE_NAO_EXISTE")
+
+
+class FalhasInesperadasTest(ComBase):
+    """O Java captura qualquer Exception no cálculo do item e qualquer RuntimeException na nomenclatura."""
+
+    def item_com_erro(self, corpo):
+        objeto = corpo["objetos"][0]
+        self.assertEqual(objeto["estadoItem"], "FALHA_TECNICA")
+        self.assertEqual(len(objeto["erros"]), 1)
+        return objeto["erros"][0]
+
+    def test_falha_qualquer_no_calculo_do_item_vira_vsn_999_com_a_mensagem(self):
+        for excecao in (RuntimeError("boom"), ZeroDivisionError("divisao"), KeyError("chave"), ValueError("v")):
+            with self.subTest(type(excecao).__name__):
+                with mock.patch.object(simples_motor, "_calcular_item", side_effect=excecao):
+                    status, corpo = self.calcular(operacao())
+                self.assertEqual(status, 200)
+                erro = self.item_com_erro(corpo)
+                self.assertEqual((erro["code"], erro["pointer"]), ("VSN-999", "#/itens/0"))
+                self.assertEqual(erro["detail"], str(excecao))
+
+    def test_excecao_sem_mensagem_sai_sem_detalhe(self):
+        with mock.patch.object(simples_motor, "_calcular_item", side_effect=RuntimeError()):
+            _, corpo = self.calcular(operacao())
+        self.assertNotIn("detail", self.item_com_erro(corpo))
+
+    def test_a_falha_de_um_item_nao_derruba_os_outros(self):
+        original = simples_motor._calcular_item
+        chamadas = []
+
+        def falha_na_primeira(*args):
+            chamadas.append(1)
+            if len(chamadas) == 1:
+                raise RuntimeError("so a primeira")
+            return original(*args)
+        with mock.patch.object(simples_motor, "_calcular_item", side_effect=falha_na_primeira):
+            _, corpo = self.calcular(operacao(itens=[dict(ITEM), dict(ITEM, numero=2)]))
+        self.assertEqual([o["estadoItem"] for o in corpo["objetos"]], ["FALHA_TECNICA", "CALCULADO"])
+
+    def test_falha_na_validacao_estrutural_da_nomenclatura_vira_vsn_999(self):
+        class BaseQueFalha(Base):
+            def existe_ncm(self, ncm, data):
+                raise RuntimeError("falha ao consultar a NCM")
+        base = BaseQueFalha()
+        self.addCleanup(base.fechar)
+        corpo = operacao(itens=[dict(ITEM, ncm="12345678"), dict(ITEM, numero=2)])
+        status, saida = simples_motor.calcular(corpo, base, BASE_URL_OFICIAL, agora=AGORA)
+        self.assertEqual(status, 200)
+        erro = saida["objetos"][0]["erros"][0]
+        self.assertEqual((erro["code"], erro["pointer"], erro["detail"]),
+                         ("VSN-999", "#/itens/0", "falha ao consultar a NCM"))
+        self.assertEqual(saida["objetos"][0]["estadoItem"], "FALHA_TECNICA")
+        self.assertEqual(saida["objetos"][1]["estadoItem"], "CALCULADO")
+
+    def test_falha_na_validacao_pela_classificacao_vira_vsn_999(self):
+        class BaseQueFalha(Base):
+            def validar_nomenclatura(self, *args, **kwargs):
+                raise ZeroDivisionError("conta")
+        base = BaseQueFalha()
+        self.addCleanup(base.fechar)
+        status, saida = simples_motor.calcular(operacao(), base, BASE_URL_OFICIAL, agora=AGORA)
+        self.assertEqual(status, 200)
+        erro = saida["objetos"][0]["erros"][0]
+        self.assertEqual((erro["code"], erro["detail"]), ("VSN-999", "conta"))
+
+    def test_base_danificada_nao_vira_vsn_999(self):
+        class BaseDanificada(Base):
+            def existe_ncm(self, ncm, data):
+                raise simples_base.BaseIndisponivel("arquivo cortado")
+        base = BaseDanificada()
+        self.addCleanup(base.fechar)
+        with self.assertRaises(simples_base.BaseIndisponivel):
+            simples_motor.calcular(operacao(itens=[dict(ITEM, ncm="12345678")]), base, BASE_URL_OFICIAL, agora=AGORA)
+
+    def test_criticas_conhecidas_continuam_com_o_codigo_proprio(self):
+        _, corpo = self.calcular(operacao(itens=[dict(ITEM, ncm="12345678", nbs="123456789")]))
+        self.assertEqual(corpo["objetos"][0]["erros"][0]["code"], "VSN-041")
+
+
+class DefeitosDaBateriaCompletaTest(ComBase):
+    """Cada defeito que a bateria completa achou na primeira rodada, com o que a oficial responde."""
+
+    def aliquotas(self, valor):
+        return operacao(aliquotasEfetivas=valor)
+
+    def detalhe(self, corpo):
+        status, saida = self.calcular(corpo)
+        self.assertEqual(status, 400)
+        return saida["detail"]
+
+    def test_texto_no_lugar_de_registro_e_aparado_e_vazio_e_coercao_recusada(self):
+        tipo = "br.gov.serpro.rtc.api.simplesnacional.model.input.AliquotasEfetivasInput"
+        vazio = f'JSON parse error: Cannot coerce empty String ("") to `{tipo}` value (but could if coercion was enabled using `CoercionConfig`)'
+        for texto in ("", " ", " \t "):
+            self.assertEqual(self.detalhe(self.aliquotas(texto)), vazio)
+        self.assertEqual(
+            self.detalhe(self.aliquotas(" 1 ")),
+            f"JSON parse error: Cannot construct instance of `{tipo}` (although at least one Creator exists): "
+            "no String-argument constructor/factory method to deserialize from String value ('1')")
+
+    def test_numero_no_lugar_de_registro_diz_int_long_ou_biginteger_e_o_double_do_java(self):
+        tipo = "br.gov.serpro.rtc.api.simplesnacional.model.input.AliquotasEfetivasInput"
+        prefixo = f"JSON parse error: Cannot construct instance of `{tipo}` (although at least one Creator exists): no "
+        casos = [(7, "int/Int", "7"), (-2 ** 31 - 1, "long/Long", str(-2 ** 31 - 1)),
+                 (2 ** 40, "long/Long", str(2 ** 40)), (2 ** 70, "BigInteger", str(2 ** 70)),
+                 (Decimal("1.5"), "double/Double", "1.5"), (Decimal("1E+3"), "double/Double", "1000.0"),
+                 (Decimal("1E+30"), "double/Double", "1.0E30"), (Decimal("0.000001"), "double/Double", "1.0E-6"),
+                 (Decimal("0.001"), "double/Double", "0.001"), (Decimal("12345678.9"), "double/Double", "1.23456789E7"),
+                 (Decimal("-0.0"), "double/Double", "-0.0"), (Decimal("100.250"), "double/Double", "100.25")]
+        for valor, construtor, mostrado in casos:
+            with self.subTest(valor=valor):
+                detalhe = self.detalhe(self.aliquotas(valor))
+                self.assertTrue(detalhe.startswith(prefixo + construtor), detalhe)
+                self.assertTrue(detalhe.endswith(f"from Number value ({mostrado})"), detalhe)
+
+    def test_booleano_vazio_ou_em_branco_vale_nulo(self):
+        for campo in ("fatorR", "impedimentoSublimite"):
+            for texto in ("", " ", " \t "):
+                with self.subTest(campo=campo, texto=texto):
+                    linha = copy.deepcopy(LINHA)
+                    linha[campo] = texto
+                    esperado = copy.deepcopy(LINHA)
+                    esperado[campo] = None
+                    self.assertEqual(self.calcular(operacao(aliquotasEfetivas=linha)),
+                                     self.calcular(operacao(aliquotasEfetivas=esperado)))
+
+    def test_um_parametro_anexos_e_partido_nas_virgulas_e_aparado_o_repetido_nao(self):
+        so_um = self.base.atividades("2027-01-01", "IV, V")
+        igual = self.base.atividades("2027-01-01", ["IV", "V"])
+        self.assertEqual(so_um, igual)
+        self.assertEqual(self.base.atividades("2027-01-01", " III ")[0], 200)
+        self.assertEqual(self.base.atividades("2027-01-01", "I,,V,")[1], self.base.atividades("2027-01-01", ["I", "V"])[1])
+        status, corpo = self.base.atividades("2027-01-01", ["I", " V"])
+        self.assertEqual(status, 400)
+        self.assertEqual(corpo["detail"], "Anexo inv\u00e1lido: ' V'. Valores aceitos: I, II, III, IV, V.")
+        self.assertEqual(self.base.atividades("2027-01-01", "")[0], 200)
+
+    def test_texto_null_vale_nulo_no_booleano_e_a_mensagem_sai_aparada(self):
+        linha = copy.deepcopy(LINHA)
+        linha["fatorR"] = " null "
+        esperado = copy.deepcopy(LINHA)
+        esperado["fatorR"] = None
+        self.assertEqual(self.calcular(operacao(aliquotasEfetivas=linha)), self.calcular(operacao(aliquotasEfetivas=esperado)))
+        linha["fatorR"] = " Null "  # só "null" minúsculo vale nulo
+        self.assertEqual(self.detalhe(operacao(aliquotasEfetivas=linha)),
+                         'JSON parse error: Cannot deserialize value of type `java.lang.Boolean` from String "Null": '
+                         'only "true" or "false" recognized')
+
+    def test_double_do_java_nos_extremos(self):
+        tipo = "br.gov.serpro.rtc.api.simplesnacional.model.input.AliquotasEfetivasInput"
+        for valor, mostrado in ((Decimal("1E+400"), "Infinity"), (Decimal("-1E+400"), "-Infinity"),
+                                (Decimal("1E-400"), "0.0"), (Decimal("4.9E-324"), "4.9E-324"),
+                                (Decimal("1.7976931348623157E+308"), "1.7976931348623157E308"),
+                                (Decimal("0.1234567890123456789"), "0.12345678901234568"),
+                                (Decimal("123456789012345678901234567890.5"), "1.2345678901234568E29"),
+                                (Decimal("12345678901234567.0"), "1.2345678901234568E16"),
+                                (Decimal("9999999.999"), "9999999.999"), (Decimal("10000000.5"), "1.00000005E7"),
+                                (Decimal("0.00099"), "9.9E-4")):
+            with self.subTest(valor=valor):
+                self.assertTrue(self.detalhe(self.aliquotas(valor)).endswith(f"from Number value ({mostrado})"))
+
+    def test_ano_da_data_e_o_da_era_na_operacao_e_nas_consultas(self):
+        status, corpo = self.calcular(operacao(data="-2027-03-15"))  # o yyyy do Java: 1 - (-2027) = 2028
+        self.assertEqual((status, corpo["oper"]["data"]), (200, "-2027-03-15"))
+        self.assertEqual(self.calcular(operacao(data="-2028-02-29"))[0], 200)  # bissexto, e 2029 não é
+        for data in ("-9999-03-15", "-12027-03-15", "+10000-03-15"):  # ano da era acima de 9999: falha da oficial
+            self.assertEqual(self.calcular(operacao(data=data))[0], 500, data)
+        status, corpo = self.calcular(operacao(data="-0000-03-15"))  # menos zero não existe
+        self.assertEqual((status, corpo["errors"][0]["code"]), (422, "VSN-012"))
+        for data in ("0000-03-15", "-0027-03-15", "-00001-03-15"):  # existem, mas sem vigência
+            status, corpo = self.calcular(operacao(data=data))
+            self.assertEqual((status, corpo["errors"][0]["code"]), (422, "VSN-015"), data)
+        self.assertEqual(self.base.atividades("-2027-01-01")[0], 200)
+        self.assertEqual(len(self.base.atividades("-2027-01-01")[1]), 15)
+        self.assertEqual(self.base.atividades("-0004-02-29"), (200, []))
+        self.assertEqual(self.base.atividades("0000-01-01"), (200, []))
+        self.assertEqual(self.base.atividade("01", "-2027-01-01")[0], 200)
+        self.assertEqual(self.base.atividade("01", "-2027-01-01+01:00")[0], 200)
+        self.assertEqual(self.base.atividades("2027-01-01z")[0], 200)
+        for data in ("+10000-01-01", "-999999999-01-01"):
+            status, corpo = self.base.atividades(data, base_url=BASE_URL_OFICIAL, agora=AGORA)
+            self.assertEqual((status, corpo["detail"], corpo["title"]),
+                             (500, "Index -1 out of bounds for length 4", "Erro de sistema n\u00e3o previsto"))
+        for data in ("-0000-01-01", "\uff19999-12-31", "+9999-01-01", "-1000000000-01-01", "12027-01-01"):
+            self.assertEqual(self.base.atividades(data)[0], 400, data)
+
+    def test_consulta_de_erro_sem_o_parametro_codigo_e_400(self):
+        status, corpo = simples_motor.consultar_erro(None, base_url=BASE_URL_OFICIAL, agora=AGORA)
+        self.assertEqual(status, 400)
+        self.assertEqual(corpo["detail"], "O par\u00e2metro obrigat\u00f3rio 'codigo' (String) n\u00e3o foi informado.")
+        self.assertEqual(corpo["instance"], "/api/calculadora/observabilidade/simples-nacional/erros")
+        self.assertEqual(simples_motor.consultar_erro("VSN-001"), simples_motor.descrever_erro("VSN-001"))
+        self.assertEqual(simples_motor.consultar_erro(""), (404, None))
+
+    def test_versao_traz_o_arquivo_e_o_ambiente_da_instalacao_oficial_quando_o_meta_os_tem(self):
+        corpo = calc._executar_versao(self.base)["corpo"]
+        self.assertEqual(list(corpo), ["versaoApp", "versaoDb", "descricaoVersaoDb", "dataVersaoDb", "arquivoDb",
+                                       "ambiente"])
+        self.assertEqual((corpo["arquivoDb"], corpo["ambiente"]), ("calculadora-pro.db", "offline"))
 
 
 class FonteTest(unittest.TestCase):

@@ -142,6 +142,14 @@ class _ErroHttp(Exception):
         self.detail = detail
 
 
+class _ErroSistema(Exception):
+    """Exception que o ApiExceptionHandler não trata: HTTP 500."""
+
+    def __init__(self, detalhe: str):
+        super().__init__(detalhe)
+        self.detalhe = detalhe
+
+
 class _ErroTipoArgumento(Exception):
     """MethodArgumentTypeMismatchException (parâmetro com valor mal formado)."""
 
@@ -247,6 +255,8 @@ def _linha(mapa, valores):
 # --- Parâmetros de entrada ---------------------------------------------------------------
 
 def _iso(data) -> str:
+    if isinstance(data, _DataDeConsulta):
+        return data.isoformat()
     if isinstance(data, datetime):
         data = data.date()
     if not isinstance(data, date):
@@ -255,14 +265,45 @@ def _iso(data) -> str:
 
 
 _RE_DATA_ISO = re.compile(
-    r"(\d{4})-(\d{2})-(\d{2})(?:Z|[+-]\d{2}:\d{2}(?::\d{2})?)?\Z")
+    r"([+-]?)([0-9]{4,10})-([0-9]{2})-([0-9]{2})(?:[Zz]|[+-][0-9]{2}:[0-9]{2}(?::[0-9]{2})?)?\Z")
+
+
+def ano_da_era(ano):
+    """O `yyyy` do Java, com que a oficial grava a data na consulta: o ano 0 e os negativos viram 1 - ano."""
+    return ano if ano >= 1 else 1 - ano
+
+
+class _DataDeConsulta:
+    """Data de consulta que o calendário do Python não representa (29 de fevereiro de um ano da era que não é bissexto)."""
+
+    def __init__(self, texto: str):
+        self._texto = texto
+
+    def isoformat(self) -> str:
+        return self._texto
+
+
+def data_de_consulta(era, mes, dia):
+    """A data, no ano da era (1 a 9999), como as consultas à base a recebem."""
+    try:
+        return date(era, mes, dia)
+    except ValueError:
+        return _DataDeConsulta(f"{era:04d}-{mes:02d}-{dia:02d}")
+
+
+def _dias_do_mes(ano, mes):
+    if mes == 2:
+        return 29 if ano % 4 == 0 and (ano % 100 != 0 or ano % 400 == 0) else 28
+    return 30 if mes in (4, 6, 9, 11) else 31
 
 
 def _parse_data(valor):
     """@RequestParam LocalDate com @DateTimeFormat(iso = ISO.DATE): aceita o que a oficial aceita.
 
-    Verificado contra a oficial: `2027-01-01+01:00` vale; `2027-1-1`, `2027-02-30` e `01/01/2027`
-    são MethodArgumentTypeMismatchException; ausente ou vazio é MissingServletRequestParameter.
+    Verificado contra a oficial: `2027-01-01+01:00` e `2027-01-01z` valem, assim como o ano 0000, o ano
+    negativo (`-2027-01-01`) e o bissexto proléptico; `2027-1-1`, `2027-02-30`, `01/01/2027`, `-0000-01-01`,
+    `+9999-01-01` e dígitos fora do ASCII são MethodArgumentTypeMismatchException; ausente ou vazio é
+    MissingServletRequestParameter. Ano acima de 9999 é falha da oficial (HTTP 500).
     """
     if valor is None or valor == "":
         raise _ErroParametroAusente("data", "LocalDate")
@@ -275,10 +316,20 @@ def _parse_data(valor):
     achou = _RE_DATA_ISO.match(valor)
     if not achou:
         raise _ErroTipoArgumento("data", valor)
-    try:
-        return date(int(achou.group(1)), int(achou.group(2)), int(achou.group(3)))
-    except ValueError:
-        raise _ErroTipoArgumento("data", valor) from None
+    sinal, digitos, mes, dia = achou.groups()
+    # SignStyle.EXCEEDS_PAD: o + só com mais de quatro dígitos, o - com qualquer número deles, nunca com ano zero
+    if (len(digitos) > 4 and sinal == "") or (len(digitos) == 4 and sinal == "+"):
+        raise _ErroTipoArgumento("data", valor)
+    ano = int(digitos) * (-1 if sinal == "-" else 1)
+    if (sinal == "-" and ano == 0) or abs(ano) > 999_999_999:
+        raise _ErroTipoArgumento("data", valor)
+    mes, dia = int(mes), int(dia)
+    if not 1 <= mes <= 12 or not 1 <= dia <= _dias_do_mes(ano, mes):
+        raise _ErroTipoArgumento("data", valor)
+    era = ano_da_era(ano)
+    if era > 9999:
+        raise _ErroSistema("Index -1 out of bounds for length 4")
+    return data_de_consulta(era, mes, dia)
 
 
 def _converter_anexos(anexos):
@@ -287,6 +338,10 @@ def _converter_anexos(anexos):
         return None
     if isinstance(anexos, str):
         anexos = [anexos]
+    if len(anexos) == 1:
+        # um só parâmetro: o Spring o parte nas vírgulas e apara cada pedaço (StringToCollectionConverter);
+        # parâmetro repetido chega como veio
+        anexos = [pedaco.strip(_ESPACOS_JAVA) for pedaco in anexos[0].split(",")]
     configurados = set()
     for elemento in anexos:
         for anexo in elemento.split(","):
@@ -699,7 +754,7 @@ class Base:
             data_ok = _parse_data(data)
             anexos = _converter_anexos(anexo)
             return 200, self._listar(data_ok, anexos, tp_doc, c_class_trib)
-        except (_ErroHttp, _ErroTipoArgumento, _ErroParametroAusente) as erro:
+        except (_ErroHttp, _ErroTipoArgumento, _ErroParametroAusente, _ErroSistema) as erro:
             return self._corpo_erro(erro, instancia, base_url, agora)
 
     def atividade(self, codigo: str, data, tp_doc=None, c_class_trib=None, *, instancia=None,
@@ -714,7 +769,7 @@ class Base:
         try:
             data_ok = _parse_data(data)
             encontrada = self._buscar_por_codigo(codigo, data_ok, tp_doc, c_class_trib)
-        except (_ErroHttp, _ErroTipoArgumento, _ErroParametroAusente) as erro:
+        except (_ErroHttp, _ErroTipoArgumento, _ErroParametroAusente, _ErroSistema) as erro:
             return self._corpo_erro(erro, instancia, base_url, agora)
         if encontrada is None:
             return 404, None
@@ -823,6 +878,10 @@ class Base:
             return erro.status, {"type": "about:blank", "title": "Bad Request", "status": erro.status,
                                  "detail": erro.detail, "instance": instancia}
         base = BASE_URL_PADRAO if base_url is None else base_url
+        if isinstance(erro, _ErroSistema):
+            return 500, {"type": f"{base}/errors/erro-de-sistema-nao-previsto",
+                         "title": "Erro de sistema n\u00e3o previsto", "status": 500, "detail": erro.detalhe,
+                         "instance": instancia, "timestamp": instante(agora)}
         if isinstance(erro, _ErroTipoArgumento):
             titulo, caminho, pointer = "Tipo de argumento inválido", "tipo-argumento-invalido", erro.nome
             detalhe = f"Parâmetro inválido [{erro.nome}: {erro.valor}] "

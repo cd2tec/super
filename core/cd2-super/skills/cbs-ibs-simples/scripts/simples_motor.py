@@ -22,6 +22,7 @@ Fluxo de `calcular`, com o que cada passo guarda no `ContextoOperacao` que os it
 """
 from __future__ import annotations
 
+import decimal
 import re
 import sys
 import unicodedata
@@ -39,6 +40,7 @@ import simples_base  # noqa: E402
 
 CAMINHO_NAO_ASSISTIDO = "/api/calculadora/observabilidade/simples-nacional/nao-assistido"  # com o /api do perfil offline
 CAMINHO_ERROS = "/calculadora/observabilidade/simples-nacional/erros"
+CAMINHO_ERROS_COM_API = "/api" + CAMINHO_ERROS
 
 # --- Catálogo VSN- (CodigoValidacaoSimples) --------------------------------------------------------
 # Um item por constante do enum, na ordem do Java; o comentário de cada item é o nome da constante.
@@ -494,6 +496,18 @@ def descrever_erro(codigo):
     return 200, {"codigo": codigo, "titulo": entrada["titulo"], "descricao": entrada["descricao"]}
 
 
+def consultar_erro(codigo, *, instancia=None, base_url=None, agora=None):
+    """SimplesNacionalController.buscarErro com o parâmetro `codigo` como a requisição o traz.
+
+    Sem o parâmetro (None) a oficial responde 400 de parâmetro obrigatório ausente; com ele, é `descrever_erro`.
+    """
+    if codigo is None:
+        instancia = CAMINHO_ERROS_COM_API if instancia is None else instancia
+        return simples_base.Base._corpo_erro(simples_base._ErroParametroAusente("codigo", "String"),
+                                             instancia, base_url, agora)
+    return descrever_erro(codigo)
+
+
 # --- Texto como o Java vê ---------------------------------------------------------------------
 
 _BRANCOS_CONTROLE = frozenset("\t\n\x0b\x0c\r\x1c\x1d\x1e\x1f")
@@ -661,18 +675,96 @@ def _de_valor(tipo, valor):
     return f"Cannot deserialize value of type `{tipo}` from {rotulo} value (token `JsonToken.{token}`)"
 
 
+_CONTEXTO_EXATO = decimal.Context(prec=1600, rounding=decimal.ROUND_HALF_EVEN)  # as potências de 2 cabem inteiras
+
+
+def _para_double(numerador, denominador):
+    """O double mais próximo de numerador/denominador (positivo), como (mantissa, expoente) ou None se estoura.
+
+    Só aritmética de inteiros: o motor não usa ponto flutuante nem para dizer como o Java escreve um double.
+    """
+    k = numerador.bit_length() - denominador.bit_length()
+    acima = numerador >= (denominador << k) if k >= 0 else (numerador << -k) >= denominador
+    if not acima:
+        k -= 1
+    expoente = max(k - 52, -1074)
+    divisor = denominador << expoente if expoente >= 0 else denominador
+    dividendo = numerador if expoente >= 0 else numerador << -expoente
+    mantissa, resto = divmod(dividendo, divisor)
+    if 2 * resto > divisor or (2 * resto == divisor and mantissa % 2 == 1):
+        mantissa += 1
+    if mantissa == 1 << 53:
+        mantissa, expoente = 1 << 52, expoente + 1
+    if mantissa.bit_length() + expoente > 1024:
+        return None
+    return mantissa, expoente
+
+
+def _razao(valor):
+    sinal, digitos, expoente = valor.as_tuple()
+    n = int("".join(str(d) for d in digitos))
+    return (n * 10 ** expoente, 1) if expoente >= 0 else (n, 10 ** -expoente)
+
+
+def _java_double(valor):
+    # Double.toString do número do JSON (o Jackson o lê como double): o decimal mais curto, e o mais perto
+    # do double, que volta ao mesmo double, com ao menos dois dígitos; fora de 10^-3 a 10^7 em notação científica
+    if valor.is_zero():
+        return "-0.0" if valor.is_signed() else "0.0"
+    sinal = "-" if valor < 0 else ""
+    alvo = _para_double(*_razao(abs(valor)))
+    if alvo is None:
+        return sinal + "Infinity"
+    mantissa, expoente = alvo
+    exato = (_CONTEXTO_EXATO.divide(Decimal(mantissa << expoente), Decimal(1)) if expoente >= 0
+             else _CONTEXTO_EXATO.divide(Decimal(mantissa), Decimal(1 << -expoente)))
+    for n in range(2, 18):
+        candidato = decimal.Context(prec=n, rounding=decimal.ROUND_HALF_EVEN).plus(exato)
+        if _para_double(*_razao(candidato)) == alvo:
+            break
+    partes = candidato.normalize().as_tuple()
+    digitos = "".join(str(d) for d in partes.digits)
+    expoente10 = partes.exponent
+    cientifico = len(digitos) + expoente10 - 1
+    if -3 <= cientifico < 7:
+        if expoente10 >= 0:
+            inteiro, fracao = digitos + "0" * expoente10, "0"
+        elif len(digitos) + expoente10 > 0:
+            inteiro, fracao = digitos[:len(digitos) + expoente10], digitos[len(digitos) + expoente10:]
+        else:
+            inteiro, fracao = "0", "0" * -(len(digitos) + expoente10) + digitos
+        return f"{sinal}{inteiro}.{fracao}"
+    return f"{sinal}{digitos[0]}.{digitos[1:] or '0'}E{cientifico}"
+
+
 def _sem_construtor(tipo, valor):
     # registro recebendo escalar: o Jackson tenta um construtor de um argumento
     if isinstance(valor, str):
-        como = f"no String-argument constructor/factory method to deserialize from String value ('{valor}')"
+        como = (f"no String-argument constructor/factory method to deserialize from String value "
+                f"('{_aparar(valor)}')")
     elif isinstance(valor, bool):
         como = ("no boolean/Boolean-argument constructor/factory method to deserialize from boolean value "
                 f"({'true' if valor else 'false'})")
     elif isinstance(valor, int):
-        como = f"no int/Int-argument constructor/factory method to deserialize from Number value ({valor})"
+        if _INT_MIN <= valor <= _INT_MAX:
+            como = f"no int/Int-argument constructor/factory method to deserialize from Number value ({valor})"
+        elif _LONG_MIN <= valor <= _LONG_MAX:
+            como = f"no long/Long-argument constructor/factory method to deserialize from Number value ({valor})"
+        else:
+            como = ("no BigInteger-argument constructor/factory method to deserialize from Number value "
+                    f"({valor})")
     else:
-        como = f"no double/Double-argument constructor/factory method to deserialize from Number value ({valor})"
+        como = ("no double/Double-argument constructor/factory method to deserialize from Number value "
+                f"({_java_double(valor)})")
     return f"Cannot construct instance of `{tipo}` (although at least one Creator exists): {como}"
+
+
+def _texto_no_lugar_de_registro(tipo, texto):
+    # BeanDeserializer.deserializeFromString: o texto é aparado; vazio é coerção recusada
+    if _aparar(texto) == "":
+        return (f'Cannot coerce empty String ("") to `{tipo}` value (but could if coercion was enabled using '
+                "`CoercionConfig`)")
+    return _sem_construtor(tipo, texto)
 
 
 def _ler_texto(valor):
@@ -693,11 +785,13 @@ def _ler_booleano(valor):
     if isinstance(valor, int):
         return valor != 0
     if isinstance(valor, str):
-        texto = _aparar(valor).lower()
-        if texto in ("true", "false"):
-            return texto == "true"
+        aparado = _aparar(valor)
+        if aparado == "" or aparado == "null":
+            return None  # texto vazio, em branco ou "null" vale nulo no Boolean
+        if aparado.lower() in ("true", "false"):
+            return aparado.lower() == "true"
         raise _CorpoIlegivel('JSON parse error: Cannot deserialize value of type `java.lang.Boolean` from '
-                             f'String "{valor}": only "true" or "false" recognized')
+                             f'String "{aparado}": only "true" or "false" recognized')
     raise _CorpoIlegivel("JSON parse error: " + _de_valor(_T_BOOLEAN, valor))
 
 
@@ -708,6 +802,8 @@ def _ler_registro(tipo, no):
     if not isinstance(no, dict):
         if isinstance(no, list):
             raise _CorpoIlegivel("JSON parse error: " + _de_valor(tipo, no))
+        if isinstance(no, str):
+            raise _CorpoIlegivel("JSON parse error: " + _texto_no_lugar_de_registro(tipo, no))
         raise _CorpoIlegivel("JSON parse error: " + _sem_construtor(tipo, no))
     campos = _CAMPOS[tipo]
     lido = dict.fromkeys(campos)
@@ -772,9 +868,8 @@ def _ler_item(no):
     if not isinstance(no, dict):
         if isinstance(no, list):
             raise _CorpoIlegivel("JSON parse error: " + _de_valor(_T_ITEM, no))
-        if isinstance(no, str) and _aparar(no) == "":
-            raise _CorpoIlegivel(f'JSON parse error: Cannot coerce empty String ("") to `{_T_ITEM}` value (but '
-                                 "could if coercion was enabled using `CoercionConfig`)")
+        if isinstance(no, str):
+            raise _CorpoIlegivel("JSON parse error: " + _texto_no_lugar_de_registro(_T_ITEM, no))
         raise _CorpoIlegivel("JSON parse error: " + _sem_construtor(_T_ITEM, no))
     lido = {}
     for nome, valor in no.items():  # na ordem do JSON: o primeiro defeito vence, o último valor fica
@@ -881,11 +976,11 @@ def _dias_do_mes(ano, mes):
 class DataOperacao:
     """LocalDate da operação.
 
-    `consulta` é a data usada nas consultas à base (anos fora de 1 a 9999 ficam presos nas pontas, o que
-    dá a mesma vigência); `texto` é o LocalDate.toString do Java (o que vai nas mensagens).
-    `ano` é o ano de verdade: acima de 9999 a oficial falha ao consultar a base (HTTP 500).
+    `consulta` é a data usada nas consultas à base, com o ano da era (o `yyyy` do Java: o ano 0 e os
+    negativos viram 1 - ano); `texto` é o LocalDate.toString do Java (o que vai nas mensagens).
+    `ano` é o ano da era: acima de 9999 a oficial falha ao consultar a base (HTTP 500).
     """
-    consulta: date
+    consulta: object
     texto: str
     ano: int
 
@@ -896,12 +991,10 @@ def _parse_data(valor):
     if achou is None:
         return None
     sinal, digitos, mes, dia = achou.groups()
-    if len(digitos) > 4 and sinal != "+":  # SignStyle.EXCEEDS_PAD
-        return None
-    if len(digitos) == 4 and sinal == "+":
+    if (len(digitos) > 4 and sinal == "") or (len(digitos) == 4 and sinal == "+"):  # SignStyle.EXCEEDS_PAD
         return None
     ano = int(digitos) * (-1 if sinal == "-" else 1)
-    if abs(ano) > 999_999_999:
+    if abs(ano) > 999_999_999 or (sinal == "-" and ano == 0):
         return None
     mes, dia = int(mes), int(dia)
     if not 1 <= mes <= 12 or not 1 <= dia <= _dias_do_mes(ano, mes):
@@ -913,9 +1006,9 @@ def _parse_data(valor):
     else:
         texto = f"{ano:04d}"
     texto += f"-{mes:02d}-{dia:02d}"
-    consulta = date(max(1, min(ano, 9999)), mes, dia) if 1 <= ano <= 9999 else (
-        date.min if ano < 1 else date(9999, 12, 31))
-    return DataOperacao(consulta, texto, ano)
+    era = simples_base.ano_da_era(ano)
+    consulta = simples_base.data_de_consulta(era, mes, dia) if era <= 9999 else date(9999, 12, 31)
+    return DataOperacao(consulta, texto, era)
 
 
 # --- Contexto que os itens recebem ----------------------------------------------------------------
@@ -1496,6 +1589,11 @@ class _FalhaTecnica(Exception):
     """RuntimeException fora das críticas conhecidas: vira VSN-999 no item, com esta mensagem."""
 
 
+def _mensagem_da_excecao(erro):
+    # Throwable.getMessage: nulo quando a exceção nasce sem mensagem (o detalhe sai do JSON)
+    return str(erro) if erro.args else None
+
+
 # --- Resultado do item (ProcessadorItemSimples, SimplesNacionalCalculoService) ------------------
 
 @dataclass(frozen=True)
@@ -1630,8 +1728,10 @@ def _processar_item(item, indice, ctx, resolvedor):
         estado, motivo, tributos = _calcular_item(
             ctx.regime, tipo_receita, motivo_nao_calculo, base_calculo, valor_is, aliquotas.p_ibssn,
             aliquotas.p_cbssn, ctx.tp_ente_gov, ctx.fator_transicao, ctx.documento["casasAliquotaCalculo"])
-    except _FalhaTecnica as erro:
-        coletor.falha_tecnica(str(erro))
+    except simples_base.BaseIndisponivel:
+        raise  # arquivo da base inutilizável: não existe na oficial, a skill avisa em vez de calcular
+    except Exception as erro:  # catch (Exception ex) do Java: qualquer falha do cálculo vira VSN-999 no item
+        coletor.falha_tecnica(_mensagem_da_excecao(erro))
         return ItemProcessado(Objeto(n_obj if n_obj is not None else indice + 1, coletor.estado,
                                      erros=list(coletor.erros)), aliquotas.resolucao)
     return ItemProcessado(Objeto(n_obj, estado, motivo, tributos), aliquotas.resolucao)
@@ -1772,9 +1872,8 @@ _CRITICAS_NOMENCLATURA = (  # exceção conhecida -> (código, campo); campo "?"
     (simples_base.NcmNaoVinculadaException, NCM_NAO_APLICAVEL, "ncm"),
     (simples_base.NbsNaoVinculadaException, NBS_NAO_APLICAVEL, "nbs"),
 )
-# Exceções que a oficial também lança aqui e não traduz: viram VSN-999
-_FALHAS_NOMENCLATURA = (simples_base.ValidacaoException, simples_base.EntidadeNaoEncontradaException,
-                        simples_base.ResultadoNaoUnico, _FalhaTecnica)
+# O Java captura qualquer RuntimeException nas duas validações e traduz as conhecidas; o resto vira VSN-999
+_FALHAS_NOMENCLATURA = (Exception,)
 
 
 class _FormatoNomenclaturaInvalido(Exception):
@@ -1795,7 +1894,9 @@ def _validar_estrutural(ncm, nbs, ctx, coletor):
     try:
         _validar_ncm_nbs(ncm, nbs, ctx)
         return True
-    except (_FormatoNomenclaturaInvalido,) + _FALHAS_NOMENCLATURA as erro:
+    except simples_base.BaseIndisponivel:
+        raise
+    except _FALHAS_NOMENCLATURA as erro:
         _registrar(erro, ncm, nbs, coletor)
         return False
 
@@ -1823,6 +1924,8 @@ def _validar_por_classificacao(ncm, nbs, ctx, classificacao, estrutura_valida, c
             raise _FalhaTecnica("Sigla TIPO_DFE ausente para o documento habilitado na data")
         ctx.base.validar_nomenclatura(ctx.sigla_dfe, classificacao["id"], classificacao["codigo"], ncm, nbs,
                                       ctx.data.consulta, "CBS e IBS", simples_base.MODO_PERMISSIVO)
+    except simples_base.BaseIndisponivel:
+        raise
     except _FALHAS_NOMENCLATURA as erro:
         _registrar(erro, ncm, nbs, coletor)
 
@@ -1838,7 +1941,7 @@ def _registrar(erro, ncm, nbs, coletor):
                 campo = "ncm" if ncm else "nbs" if nbs else None
             coletor.erro(codigo, campo, str(erro))
             return
-    coletor.falha_tecnica(str(erro))
+    coletor.falha_tecnica(_mensagem_da_excecao(erro))
 
 
 # --- Alíquotas do item: o par escolhido na linha (CalculoSimplesUnificadoService.resolvedor) -------

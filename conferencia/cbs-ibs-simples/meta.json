@@ -3,7 +3,9 @@
   "calculadora": {
     "repo": "ReceitaFederal/calculadora-rtc-simples-nacional",
     "versao": "1.0.2",
-    "commit": "f90b6525e6d5823e784baecfc6fef0ad2f04b74f"
+    "commit": "f90b6525e6d5823e784baecfc6fef0ad2f04b74f",
+    "arquivoDb": "calculadora-pro.db",
+    "ambiente": "offline"
   },
   "migracoes": {
     "repo": "ReceitaFederal/calculadora-rtc-regime-regular",
@@ -15,8 +17,8 @@
     "hash": "sha256:badca3b198055d8da809a761218102a5198c87f2e5895368a8b6c976223f8de9"
   },
   "conferencia": {
-    "data": "",
-    "casos": 0,
-    "iguais": 0
+    "data": "2026-11-22",
+    "casos": 12180,
+    "iguais": 12180
   }
 }

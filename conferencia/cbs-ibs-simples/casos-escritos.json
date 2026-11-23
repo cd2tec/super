@@ -7000,5 +7000,3246 @@
    "caminho": "/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-998",
    "corpo": null
   }
+ },
+ {
+  "id": "compra-gov-transicao-ente-2-nfe-2028",
+  "grupo": "compra-gov",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2028-12-31",
+    "tpDoc": "55",
+    "CRT": "1",
+    "tpEnteGov": "2",
+    "aliquotasEfetivas": {
+     "fatorR": true,
+     "impedimentoSublimite": false,
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "3.1",
+       "pIBSSN": "0.035"
+      }
+     }
+    },
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "compra-gov-transicao-ente-2-nfse-2028",
+  "grupo": "compra-gov",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2028-12-31",
+    "tpDoc": "91",
+    "opSimpNac": "3",
+    "regApIBSCBSSN": "1",
+    "regApTribSN": "1",
+    "tpEnteGov": "2",
+    "aliquotasEfetivas": {
+     "fatorR": true,
+     "impedimentoSublimite": false,
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "3.1",
+       "pIBSSN": "0.035"
+      }
+     }
+    },
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "07",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "compra-gov-transicao-ente-3-nfe-2028",
+  "grupo": "compra-gov",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2028-12-31",
+    "tpDoc": "55",
+    "CRT": "1",
+    "tpEnteGov": "3",
+    "aliquotasEfetivas": {
+     "fatorR": true,
+     "impedimentoSublimite": false,
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "3.1",
+       "pIBSSN": "0.035"
+      }
+     }
+    },
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "compra-gov-transicao-ente-3-nfse-2028",
+  "grupo": "compra-gov",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2028-12-31",
+    "tpDoc": "91",
+    "opSimpNac": "3",
+    "regApIBSCBSSN": "1",
+    "regApTribSN": "1",
+    "tpEnteGov": "3",
+    "aliquotasEfetivas": {
+     "fatorR": true,
+     "impedimentoSublimite": false,
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "3.1",
+       "pIBSSN": "0.035"
+      }
+     }
+    },
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "07",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "compra-gov-transicao-ente-4-nfe-2028",
+  "grupo": "compra-gov",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2028-12-31",
+    "tpDoc": "55",
+    "CRT": "1",
+    "tpEnteGov": "4",
+    "aliquotasEfetivas": {
+     "fatorR": true,
+     "impedimentoSublimite": false,
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "3.1",
+       "pIBSSN": "0.035"
+      }
+     }
+    },
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "compra-gov-transicao-ente-4-nfse-2028",
+  "grupo": "compra-gov",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2028-12-31",
+    "tpDoc": "91",
+    "opSimpNac": "3",
+    "regApIBSCBSSN": "1",
+    "regApTribSN": "1",
+    "tpEnteGov": "4",
+    "aliquotasEfetivas": {
+     "fatorR": true,
+     "impedimentoSublimite": false,
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "3.1",
+       "pIBSSN": "0.035"
+      }
+     }
+    },
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "07",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "compra-gov-transicao-ente-2-nfe-2029",
+  "grupo": "compra-gov",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2029-01-01",
+    "tpDoc": "55",
+    "CRT": "1",
+    "tpEnteGov": "2",
+    "aliquotasEfetivas": {
+     "fatorR": true,
+     "impedimentoSublimite": false,
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "3.1",
+       "pIBSSN": "0.035"
+      }
+     }
+    },
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "compra-gov-transicao-ente-2-nfse-2029",
+  "grupo": "compra-gov",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2029-01-01",
+    "tpDoc": "91",
+    "opSimpNac": "3",
+    "regApIBSCBSSN": "1",
+    "regApTribSN": "1",
+    "tpEnteGov": "2",
+    "aliquotasEfetivas": {
+     "fatorR": true,
+     "impedimentoSublimite": false,
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "3.1",
+       "pIBSSN": "0.035"
+      }
+     }
+    },
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "07",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "compra-gov-transicao-ente-3-nfe-2029",
+  "grupo": "compra-gov",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2029-01-01",
+    "tpDoc": "55",
+    "CRT": "1",
+    "tpEnteGov": "3",
+    "aliquotasEfetivas": {
+     "fatorR": true,
+     "impedimentoSublimite": false,
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "3.1",
+       "pIBSSN": "0.035"
+      }
+     }
+    },
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "compra-gov-transicao-ente-3-nfse-2029",
+  "grupo": "compra-gov",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2029-01-01",
+    "tpDoc": "91",
+    "opSimpNac": "3",
+    "regApIBSCBSSN": "1",
+    "regApTribSN": "1",
+    "tpEnteGov": "3",
+    "aliquotasEfetivas": {
+     "fatorR": true,
+     "impedimentoSublimite": false,
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "3.1",
+       "pIBSSN": "0.035"
+      }
+     }
+    },
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "07",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "compra-gov-transicao-ente-4-nfe-2029",
+  "grupo": "compra-gov",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2029-01-01",
+    "tpDoc": "55",
+    "CRT": "1",
+    "tpEnteGov": "4",
+    "aliquotasEfetivas": {
+     "fatorR": true,
+     "impedimentoSublimite": false,
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "3.1",
+       "pIBSSN": "0.035"
+      }
+     }
+    },
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "compra-gov-transicao-ente-4-nfse-2029",
+  "grupo": "compra-gov",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2029-01-01",
+    "tpDoc": "91",
+    "opSimpNac": "3",
+    "regApIBSCBSSN": "1",
+    "regApTribSN": "1",
+    "tpEnteGov": "4",
+    "aliquotasEfetivas": {
+     "fatorR": true,
+     "impedimentoSublimite": false,
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "3.1",
+       "pIBSSN": "0.035"
+      }
+     }
+    },
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "07",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "compra-gov-transicao-ente-2-nfe-2031",
+  "grupo": "compra-gov",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2031-06-30",
+    "tpDoc": "55",
+    "CRT": "1",
+    "tpEnteGov": "2",
+    "aliquotasEfetivas": {
+     "fatorR": true,
+     "impedimentoSublimite": false,
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "3.1",
+       "pIBSSN": "0.035"
+      }
+     }
+    },
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "compra-gov-transicao-ente-2-nfse-2031",
+  "grupo": "compra-gov",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2031-06-30",
+    "tpDoc": "91",
+    "opSimpNac": "3",
+    "regApIBSCBSSN": "1",
+    "regApTribSN": "1",
+    "tpEnteGov": "2",
+    "aliquotasEfetivas": {
+     "fatorR": true,
+     "impedimentoSublimite": false,
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "3.1",
+       "pIBSSN": "0.035"
+      }
+     }
+    },
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "07",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "compra-gov-transicao-ente-3-nfe-2031",
+  "grupo": "compra-gov",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2031-06-30",
+    "tpDoc": "55",
+    "CRT": "1",
+    "tpEnteGov": "3",
+    "aliquotasEfetivas": {
+     "fatorR": true,
+     "impedimentoSublimite": false,
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "3.1",
+       "pIBSSN": "0.035"
+      }
+     }
+    },
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "compra-gov-transicao-ente-3-nfse-2031",
+  "grupo": "compra-gov",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2031-06-30",
+    "tpDoc": "91",
+    "opSimpNac": "3",
+    "regApIBSCBSSN": "1",
+    "regApTribSN": "1",
+    "tpEnteGov": "3",
+    "aliquotasEfetivas": {
+     "fatorR": true,
+     "impedimentoSublimite": false,
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "3.1",
+       "pIBSSN": "0.035"
+      }
+     }
+    },
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "07",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "compra-gov-transicao-ente-4-nfe-2031",
+  "grupo": "compra-gov",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2031-06-30",
+    "tpDoc": "55",
+    "CRT": "1",
+    "tpEnteGov": "4",
+    "aliquotasEfetivas": {
+     "fatorR": true,
+     "impedimentoSublimite": false,
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "3.1",
+       "pIBSSN": "0.035"
+      }
+     }
+    },
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "compra-gov-transicao-ente-4-nfse-2031",
+  "grupo": "compra-gov",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2031-06-30",
+    "tpDoc": "91",
+    "opSimpNac": "3",
+    "regApIBSCBSSN": "1",
+    "regApTribSN": "1",
+    "tpEnteGov": "4",
+    "aliquotasEfetivas": {
+     "fatorR": true,
+     "impedimentoSublimite": false,
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "3.1",
+       "pIBSSN": "0.035"
+      }
+     }
+    },
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "07",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "compra-gov-transicao-ente-2-nfe-2033",
+  "grupo": "compra-gov",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2033-01-01",
+    "tpDoc": "55",
+    "CRT": "1",
+    "tpEnteGov": "2",
+    "aliquotasEfetivas": {
+     "fatorR": true,
+     "impedimentoSublimite": false,
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "3.1",
+       "pIBSSN": "0.035"
+      }
+     }
+    },
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "compra-gov-transicao-ente-2-nfse-2033",
+  "grupo": "compra-gov",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2033-01-01",
+    "tpDoc": "91",
+    "opSimpNac": "3",
+    "regApIBSCBSSN": "1",
+    "regApTribSN": "1",
+    "tpEnteGov": "2",
+    "aliquotasEfetivas": {
+     "fatorR": true,
+     "impedimentoSublimite": false,
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "3.1",
+       "pIBSSN": "0.035"
+      }
+     }
+    },
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "07",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "compra-gov-transicao-ente-3-nfe-2033",
+  "grupo": "compra-gov",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2033-01-01",
+    "tpDoc": "55",
+    "CRT": "1",
+    "tpEnteGov": "3",
+    "aliquotasEfetivas": {
+     "fatorR": true,
+     "impedimentoSublimite": false,
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "3.1",
+       "pIBSSN": "0.035"
+      }
+     }
+    },
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "compra-gov-transicao-ente-3-nfse-2033",
+  "grupo": "compra-gov",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2033-01-01",
+    "tpDoc": "91",
+    "opSimpNac": "3",
+    "regApIBSCBSSN": "1",
+    "regApTribSN": "1",
+    "tpEnteGov": "3",
+    "aliquotasEfetivas": {
+     "fatorR": true,
+     "impedimentoSublimite": false,
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "3.1",
+       "pIBSSN": "0.035"
+      }
+     }
+    },
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "07",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "compra-gov-transicao-ente-4-nfe-2033",
+  "grupo": "compra-gov",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2033-01-01",
+    "tpDoc": "55",
+    "CRT": "1",
+    "tpEnteGov": "4",
+    "aliquotasEfetivas": {
+     "fatorR": true,
+     "impedimentoSublimite": false,
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "3.1",
+       "pIBSSN": "0.035"
+      }
+     }
+    },
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "compra-gov-transicao-ente-4-nfse-2033",
+  "grupo": "compra-gov",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2033-01-01",
+    "tpDoc": "91",
+    "opSimpNac": "3",
+    "regApIBSCBSSN": "1",
+    "regApTribSN": "1",
+    "tpEnteGov": "4",
+    "aliquotasEfetivas": {
+     "fatorR": true,
+     "impedimentoSublimite": false,
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "3.1",
+       "pIBSSN": "0.035"
+      }
+     }
+    },
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "07",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "divergencia-aliquotas-efetivas-texto-vazio",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2027-03-15",
+    "tpDoc": "55",
+    "CRT": "1",
+    "aliquotasEfetivas": "",
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "divergencia-aliquotas-efetivas-texto-em-branco",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2027-03-15",
+    "tpDoc": "55",
+    "CRT": "1",
+    "aliquotasEfetivas": "   ",
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "divergencia-aliquotas-efetivas-texto-com-espacos-nas-pontas",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2027-03-15",
+    "tpDoc": "55",
+    "CRT": "1",
+    "aliquotasEfetivas": " 1 ",
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "divergencia-aliquotas-efetivas-numero-long",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2027-03-15",
+    "tpDoc": "55",
+    "CRT": "1",
+    "aliquotasEfetivas": 1099511627776,
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "divergencia-aliquotas-efetivas-numero-negativo-long",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2027-03-15",
+    "tpDoc": "55",
+    "CRT": "1",
+    "aliquotasEfetivas": -1099511627776,
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "divergencia-aliquotas-efetivas-numero-maior-que-long",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2027-03-15",
+    "tpDoc": "55",
+    "CRT": "1",
+    "aliquotasEfetivas": 1180591620717411303424,
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "divergencia-aliquotas-efetivas-numero-decimal-inteiro-em-notacao-cientifica",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2027-03-15",
+    "tpDoc": "55",
+    "CRT": "1",
+    "aliquotasEfetivas": 1E+3,
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "divergencia-aliquotas-efetivas-numero-decimal-grande",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2027-03-15",
+    "tpDoc": "55",
+    "CRT": "1",
+    "aliquotasEfetivas": 1E+30,
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "divergencia-aliquotas-efetivas-numero-decimal-pequeno",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2027-03-15",
+    "tpDoc": "55",
+    "CRT": "1",
+    "aliquotasEfetivas": 0.000001,
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "divergencia-aliquotas-efetivas-numero-zero-negativo",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2027-03-15",
+    "tpDoc": "55",
+    "CRT": "1",
+    "aliquotasEfetivas": -0.0,
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "divergencia-fatorr-vazio",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2027-03-15",
+    "tpDoc": "55",
+    "CRT": "1",
+    "aliquotasEfetivas": {
+     "fatorR": "",
+     "impedimentoSublimite": false,
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "3.1",
+       "pIBSSN": "0.035"
+      }
+     }
+    },
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "divergencia-fatorr-em-branco",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2027-03-15",
+    "tpDoc": "55",
+    "CRT": "1",
+    "aliquotasEfetivas": {
+     "fatorR": " \t ",
+     "impedimentoSublimite": false,
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "3.1",
+       "pIBSSN": "0.035"
+      }
+     }
+    },
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "divergencia-impedimentosublimite-vazio",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2027-03-15",
+    "tpDoc": "55",
+    "CRT": "1",
+    "aliquotasEfetivas": {
+     "fatorR": true,
+     "impedimentoSublimite": "",
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "3.1",
+       "pIBSSN": "0.035"
+      }
+     }
+    },
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "divergencia-impedimentosublimite-em-branco",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2027-03-15",
+    "tpDoc": "55",
+    "CRT": "1",
+    "aliquotasEfetivas": {
+     "fatorR": true,
+     "impedimentoSublimite": " \t ",
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "3.1",
+       "pIBSSN": "0.035"
+      }
+     }
+    },
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "divergencia-item-texto-com-espacos-no-lugar-do-objeto",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2027-03-15",
+    "tpDoc": "55",
+    "CRT": "1",
+    "aliquotasEfetivas": {
+     "fatorR": true,
+     "impedimentoSublimite": false,
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "3.1",
+       "pIBSSN": "0.035"
+      }
+     }
+    },
+    "itens": [
+     "  x  "
+    ]
+   }
+  }
+ },
+ {
+  "id": "divergencia-item-texto-em-branco-no-lugar-do-objeto",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2027-03-15",
+    "tpDoc": "55",
+    "CRT": "1",
+    "aliquotasEfetivas": {
+     "fatorR": true,
+     "impedimentoSublimite": false,
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "3.1",
+       "pIBSSN": "0.035"
+      }
+     }
+    },
+    "itens": [
+     "  "
+    ]
+   }
+  }
+ },
+ {
+  "id": "divergencia-anexo-com-texto-no-lugar-do-registro",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2027-03-15",
+    "tpDoc": "55",
+    "CRT": "1",
+    "aliquotasEfetivas": {
+     "fatorR": true,
+     "impedimentoSublimite": false,
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": "  abc ",
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "3.1",
+       "pIBSSN": "0.035"
+      }
+     }
+    },
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "divergencia-anexos-um-parametro-com-virgula-e-espaco",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "GET",
+   "caminho": "/calculadora/simples-nacional/atividades?data=2027-01-01&anexos=IV%2C%20V"
+  }
+ },
+ {
+  "id": "divergencia-anexos-um-parametro-com-espacos-nas-pontas",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "GET",
+   "caminho": "/calculadora/simples-nacional/atividades?data=2027-01-01&anexos=%20III%20"
+  }
+ },
+ {
+  "id": "divergencia-anexos-repetido-com-espaco-continua-invalido",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "GET",
+   "caminho": "/calculadora/simples-nacional/atividades?data=2027-01-01&anexos=I&anexos=%20V"
+  }
+ },
+ {
+  "id": "divergencia-anexos-um-parametro-com-virgulas-vazias",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "GET",
+   "caminho": "/calculadora/simples-nacional/atividades?data=2027-01-01&anexos=I%2C%2CV%2C"
+  }
+ },
+ {
+  "id": "divergencia-erros-sem-o-parametro-codigo",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "GET",
+   "caminho": "/calculadora/observabilidade/simples-nacional/erros"
+  }
+ },
+ {
+  "id": "divergencia-data-da-operacao-ano-negativo-vale-o-ano-da-era",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "-2027-03-15",
+    "tpDoc": "55",
+    "CRT": "1",
+    "aliquotasEfetivas": {
+     "fatorR": true,
+     "impedimentoSublimite": false,
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "3.1",
+       "pIBSSN": "0.035"
+      }
+     }
+    },
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "divergencia-data-da-operacao-ano-negativo-bissexto",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "-2028-02-29",
+    "tpDoc": "55",
+    "CRT": "1",
+    "aliquotasEfetivas": {
+     "fatorR": true,
+     "impedimentoSublimite": false,
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "3.1",
+       "pIBSSN": "0.035"
+      }
+     }
+    },
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "divergencia-data-da-operacao-ano-zero-sem-tratamento-de-documento",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "0000-03-15",
+    "tpDoc": "55",
+    "CRT": "1",
+    "aliquotasEfetivas": {
+     "fatorR": true,
+     "impedimentoSublimite": false,
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "3.1",
+       "pIBSSN": "0.035"
+      }
+     }
+    },
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "divergencia-data-da-operacao-ano-negativo-zero-e-invalido",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "-0000-03-15",
+    "tpDoc": "55",
+    "CRT": "1",
+    "aliquotasEfetivas": {
+     "fatorR": true,
+     "impedimentoSublimite": false,
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "3.1",
+       "pIBSSN": "0.035"
+      }
+     }
+    },
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "divergencia-data-da-operacao-ano-negativo-de-cinco-digitos-falha-da-oficial",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "-12027-03-15",
+    "tpDoc": "55",
+    "CRT": "1",
+    "aliquotasEfetivas": {
+     "fatorR": true,
+     "impedimentoSublimite": false,
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "3.1",
+       "pIBSSN": "0.035"
+      }
+     }
+    },
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "divergencia-data-da-operacao-ano-da-era-acima-de-9999",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "-9999-03-15",
+    "tpDoc": "55",
+    "CRT": "1",
+    "aliquotasEfetivas": {
+     "fatorR": true,
+     "impedimentoSublimite": false,
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "3.1",
+       "pIBSSN": "0.035"
+      }
+     }
+    },
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "divergencia-data-da-operacao-ano-negativo-mais-longo",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "-00001-03-15",
+    "tpDoc": "55",
+    "CRT": "1",
+    "aliquotasEfetivas": {
+     "fatorR": true,
+     "impedimentoSublimite": false,
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "3.1",
+       "pIBSSN": "0.035"
+      }
+     }
+    },
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "divergencia-data-da-operacao-ano-com-mais-de-quatro-digitos-sem-sinal",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "12027-03-15",
+    "tpDoc": "55",
+    "CRT": "1",
+    "aliquotasEfetivas": {
+     "fatorR": true,
+     "impedimentoSublimite": false,
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "3.1",
+       "pIBSSN": "0.035"
+      }
+     }
+    },
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "divergencia-data-da-operacao-ano-acima-de-9999-falha-da-oficial",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "+10000-03-15",
+    "tpDoc": "55",
+    "CRT": "1",
+    "aliquotasEfetivas": {
+     "fatorR": true,
+     "impedimentoSublimite": false,
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "3.1",
+       "pIBSSN": "0.035"
+      }
+     }
+    },
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "divergencia-consulta-data-ano-negativo-vale-o-ano-da-era",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "GET",
+   "caminho": "/calculadora/simples-nacional/atividades?data=-2027-01-01"
+  }
+ },
+ {
+  "id": "divergencia-consulta-por-codigo-data-ano-negativo-vale-o-ano-da-era",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "GET",
+   "caminho": "/calculadora/simples-nacional/atividades/01?data=-2027-01-01"
+  }
+ },
+ {
+  "id": "divergencia-consulta-data-ano-negativo-bissexto",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "GET",
+   "caminho": "/calculadora/simples-nacional/atividades?data=-2028-02-29"
+  }
+ },
+ {
+  "id": "divergencia-consulta-por-codigo-data-ano-negativo-bissexto",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "GET",
+   "caminho": "/calculadora/simples-nacional/atividades/01?data=-2028-02-29"
+  }
+ },
+ {
+  "id": "divergencia-consulta-data-ano-zero",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "GET",
+   "caminho": "/calculadora/simples-nacional/atividades?data=0000-01-01"
+  }
+ },
+ {
+  "id": "divergencia-consulta-por-codigo-data-ano-zero",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "GET",
+   "caminho": "/calculadora/simples-nacional/atividades/01?data=0000-01-01"
+  }
+ },
+ {
+  "id": "divergencia-consulta-data-ano-negativo-zero-e-invalido",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "GET",
+   "caminho": "/calculadora/simples-nacional/atividades?data=-0000-01-01"
+  }
+ },
+ {
+  "id": "divergencia-consulta-por-codigo-data-ano-negativo-zero-e-invalido",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "GET",
+   "caminho": "/calculadora/simples-nacional/atividades/01?data=-0000-01-01"
+  }
+ },
+ {
+  "id": "divergencia-consulta-data-ano-acima-de-9999-falha-da-oficial",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "GET",
+   "caminho": "/calculadora/simples-nacional/atividades?data=%2B10000-01-01"
+  }
+ },
+ {
+  "id": "divergencia-consulta-por-codigo-data-ano-acima-de-9999-falha-da-oficial",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "GET",
+   "caminho": "/calculadora/simples-nacional/atividades/01?data=%2B10000-01-01"
+  }
+ },
+ {
+  "id": "divergencia-consulta-data-ano-negativo-de-nove-digitos-falha-da-oficial",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "GET",
+   "caminho": "/calculadora/simples-nacional/atividades?data=-999999999-01-01"
+  }
+ },
+ {
+  "id": "divergencia-consulta-por-codigo-data-ano-negativo-de-nove-digitos-falha-da-oficial",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "GET",
+   "caminho": "/calculadora/simples-nacional/atividades/01?data=-999999999-01-01"
+  }
+ },
+ {
+  "id": "divergencia-consulta-data-digito-fora-do-ascii",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "GET",
+   "caminho": "/calculadora/simples-nacional/atividades?data=%EF%BC%99999-12-31"
+  }
+ },
+ {
+  "id": "divergencia-consulta-por-codigo-data-digito-fora-do-ascii",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "GET",
+   "caminho": "/calculadora/simples-nacional/atividades/01?data=%EF%BC%99999-12-31"
+  }
+ },
+ {
+  "id": "divergencia-consulta-data-deslocamento-com-z-minusculo",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "GET",
+   "caminho": "/calculadora/simples-nacional/atividades?data=2027-01-01z"
+  }
+ },
+ {
+  "id": "divergencia-consulta-por-codigo-data-deslocamento-com-z-minusculo",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "GET",
+   "caminho": "/calculadora/simples-nacional/atividades/01?data=2027-01-01z"
+  }
+ },
+ {
+  "id": "divergencia-consulta-data-ano-negativo-com-deslocamento",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "GET",
+   "caminho": "/calculadora/simples-nacional/atividades?data=-2027-01-01%2B01%3A00"
+  }
+ },
+ {
+  "id": "divergencia-consulta-por-codigo-data-ano-negativo-com-deslocamento",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "GET",
+   "caminho": "/calculadora/simples-nacional/atividades/01?data=-2027-01-01%2B01%3A00"
+  }
+ },
+ {
+  "id": "divergencia-fatorr-texto-null-vale-nulo",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2027-03-15",
+    "tpDoc": "55",
+    "CRT": "1",
+    "aliquotasEfetivas": {
+     "fatorR": " null ",
+     "impedimentoSublimite": false,
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "3.1",
+       "pIBSSN": "0.035"
+      }
+     }
+    },
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "divergencia-fatorr-texto-invalido-sai-aparado-na-mensagem",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2027-03-15",
+    "tpDoc": "55",
+    "CRT": "1",
+    "aliquotasEfetivas": {
+     "fatorR": " sim ",
+     "impedimentoSublimite": false,
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "3.1",
+       "pIBSSN": "0.035"
+      }
+     }
+    },
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "divergencia-impedimentosublimite-texto-null-vale-nulo",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2027-03-15",
+    "tpDoc": "55",
+    "CRT": "1",
+    "aliquotasEfetivas": {
+     "fatorR": true,
+     "impedimentoSublimite": " null ",
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "3.1",
+       "pIBSSN": "0.035"
+      }
+     }
+    },
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "divergencia-impedimentosublimite-texto-invalido-sai-aparado-na-mensagem",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2027-03-15",
+    "tpDoc": "55",
+    "CRT": "1",
+    "aliquotasEfetivas": {
+     "fatorR": true,
+     "impedimentoSublimite": " sim ",
+     "anexoI": {
+      "pCBSSN": "1.1612",
+      "pIBSSN": "0.0129"
+     },
+     "anexoII": {
+      "pCBSSN": "1.1184",
+      "pIBSSN": "0.0121"
+     },
+     "anexoIII": {
+      "pCBSSN": "2.2154",
+      "pIBSSN": "0.0257",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.99",
+       "pIBSSN": "0.0231"
+      }
+     },
+     "anexoIV": {
+      "pCBSSN": "2.0119",
+      "pIBSSN": "0.022",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "1.85",
+       "pIBSSN": "0.0202"
+      }
+     },
+     "anexoV": {
+      "pCBSSN": "3.2534",
+      "pIBSSN": "0.0363",
+      "semRedistribuicaoISS": {
+       "pCBSSN": "3.1",
+       "pIBSSN": "0.035"
+      }
+     }
+    },
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "divergencia-aliquotas-efetivas-numero-que-vira-infinito",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2027-03-15",
+    "tpDoc": "55",
+    "CRT": "1",
+    "aliquotasEfetivas": 1E+400,
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "divergencia-aliquotas-efetivas-numero-que-vira-zero",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2027-03-15",
+    "tpDoc": "55",
+    "CRT": "1",
+    "aliquotasEfetivas": 1E-400,
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "divergencia-aliquotas-efetivas-numero-com-mais-casas-que-o-double",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2027-03-15",
+    "tpDoc": "55",
+    "CRT": "1",
+    "aliquotasEfetivas": 0.1234567890123456789,
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "divergencia-aliquotas-efetivas-numero-grande-com-fracao",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2027-03-15",
+    "tpDoc": "55",
+    "CRT": "1",
+    "aliquotasEfetivas": 123456789012345678901234567890.5,
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "divergencia-aliquotas-efetivas-numero-subnormal",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2027-03-15",
+    "tpDoc": "55",
+    "CRT": "1",
+    "aliquotasEfetivas": 4.9E-324,
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "divergencia-aliquotas-efetivas-maior-double",
+  "grupo": "divergencia",
+  "requisicao": {
+   "metodo": "POST",
+   "caminho": "/calculadora/observabilidade/simples-nacional/nao-assistido",
+   "corpo": {
+    "id": "op-1",
+    "versao": "3.0.0",
+    "data": "2027-03-15",
+    "tpDoc": "55",
+    "CRT": "1",
+    "aliquotasEfetivas": 1.7976931348623157E+308,
+    "itens": [
+     {
+      "numero": 1,
+      "cAtivSN": "01",
+      "cClassTrib": "000001",
+      "baseCalculo": "1000.00",
+      "valorImpostoSeletivo": "0.00"
+     }
+    ]
+   }
+  }
  }
 ]

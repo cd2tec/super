@@ -45,5 +45,42 @@
     "VERSAO_BASE_DADO": ["VRBD_DATA"]
   },
   "ignorar": ["timestamp"],
-  "excecoes_cobertura": []
+  "excecoes_cobertura": [
+    {
+      "item": "ANEXO_SEM_ALIQUOTA_CBS",
+      "motivo": "Motivo de não cálculo que só existe no modo assistido, em que a Tabela de Alíquotas Efetivas vem da base. No modo não assistido a linha de alíquotas vem na requisição e a falta de uma alíquota vira VSN-004 ou VSN-006 no item, então a calculadora oficial deste modo nunca devolve este motivo."
+    },
+    {
+      "item": "FALHA_TECNICA",
+      "motivo": "Estado do item que só aparece quando o cálculo ou a validação de nomenclatura levanta uma exceção que ninguém prevê. Com a base e a entrada válidas isso não acontece, e a bateria não derruba a calculadora oficial de propósito. O caminho é conferido só em Python, com falhas injetadas (tests/test_calc_simples.py, FalhasInesperadasTest)."
+    },
+    {
+      "item": "VSN-000",
+      "motivo": "Erro desconhecido do catálogo, que a calculadora oficial reserva para exceções sem código próprio. Nenhuma entrada chega a ele, porque as falhas técnicas do item saem como VSN-999."
+    },
+    {
+      "item": "VSN-025",
+      "motivo": "Exige data em que o tipo de documento já calcula e a tabela de transição de compra governamental não tem linha. Hoje a transição vale desde 2027-01-01, a mesma data a partir da qual os documentos calculam, e não há buraco entre elas. O caminho é conferido só em Python, com uma base de teste com o buraco (tests/test_simples_cobertura.py)."
+    },
+    {
+      "item": "VSN-026",
+      "motivo": "Exige um tipo de receita bruta sem parametrização vigente, e a tabela cobre todos os tipos que as classificações usam desde 2027-01-01. O caminho é conferido só em Python, com uma base de teste com o buraco (tests/test_simples_cobertura.py)."
+    },
+    {
+      "item": "VSN-028",
+      "motivo": "Valida o NI do contribuinte, campo que o contrato do modo não assistido não tem. O código existe no catálogo da calculadora oficial e nenhum fluxo da versão 1.0.2 o emite."
+    },
+    {
+      "item": "VSN-029",
+      "motivo": "Linha de alíquotas efetivas indisponível na base, situação do modo assistido. No modo não assistido a linha vem na requisição (a falta dela é VSN-039), então a calculadora oficial deste modo nunca devolve este código."
+    },
+    {
+      "item": "VSN-046",
+      "motivo": "Nomenclatura não permitida para o tipo de documento: a calculadora oficial só levanta esta crítica no modo rígido de validação, e o modo não assistido chama a validação sempre no modo permissivo. O catálogo traz o código, mas nenhuma entrada o provoca na versão 1.0.2."
+    },
+    {
+      "item": "VSN-999",
+      "motivo": "Falha técnica no item. Vale o mesmo que para o estado FALHA_TECNICA: só aparece com uma exceção imprevista e é conferido em Python, com falhas injetadas."
+    }
+  ]
 }

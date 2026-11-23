@@ -218,6 +218,10 @@ def _executar_versao(base) -> dict:
     publicada = base.versao_base()
     corpo = {"versaoApp": meta["calculadora"]["versao"], "versaoDb": publicada["versao"],
              "descricaoVersaoDb": publicada["descricao"], "dataVersaoDb": _iso(publicada["data"])}
+    # VersaoDomain é NON_NULL: o arquivo e o ambiente da instalação oficial só saem se o meta os traz
+    for campo in ("arquivoDb", "ambiente"):
+        if meta["calculadora"].get(campo) is not None:
+            corpo[campo] = meta["calculadora"][campo]
     return _resposta(200, corpo, base)
 
 

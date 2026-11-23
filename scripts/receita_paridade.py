@@ -10,7 +10,9 @@ Tudo o que é específico da skill vem de conferencia/<skill>/:
   meta.json            versões espelhadas; vai para o `meta` do esperadas.json
   casos-escritos.json  as requisições (sem `resposta`)
   esperadas.json       as requisições com as respostas oficiais gravadas
-  bateria.py           exporta responder(requisicao) -> {"status", "corpo"}: a conta local
+  bateria.py           exporta responder(requisicao) -> {"status", "corpo"}: a conta local. Pode exportar
+                       também casos(base) -> lista de casos e amostra(casos, n) -> n casos: então --completa
+                       compara a lista gerada e --gravar-esperadas --amostra N grava a amostra dela
 
 A URL base já termina no contexto da API (por exemplo http://127.0.0.1:8082/api); o
 `caminho` de cada caso é relativo a ela e inclui a query string.
@@ -28,6 +30,7 @@ import importlib.util
 import json
 import random
 import sys
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -243,18 +246,32 @@ def _ler_arquivo(caminho: Path, o_que: str) -> Any:
     return ler_json(caminho.read_text(encoding="utf-8"))
 
 
-def _carregar_bateria(caminho: Path) -> Callable[[dict], dict]:
+def _carregar_modulo_da_bateria(caminho: Path):
     if not caminho.exists():
         raise FileNotFoundError(f"Falta a bateria local (bateria.py com responder(requisicao)): {caminho}")
     spec = importlib.util.spec_from_file_location("bateria_local", caminho)
     modulo = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(modulo)
-    return modulo.responder
+    return modulo
 
 
-def _gravar_esperadas(pasta: Path, url: str) -> int:
-    casos = _ler_arquivo(pasta / "casos-escritos.json", "casos-escritos.json")
+def _carregar_bateria(caminho: Path) -> Callable[[dict], dict]:
+    return _carregar_modulo_da_bateria(caminho).responder
+
+
+def _casos_da_bateria(modulo, base_completa: str | None) -> list:
+    return modulo.casos(Path(base_completa) if base_completa else None)
+
+
+def _gravar_esperadas(pasta: Path, url: str, amostra: int | None = None, base_completa: str | None = None) -> int:
     meta = _ler_arquivo(pasta / "meta.json", "meta.json")
+    if amostra is not None:
+        modulo = _carregar_modulo_da_bateria(pasta / "bateria.py")
+        if not (hasattr(modulo, "casos") and hasattr(modulo, "amostra")):
+            raise FileNotFoundError(f"A bateria {pasta / 'bateria.py'} não tem casos() e amostra() para gravar a amostra")
+        casos = modulo.amostra(_casos_da_bateria(modulo, base_completa), amostra)
+    else:
+        casos = _ler_arquivo(pasta / "casos-escritos.json", "casos-escritos.json")
     gravados = []
     for caso in casos:
         gravados.append({**{k: v for k, v in caso.items() if k != "resposta"},
@@ -268,17 +285,22 @@ def _gravar_esperadas(pasta: Path, url: str) -> int:
     return 0
 
 
-def _comparar(pasta: Path, url: str, completa: bool, amostra: int | None) -> int:
+def _comparar(pasta: Path, url: str, completa: bool, amostra: int | None, base_completa: str | None = None) -> int:
     config = _ler_arquivo(pasta / "config.json", "config.json")
-    esperadas = _ler_arquivo(pasta / "esperadas.json", "esperadas.json (rode com --gravar-esperadas)")
-    local = _carregar_bateria(pasta / "bateria.py")
-    casos = esperadas["casos"]
-    if not completa:
-        n = AMOSTRA_PADRAO if amostra is None else amostra
-        if n < len(casos):
-            casos = random.Random(0).sample(casos, n)
+    modulo = _carregar_modulo_da_bateria(pasta / "bateria.py")
+    local = modulo.responder
+    if completa and hasattr(modulo, "casos"):
+        casos = _casos_da_bateria(modulo, base_completa)
+    else:
+        esperadas = _ler_arquivo(pasta / "esperadas.json", "esperadas.json (rode com --gravar-esperadas)")
+        casos = esperadas["casos"]
+        if not completa:
+            n = AMOSTRA_PADRAO if amostra is None else amostra
+            if n < len(casos):
+                casos = random.Random(0).sample(casos, n)
+    inicio = time.monotonic()
     relatorio = rodar(casos, url, local, config.get("ignorar", []))
-    print(f"{relatorio['casos']} casos, {relatorio['iguais']} iguais")
+    print(f"{relatorio['casos']} casos, {relatorio['iguais']} iguais, {time.monotonic() - inicio:.0f} s")
     for divergente in relatorio["divergentes"]:
         print(f"DIVERGE {divergente['id']}")
         for diferenca in divergente["diferencas"]:
@@ -292,15 +314,16 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--oficial", required=True, help="URL base da calculadora oficial, com o contexto (/api)")
     ap.add_argument("--gravar-esperadas", action="store_true",
                     help="grava esperadas.json com as respostas oficiais, sem comparar")
-    ap.add_argument("--amostra", type=int, help=f"compara só N casos (padrão {AMOSTRA_PADRAO})")
+    ap.add_argument("--amostra", type=int, help=f"compara só N casos (padrão {AMOSTRA_PADRAO}); com --gravar-esperadas, grava a amostra de N casos da bateria")
     ap.add_argument("--completa", action="store_true", help="compara todos os casos")
+    ap.add_argument("--base-completa", help="base de onde a bateria gera os casos (padrão: a da skill)")
     ap.add_argument("--raiz", default=str(ROOT), help=argparse.SUPPRESS)
     args = ap.parse_args(argv)
     pasta = Path(args.raiz) / "conferencia" / args.skill
     try:
         if args.gravar_esperadas:
-            return _gravar_esperadas(pasta, args.oficial)
-        return _comparar(pasta, args.oficial, args.completa, args.amostra)
+            return _gravar_esperadas(pasta, args.oficial, args.amostra, args.base_completa)
+        return _comparar(pasta, args.oficial, args.completa, args.amostra, args.base_completa)
     except (OficialIndisponivel, FileNotFoundError) as erro:
         print(f"erro: {erro}", file=sys.stderr)
         return 2
