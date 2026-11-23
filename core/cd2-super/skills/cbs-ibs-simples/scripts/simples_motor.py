@@ -977,7 +977,8 @@ class DataOperacao:
     """LocalDate da operação.
 
     `consulta` é a data usada nas consultas à base, com o ano da era (o `yyyy` do Java: o ano 0 e os
-    negativos viram 1 - ano); `texto` é o LocalDate.toString do Java (o que vai nas mensagens).
+    negativos viram 1 - ano, pelo `date_string_format=yyyy-MM-dd` do SQLite no
+    application-offline.yml); `texto` é o LocalDate.toString do Java (o que vai nas mensagens).
     `ano` é o ano da era: acima de 9999 a oficial falha ao consultar a base (HTTP 500).
     """
     consulta: object
@@ -1565,8 +1566,12 @@ class _ColetorItem:
         self.estado = NAO_IMPLEMENTADO
         self._acumular(codigo, self._ponteiro(campo), detalhe)
 
-    def falha_tecnica(self, mensagem):
-        # addFalhaTecnica: VSN-999 no próprio item, com a mensagem da exceção
+    def falha_tecnica(self, mensagem, excecao=None):
+        # addFalhaTecnica: VSN-999 no próprio item, com a mensagem da exceção. O Java registra a falha no log
+        # (log.error na nomenclatura, log.debug no cálculo): aqui vai uma linha na saída de erro, e o JSON não muda.
+        if excecao is not None:
+            print(f"cbs-ibs-simples: falha técnica no item {self.indice}: {type(excecao).__name__}: {mensagem}",
+                  file=sys.stderr)
         self.estado = FALHA_TECNICA_ESTADO
         self._acumular(FALHA_TECNICA, f"#/itens/{self.indice}", mensagem)
 
@@ -1731,7 +1736,7 @@ def _processar_item(item, indice, ctx, resolvedor):
     except simples_base.BaseIndisponivel:
         raise  # arquivo da base inutilizável: não existe na oficial, a skill avisa em vez de calcular
     except Exception as erro:  # catch (Exception ex) do Java: qualquer falha do cálculo vira VSN-999 no item
-        coletor.falha_tecnica(_mensagem_da_excecao(erro))
+        coletor.falha_tecnica(_mensagem_da_excecao(erro), erro)
         return ItemProcessado(Objeto(n_obj if n_obj is not None else indice + 1, coletor.estado,
                                      erros=list(coletor.erros)), aliquotas.resolucao)
     return ItemProcessado(Objeto(n_obj, estado, motivo, tributos), aliquotas.resolucao)
@@ -1941,7 +1946,7 @@ def _registrar(erro, ncm, nbs, coletor):
                 campo = "ncm" if ncm else "nbs" if nbs else None
             coletor.erro(codigo, campo, str(erro))
             return
-    coletor.falha_tecnica(_mensagem_da_excecao(erro))
+    coletor.falha_tecnica(_mensagem_da_excecao(erro), erro)
 
 
 # --- Alíquotas do item: o par escolhido na linha (CalculoSimplesUnificadoService.resolvedor) -------

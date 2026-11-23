@@ -1138,6 +1138,13 @@ class BaseDanificadaTest(unittest.TestCase):
 class FalhasInesperadasTest(ComBase):
     """O Java captura qualquer Exception no cálculo do item e qualquer RuntimeException na nomenclatura."""
 
+    def setUp(self):
+        import contextlib
+        import io
+        pilha = contextlib.ExitStack()
+        pilha.enter_context(contextlib.redirect_stderr(io.StringIO()))  # a linha de log da falha injetada
+        self.addCleanup(pilha.close)
+
     def item_com_erro(self, corpo):
         objeto = corpo["objetos"][0]
         self.assertEqual(objeto["estadoItem"], "FALHA_TECNICA")
@@ -1153,6 +1160,20 @@ class FalhasInesperadasTest(ComBase):
                 erro = self.item_com_erro(corpo)
                 self.assertEqual((erro["code"], erro["pointer"]), ("VSN-999", "#/itens/0"))
                 self.assertEqual(erro["detail"], str(excecao))
+
+    def test_falha_inesperada_escreve_uma_linha_na_saida_de_erro_e_nao_muda_o_json(self):
+        import contextlib
+        import io
+        with mock.patch.object(simples_motor, "_calcular_item", side_effect=RuntimeError("boom")):
+            with contextlib.redirect_stderr(io.StringIO()) as erro:
+                _, corpo = self.calcular(operacao())
+        linhas = erro.getvalue().splitlines()
+        self.assertEqual(len(linhas), 1)
+        self.assertIn("falha t\u00e9cnica no item 0: RuntimeError: boom", linhas[0])
+        self.assertEqual(self.item_com_erro(corpo)["detail"], "boom")  # o JSON segue o do Java
+        with contextlib.redirect_stderr(io.StringIO()) as erro:
+            self.calcular(operacao())
+        self.assertEqual(erro.getvalue(), "")
 
     def test_excecao_sem_mensagem_sai_sem_detalhe(self):
         with mock.patch.object(simples_motor, "_calcular_item", side_effect=RuntimeError()):
@@ -1339,7 +1360,9 @@ class FonteTest(unittest.TestCase):
         # texto copiado do Java com U+2014 ou U+2013 fica escrito com o escape
         arquivos = [SKILL / "scripts" / "simples_motor.py", SKILL / "scripts" / "simples_base.py",
                     SKILL / "scripts" / "calc.py",
-                    Path(__file__)]
+                    Path(__file__), ROOT / "tests" / "test_simples_cobertura.py",
+                    ROOT / "tests" / "test_receita_paridade.py", PASTA_CONFERENCIA / "bateria.py",
+                    ROOT / "scripts" / "receita_paridade.py"]
         for arquivo in arquivos:
             with self.subTest(arquivo.name):
                 texto = arquivo.read_text(encoding="utf-8")

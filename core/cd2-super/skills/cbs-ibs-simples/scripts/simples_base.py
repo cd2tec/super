@@ -269,7 +269,10 @@ _RE_DATA_ISO = re.compile(
 
 
 def ano_da_era(ano):
-    """O `yyyy` do Java, com que a oficial grava a data na consulta: o ano 0 e os negativos viram 1 - ano."""
+    """O `yyyy` do Java, com que a oficial grava a data na consulta: o ano 0 e os negativos viram 1 - ano.
+
+    Causa: o perfil offline abre o SQLite com `date_string_format=yyyy-MM-dd` (application-offline.yml), e
+    `yyyy` é o ano da era, não o ano proléptico."""
     return ano if ano >= 1 else 1 - ano
 
 

@@ -398,10 +398,6 @@ class TestCli(unittest.TestCase):
         self.assertEqual(codigo, 2)
         self.assertIn("bateria.py", erro)
 
-
-if __name__ == "__main__":
-    unittest.main()
-
     BATERIA_QUE_GERA = (
         "def responder(req):\n"
         "    return {'status': 200, 'corpo': {'v': req['corpo']['v']}}\n"
@@ -450,3 +446,7 @@ if __name__ == "__main__":
                                         "--gravar-esperadas", "--amostra", "2")
         self.assertEqual(codigo, 2)
         self.assertIn("amostra()", erro)
+
+
+if __name__ == "__main__":
+    unittest.main()

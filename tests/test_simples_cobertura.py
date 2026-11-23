@@ -10,6 +10,7 @@ import importlib.util
 import json
 import os
 import random
+import re
 import shutil
 import sqlite3
 import sys
@@ -96,7 +97,7 @@ class BateriaTest(unittest.TestCase):
         for grupo in ("item", "global", "erro", "consulta", "matriz", "lote", "matriz-nfse", "matriz-nomenclatura",
                       "matriz-vigencia", "matriz-compra-gov", "numerico", "ordem", "ruim-operacao", "ruim-aliquota",
                       "ruim-item", "ruim-itens", "ruim-corpo", "ruim-combinado", "consulta-matriz", "consulta-erro",
-                      "consulta-versao", "compra-gov", "divergencia"):
+                      "consulta-versao", "compra-gov", "divergencia", "matriz-enquadramento", "ruim-dominio"):
             self.assertIn(grupo, grupos)
 
     def test_ids_sao_unicos_e_cada_caso_tem_requisicao(self):
@@ -156,26 +157,60 @@ class BateriaTest(unittest.TestCase):
             if maximo is not None:
                 self.assertLessEqual(len(corpo["itens"]), maximo, caso["id"])
 
-    def test_cada_classificacao_com_lista_tem_um_item_aceito_e_um_recusado(self):
+    def test_nomenclatura_aceita_passa_limpa_e_recusada_leva_o_codigo_da_recusa(self):
+        dados = bateria._Dados(SKILL / "references" / "base-receita.db")
+        omitidos = bateria.omitidos()
         casos = [c for c in self.casos if c["grupo"] == "matriz-nomenclatura"]
-        por_classe = {}
+        self.assertGreater(len(casos), 300)
+        por_combinacao = {}
         for caso in casos:
-            partes = caso["id"].split("-")  # matriz-nomenclatura-00012-000001-ncm-aceito
-            por_classe.setdefault(partes[3], set()).add("-".join(partes[4:]))
-        with simples_base.Base() as base:
-            com_ncm = [linha[0] for linha in base._con.execute(
-                "SELECT DISTINCT c.CLTR_CD FROM NCM_APLICAVEL n JOIN CLASSIFICACAO_TRIBUTARIA c "
-                "ON c.CLTR_ID = n.NCMA_CLTR_ID WHERE c.CLTR_INICIO_VIGENCIA <= '2027-03-15' "
-                "AND (c.CLTR_FIM_VIGENCIA IS NULL OR c.CLTR_FIM_VIGENCIA >= '2027-03-15')")]
-            com_nbs = [linha[0] for linha in base._con.execute(
-                "SELECT DISTINCT c.CLTR_CD FROM NBS_APLICAVEL n JOIN CLASSIFICACAO_TRIBUTARIA c "
-                "ON c.CLTR_ID = n.NBSA_CLTR_ID WHERE c.CLTR_INICIO_VIGENCIA <= '2027-03-15' "
-                "AND (c.CLTR_FIM_VIGENCIA IS NULL OR c.CLTR_FIM_VIGENCIA >= '2027-03-15')")]
-        self.assertTrue(com_ncm and com_nbs)
-        for codigo in com_ncm:
-            self.assertLessEqual({"ncm-aceito", "ncm-recusado"}, por_classe[codigo], codigo)
-        for codigo in com_nbs:
-            self.assertLessEqual({"nbs-aceito", "nbs-recusado"}, por_classe[codigo], codigo)
+            codigo, data, doc, nivel = re.match(r"matriz-nomenclatura-\d+-(\d+)-(\d{4}-\d\d-\d\d)-(\d+)-(.*)",
+                                               caso["id"]).groups()
+            corpo = bateria.responder(caso["requisicao"])["corpo"]
+            objeto = corpo["objetos"][0]
+            codigos = [e["code"] for e in objeto.get("erros", [])]
+            por_combinacao.setdefault((codigo, data, doc), {})[nivel] = codigos
+            self.assertEqual(corpo["oper"]["data"], data)
+            if nivel.endswith("-aceito") and nivel.startswith(("ncm", "nbs")):
+                if dados.vigentes(dados.ncm_aplicavel.get(self._classe(dados, codigo, data)["id"], []), data) \
+                        or dados.vigentes(dados.nbs_aplicavel.get(self._classe(dados, codigo, data)["id"], []), data):
+                    self.assertEqual(codigos, [], caso["id"])  # item válido e nomenclatura aceita: passa limpo
+            if nivel.endswith("-recusado"):
+                self.assertIn("VSN-047" if nivel.startswith("ncm") else "VSN-048", codigos, caso["id"])
+                self.assertEqual(len(codigos), 1, caso["id"])  # só a nomenclatura recusa o item
+        for omitido in omitidos:
+            self.assertTrue(omitido["motivo"].strip())
+            self.assertEqual(set(omitido), {"grupo", "chave", "motivo"})
+
+    @staticmethod
+    def _classe(dados, codigo, data):
+        return next(c for c in dados.classes_em(data) if c["codigo"] == codigo)
+
+    def test_toda_combinacao_de_lista_gera_o_aceito_e_o_recusado_ou_diz_porque_nao(self):
+        dados = bateria._Dados(SKILL / "references" / "base-receita.db")
+        tem = {}
+        for caso in self.casos:
+            if caso["grupo"] == "matriz-nomenclatura":
+                codigo, data, doc, nivel = re.match(r"matriz-nomenclatura-\d+-(\d+)-(\d{4}-\d\d-\d\d)-(\d+)-(.*)",
+                                                   caso["id"]).groups()
+                tem.setdefault((codigo, data, doc), set()).add(nivel)
+        registrados = {o["chave"] for o in bateria.omitidos() if o["grupo"] == "matriz-nomenclatura"}
+        verificados = 0
+        for classe in dados.classes:
+            for data in dados.datas_de_classe(classe):
+                docs = [x["tpDoc"] for x in dados.docs if dados.admite(classe, x["tpDoc"], data)]
+                for doc in docs:
+                    for tipo, lista in (("ncm", dados.ncm_aplicavel), ("nbs", dados.nbs_aplicavel)):
+                        if not dados.vigentes(lista.get(classe["id"], []), data) or classe["ajuste"]:
+                            continue
+                        niveis = tem.get((classe["codigo"], data, doc), set())
+                        for qual in ("aceito", "recusado"):
+                            verificados += 1
+                            chave = f"{classe['codigo']}-{data}-{doc}-{tipo}"
+                            self.assertTrue(f"{tipo}-{qual}" in niveis or chave in registrados
+                                            or f"{chave}-{tipo}-{qual}" in registrados,
+                                            (classe["codigo"], data, doc, tipo, qual))
+        self.assertGreater(verificados, 100)
 
     def test_todo_caso_gerado_tem_resposta_local_sem_levantar_excecao(self):
         for caso in self.casos[:: max(len(self.casos) // 700, 1)]:
@@ -269,8 +304,8 @@ class CoberturaTest(unittest.TestCase):
                 self.assertTrue(excecao["motivo"].strip())
                 self.assertIn(excecao["item"], possiveis)
                 self.assertNotIn(excecao["item"], todos)
-                self.assertNotIn("—", excecao["motivo"])
-                self.assertNotIn("–", excecao["motivo"])
+                self.assertNotIn("\u2014", excecao["motivo"])
+                self.assertNotIn("\u2013", excecao["motivo"])
 
     def test_excecoes_sao_so_as_do_desenho(self):
         # As oito do desenho mais VSN-046: a oficial só a levanta no modo rígido de nomenclatura e o modo
@@ -415,6 +450,165 @@ class BaseComBuracoTest(unittest.TestCase):
         with simples_base.Base() as base:
             _, corpo = simples_motor.calcular(operacao(), base, BASE_URL_OFICIAL, agora=AGORA)
         self.assertEqual(corpo["objetos"][0]["estadoItem"], "CALCULADO")
+
+
+class DominiosDoJavaTest(unittest.TestCase):
+    """Os domínios que a base não tem ficam numa constante da bateria; o motor tem de aceitar exatamente esses valores."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.base = simples_base.Base()
+        cls.dados = bateria._Dados(SKILL / "references" / "base-receita.db")
+        cls.nfse = next(d for d in cls.dados.docs if d["vocabulario"] == "NFSE")
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.base.fechar()
+
+    def calcular(self, corpo):
+        return simples_motor.calcular(corpo, self.base, BASE_URL_OFICIAL, agora=AGORA)
+
+    def codigos(self, corpo):
+        status, saida = self.calcular(corpo)
+        if status == 422:
+            return {e["code"] for e in saida["errors"]}
+        return {e["code"] for o in saida["objetos"] for e in o.get("erros", [])}
+
+    def operacao_nfse(self, **item):
+        itens = [dict(bateria._item(1, "07", "000001", "1000.00"), **item)]
+        return bateria._operacao(bateria.DATA_PADRAO, self.nfse["tpDoc"], self.dados.regime_padrao(self.nfse), None,
+                                 bateria._linha("padrao", True, False, random.Random(1)), itens)
+
+    def test_tp_ente_gov_aceito_pelo_motor_e_a_constante(self):
+        aceitos = []
+        for valor in ["-1", "0"] + [str(i) for i in range(1, 10)] + ["x"]:
+            corpo = bateria._operacao(bateria.DATA_PADRAO, "55", {"CRT": "1"}, valor,
+                                      bateria._linha("padrao", True, False, random.Random(1)), [dict(ITEM)])
+            if "VSN-024" not in self.codigos(corpo):
+                aceitos.append(valor)
+        self.assertEqual(aceitos, list(bateria.DOMINIOS_DO_JAVA["tpEnteGov"]))
+
+    def test_dominios_do_iss_aceitos_pelo_motor_sao_as_constantes(self):
+        casos = (("tribISSQN", "VSN-036", {}), ("tpRetISSQN", "VSN-037", {"tribISSQN": "1"}),
+                 ("tpBM", "VSN-038", {"tribISSQN": "1", "tpRetISSQN": "1"}))
+        for campo, codigo, fixos in casos:
+            aceitos = []
+            for valor in ["-1", "0"] + [str(i) for i in range(1, 10)]:
+                extra = dict(fixos, **{campo: valor})
+                corpo = self.operacao_nfse(**extra)
+                if campo == "tpBM":
+                    corpo["itens"][0]["cAtivSN"] = "12"  # a atividade que admite benefício municipal
+                if codigo not in self.codigos(corpo):
+                    aceitos.append(valor)
+            self.assertEqual(aceitos, list(bateria.DOMINIOS_DO_JAVA[campo]), campo)
+
+    def test_classificacoes_de_excecao_e_documentos_sem_nbs_batem_com_o_motor(self):
+        self.assertEqual(set(bateria.CLASSIFICACOES_DE_EXCECAO), set(simples_base._EXCEPTION_CLASSIFICACOES))
+        for doc in self.dados.docs:
+            sigla = re.sub(r"[^A-Z0-9]", "", doc["sigla"].upper())
+            sem_nbs = sigla in bateria.DOCUMENTOS_SEM_NBS
+            self.assertEqual(sem_nbs, sigla in simples_base._TRIO_RIGIDO and sigla not in simples_base._NBS_APLICAVEL,
+                             doc["sigla"])
+
+
+class TabelaQueCresceTest(unittest.TestCase):
+    """Uma linha nova em cada tabela que a bateria itera tem de aparecer nos casos gerados."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.pasta = Path(tempfile.mkdtemp(prefix="simples_cresce_"))
+        cls.caminho = cls.pasta / "base.db"
+        shutil.copyfile(SKILL / "references" / "base-receita.db", cls.caminho)
+        con = sqlite3.connect(cls.caminho)
+        con.execute("PRAGMA ignore_check_constraints = ON")  # a base real limita o tpRBSN a 0 a 5 e 9
+        cls.classe_nova = cls.inserir_copia(con, "CLASSIFICACAO_TRIBUTARIA", "CLTR_ID = (SELECT MIN(CLTR_ID) FROM "
+                                            "CLASSIFICACAO_TRIBUTARIA WHERE CLTR_TPRBSN = 5 AND CLTR_FIM_VIGENCIA IS NULL)",
+                                            {"CLTR_ID": 9001, "CLTR_CD": "999990", "CLTR_TPRBSN": 6})
+        cls.inserir_copia(con, "TIPO_RECEITA_BRUTA_SIMPLES_NACIONAL", "TRBS_CD = 1 AND TRBS_VOCABULARIO_REGIME IS NULL",
+                          {"TRBS_ID": 9001, "TRBS_CD": 6})
+        cls.inserir_copia(con, "ENQUADRAMENTO_REGIME_SIMPLES_NACIONAL", "ERSN_ID = 6",
+                          {"ERSN_ID": 9001, "ERSN_OPSIMPNAC": 5, "ERSN_REGAPIBSCBSSN": 3})
+        cls.inserir_copia(con, "ATIVIDADE_SIMPLES_NACIONAL", "ATSN_ID = 1",
+                          {"ATSN_ID": 9001, "ATSN_ORDEM": 99, "ATSN_CATIVSN": "91"})
+        cls.inserir_copia(con, "TIPO_DFE", "TPDF_ID = 2", {"TPDF_ID": 9001, "TPDF_TIPO": 88, "TPDF_SIGLA": "NF-x"})
+        cls.inserir_copia(con, "TIPO_DFE_CALCULO_SIMPLES_NACIONAL", "TDCS_ID = 1", {"TDCS_ID": 9001, "TDCS_TPDF_ID": 9001})
+        cls.inserir_copia(con, "TRANSICAO_ALIQUOTA_COMPRA_GOV_SIMPLES_NACIONAL", "TACG_ID = 6",
+                          {"TACG_ID": 9001, "TACG_INICIO_VIGENCIA": "2034-01-01"})
+        con.commit()
+        con.close()
+        cls.novos = bateria.casos(cls.caminho)
+        cls.base = bateria.casos()
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.pasta, ignore_errors=True)
+
+    @staticmethod
+    def inserir_copia(con, tabela, onde, trocas):
+        colunas = [linha[1] for linha in con.execute(f"PRAGMA table_info({tabela})")]
+        linha = list(con.execute(f"SELECT * FROM {tabela} WHERE {onde}").fetchone())
+        for nome, valor in trocas.items():
+            linha[colunas.index(nome)] = valor
+        con.execute(f"INSERT INTO {tabela} ({', '.join(colunas)}) VALUES ({', '.join('?' * len(colunas))})", linha)
+        return trocas.get("CLTR_CD")
+
+    @staticmethod
+    def corpos(casos, *grupos):
+        return [c["requisicao"]["corpo"] for c in casos if c["grupo"] in grupos
+                and isinstance(c["requisicao"]["corpo"], dict)]
+
+    def test_tp_rbsn_novo_chega_aos_casos(self):
+        grupos = ("matriz", "lote", "matriz-nfse", "numerico", "ordem")
+        def classes(casos):
+            achadas = set()
+            for corpo in self.corpos(casos, *grupos):
+                for item in corpo["itens"]:
+                    achadas.add(item.get("cClassTrib"))
+            return achadas
+        self.assertNotIn("999990", classes(self.base))
+        self.assertIn("999990", classes(self.novos))
+
+    def test_linha_nova_do_enquadramento_chega_aos_casos(self):
+        corpos = self.corpos(self.novos, "matriz-enquadramento")
+        self.assertTrue(any(c.get("opSimpNac") == "5" and c.get("regApIBSCBSSN") == "3" for c in corpos))
+        base = self.corpos(self.base, "matriz-enquadramento")
+        self.assertFalse(any(c.get("opSimpNac") == "5" for c in base))
+        # e o domínio cresce: o seguinte ao maior passa de 5 para 6
+        self.assertTrue(any(c.get("opSimpNac") == "6" for c in self.corpos(self.novos, "matriz", "matriz-nfse")))
+
+    def test_atividade_nova_chega_aos_casos(self):
+        achadas = {i.get("cAtivSN") for c in self.corpos(self.novos, "matriz", "lote", "matriz-nfse") for i in c["itens"]}
+        self.assertIn("91", achadas)
+        achadas = {i.get("cAtivSN") for c in self.corpos(self.base, "matriz", "lote", "matriz-nfse") for i in c["itens"]}
+        self.assertNotIn("91", achadas)
+
+    def test_documento_novo_chega_a_matriz_de_compra_governamental_e_as_demais(self):
+        for grupo in ("matriz-compra-gov", "matriz-enquadramento", "matriz", "numerico"):
+            self.assertTrue(any(c.get("tpDoc") == "88" for c in self.corpos(self.novos, grupo)), grupo)
+            self.assertFalse(any(c.get("tpDoc") == "88" for c in self.corpos(self.base, grupo)), grupo)
+        for doc in ("55", "57", "65", "91"):  # todos os que calculam passam pela compra governamental
+            self.assertTrue(any(c.get("tpDoc") == doc and c.get("tpEnteGov") == "4"
+                                for c in self.corpos(self.base, "matriz-compra-gov")), doc)
+
+    def test_ano_novo_da_transicao_chega_a_matriz_de_compra_governamental(self):
+        anos = {c["data"][:4] for c in self.corpos(self.novos, "matriz-compra-gov")}
+        self.assertLessEqual({"2034", "2035"}, anos)
+        self.assertNotIn("2035", {c["data"][:4] for c in self.corpos(self.base, "matriz-compra-gov")})
+
+
+class SemFalhaTecnicaTest(unittest.TestCase):
+    def test_nenhuma_resposta_local_da_bateria_e_falha_tecnica(self):
+        for caso in bateria.casos():
+            vistos = bateria.cobertura([bateria.responder(caso["requisicao"])])  # o catálogo de erros não conta
+            self.assertNotIn("FALHA_TECNICA", vistos["estados"], caso["id"])
+            self.assertNotIn("VSN-999", vistos["codigos"], caso["id"])
+
+    def test_resposta_gravada_pela_requisicao_e_nao_pelo_id(self):
+        um = {"id": "mesmo-id", "grupo": "x", "requisicao": {"metodo": "GET", "caminho": "/versao"}}
+        dois = {"id": "mesmo-id", "grupo": "x", "requisicao": {
+            "metodo": "POST", "caminho": bateria.CAMINHO_NAO_ASSISTIDO, "corpo": operacao()}}
+        self.assertEqual(bateria._vistos(um), {"codigos": [], "estados": [], "motivos": [], "regimes": []})
+        self.assertEqual(bateria._vistos(dois)["regimes"], ["SN_PLENO"])
 
 
 if __name__ == "__main__":
