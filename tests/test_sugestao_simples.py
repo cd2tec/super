@@ -6,7 +6,10 @@ import contextlib
 import importlib.util
 import io
 import json
+import shutil
+import subprocess
 import sys
+import tempfile
 import unittest
 from datetime import date
 from pathlib import Path
@@ -135,20 +138,89 @@ class SugestaoTest(unittest.TestCase):
         dica = next(s for s in r["sugestoes"] if s["cClassTrib"] == "200032")
         self.assertIn("confirme com o contador", dica["motivo"])
 
-    def test_listas_com_reducoes_diferentes_avisam(self):
-        # 200003 (100%) e 200034 (60%) cobrem o mesmo NCM na base
-        achou = None
-        for (ncm,) in self.base._con.execute(
-                "SELECT NCM_CD FROM NCM WHERE length(NCM_CD) = 8").fetchall():
-            if self.base.existe_ncm(ncm, DATA):
-                codigos = self.codigos(self.sugerir(ncm))
-                if "200003" in codigos and "200034" in codigos:
-                    achou = (ncm, codigos)
-                    break
-        self.assertIsNotNone(achou)
-        r = self.sugerir(achou[0])
-        self.assertLess(self.codigos(r).index("200003"), self.codigos(r).index("200034"))
-        self.assertTrue(any("reduções diferentes" in a for a in r["avisos"]))
+    def test_duas_listas_saem_da_menor_reducao_para_a_maior(self):
+        # evidência da revisão: NFC-e em 2027-03-15
+        esperado = {
+            "07108000": ["200034", "200014"], "21069090": ["200033", "200003"],
+            "25010090": ["200033", "200003"], "15132120": ["200034", "200003"],
+            "90182010": ["200030", "200004"], "90189010": ["200030", "200004"],
+            "90189099": ["200030", "200004"], "90211010": ["200030", "200004"],
+            "90211020": ["200030", "200004"],
+            "22029900": ["200033", "200034"],  # empate em 60%: desempate pelo código
+        }
+        for ncm, listas in esperado.items():
+            with self.subTest(ncm=ncm):
+                r = self.sugerir(ncm)
+                self.assertEqual(self.codigos(r), listas + ["000001"])
+                reducoes = [int(s["reducao"]) for s in r["sugestoes"][:-1]]
+                self.assertEqual(reducoes, sorted(reducoes))
+                for s in r["sugestoes"][:-1]:
+                    self.assertIn(f"Redução de {s['reducao']}%", s["motivo"])
+                aviso = next(a for a in r["avisos"] if "mais de uma lista" in a)
+                self.assertIn("nunca fica abaixo do real", aviso)
+                self.assertIn("natureza do seu produto", aviso)
+
+    def test_uma_lista_so_nao_avisa_de_varias_listas(self):
+        self.assertFalse(any("mais de uma lista" in a for a in self.sugerir("10063021")["avisos"]))
+
+    def test_regra_geral_fica_sempre_por_ultimo_com_reducao_zero(self):
+        for ncm in ("10063021", "07108000", "30049099", "22030000"):
+            ultima = self.sugerir(ncm)["sugestoes"][-1]
+            self.assertEqual((ultima["cClassTrib"], ultima["reducao"]), ("000001", "0"))
+
+    def test_remedio_lista_vem_antes_da_dica_e_a_dica_que_promete_mais_avisa(self):
+        # como no mini app: a lista que o NCM cumpre (200030) fica na frente, a dica depois
+        r = self.sugerir("30049099")
+        self.assertEqual(self.codigos(r), ["200030", "200032", "200009", "000001"])
+        self.assertTrue(any("200009" in a and "mais redução" in a for a in r["avisos"]))
+
+    def test_reducao_do_perfil_nao_muda_sozinha(self):
+        # valores do mini app (core/data/tabelas.json, base V0073). A base reduzida não traz o percentual;
+        # se a base mudar de versão, este teste manda revisar o perfil antes de passar.
+        self.assertEqual(self.base.versao_base()["versao"], "V0073")
+        esperado = {"000001": 0, "200003": 100, "200014": 100, "200034": 60, "200035": 60, "200004": 100,
+                    "200030": 60, "200007": 100, "200031": 60, "200033": 60, "200032": 60, "200009": 100,
+                    "200013": 100}
+        self.assertEqual({c: p["reducao"] for c, p in sugestao.PERFIL["classificacoes"].items()}, esperado)
+
+    def test_imposto_seletivo_na_lista(self):
+        for ncm in ("22030000", "22021000", "24022000"):
+            with self.subTest(ncm=ncm):
+                r = self.sugerir(ncm)
+                self.assertEqual(self.codigos(r), ["000001"])
+                seletivo = r["imposto_seletivo"]
+                self.assertTrue(seletivo["na_lista"])
+                self.assertIn("valorImpostoSeletivo", seletivo["texto"])
+                self.assertIn("não calcula", seletivo["texto"])
+                self.assertIn("contador", seletivo["texto"])
+                self.assertIn("2027", seletivo["texto"])
+                self.assertIn("V0073", seletivo["texto"])
+
+    def test_imposto_seletivo_fora_da_lista(self):
+        # 22011000 (água) não está na lista que o mini app copia da Receita, ao contrário do que a revisão supôs
+        for ncm in ("22011000", "10063021"):
+            with self.subTest(ncm=ncm):
+                seletivo = self.sugerir(ncm)["imposto_seletivo"]
+                self.assertFalse(seletivo["na_lista"])
+                self.assertIn("não verifica o Imposto Seletivo além", seletivo["texto"])
+
+    def test_imposto_seletivo_respeita_a_regra_do_mini_app(self):
+        self.assertTrue(sugestao._no_imposto_seletivo("88021100"))
+        self.assertTrue(sugestao._no_imposto_seletivo("88029999"))  # prefixo 8802
+        self.assertFalse(sugestao._no_imposto_seletivo("22011000"))
+
+    def test_sem_ncm_valido_nao_ha_imposto_seletivo(self):
+        self.assertNotIn("imposto_seletivo", self.sugerir("85171231"))
+
+    def test_leitura_explica_a_ordem(self):
+        r = self.sugerir("10063021")
+        self.assertIn("primeira sugestão é a mais provável", r["leitura"])
+        self.assertIn("000001", r["leitura"])
+        self.assertNotIn("mais provável", self.sugerir("85171231")["leitura"])
+
+    def test_texto_do_item_comum_cita_o_perfil_de_varejo(self):
+        motivo = self.sugerir(self.ncm_comum())["sugestoes"][0]["motivo"]
+        self.assertIn("nenhuma lista do perfil de varejo da CD2", motivo)
 
     def test_documento_fora_do_escopo_ou_data_sem_calculo(self):
         for tp_doc, data in ((57, DATA), (65, date(2026, 11, 22)), (99, DATA)):
@@ -207,10 +279,23 @@ class SugestaoTest(unittest.TestCase):
 
     def test_formato_da_sugestao(self):
         for s in self.sugerir("10063021")["sugestoes"]:
-            self.assertEqual(set(s), {"cClassTrib", "cst", "descricao", "motivo"})
+            self.assertEqual(set(s), {"cClassTrib", "cst", "descricao", "reducao", "motivo"})
 
 
 class LinhaDeComandoTest(unittest.TestCase):
+    def test_roda_de_pasta_achatada_com_a_base_ao_lado(self):
+        # o pacote do GPT achata a skill numa pasta só: script e base lado a lado
+        with tempfile.TemporaryDirectory() as pasta:
+            for nome in ("sugestao.py", "simples_base.py"):
+                shutil.copy(SCRIPTS / nome, Path(pasta) / nome)
+            shutil.copy(SCRIPTS.parent / "references" / simples_base.NOME_BASE, Path(pasta) / simples_base.NOME_BASE)
+            processo = subprocess.run(
+                [sys.executable, "-I", str(Path(pasta) / "sugestao.py"), "--ncm", "10063021", "--data", "2027-03-15"],
+                capture_output=True, text=True, cwd=pasta)
+        self.assertEqual(processo.returncode, 0, processo.stderr)
+        self.assertEqual(json.loads(processo.stdout)["sugestoes"][0]["cClassTrib"], "200003")
+
+
     def rodar(self, *argv):
         saida, erro = io.StringIO(), io.StringIO()
         with contextlib.redirect_stdout(saida), contextlib.redirect_stderr(erro):
