@@ -113,19 +113,22 @@ Quem não sabe recebe a sugestão. Rode, item a item:
 python3 <pasta da skill>/scripts/sugestao.py --ncm 1006.30.21 --tp-doc 65 --data 2027-01-01
 ```
 
-A saída traz `sugestoes` (cada uma com `cClassTrib`, `cst`, `descricao`, `motivo` e `reducao`), `leitura`, `avisos`, `imposto_seletivo` e `aviso`. Mostre as sugestões na ordem em que vêm, com o motivo de cada uma, e leia a `leitura` para a pessoa. Diga sempre: "Essa é a leitura da CD2, não da Receita. Confirme com o seu contador." Pergunte qual usar. O percentual de `reducao` é o da tabela de classificação; o efeito no Simples quem decide é a conta oficial, pelo tipo de receita bruta que ela mostra no item.
+Troque o NCM, o `--tp-doc` (55 ou 65) e a data pelos da operação. A saída traz `sugestoes` (cada uma com `cClassTrib`, `cst`, `descricao`, `motivo` e `reducao`), `leitura`, `avisos`, `imposto_seletivo` e `aviso`. Mostre as sugestões na ordem em que vêm, com o motivo de cada uma, e leia a `leitura` para a pessoa. Diga sempre: "Essa é a leitura da CD2, não da Receita. Confirme com o seu contador." Pergunte qual usar. O percentual de `reducao` é o da tabela de classificação; o efeito no Simples quem decide é a conta oficial, pelo tipo de receita bruta que ela mostra no item.
+
+**Na NFS-e, ou se `sugestoes` vier vazia, não há sugestão.** O `sugestao.py` só lê NCM, em NF-e e NFC-e. Nesse caso a classificação vem da pessoa ou do contador, nunca de você: nunca escolha uma, nem a 000001. Explique em uma frase: "O `cClassTrib` é o código de 6 dígitos que diz como a CBS e o IBS tratam este item; ele muda o resultado." Diga que o contador ou o sistema que emite a nota tem esse código, e espere a pessoa trazer.
 
 ### 10. Imposto Seletivo
 
 NFC-e e NF-e exigem o valor do Imposto Seletivo de cada item (`valorImpostoSeletivo`, "0.00" quando não há). Esta skill não calcula o Imposto Seletivo.
 
 - Se o `sugestao.py` disser `imposto_seletivo.na_lista` verdadeiro para um item, leia o `texto` para a pessoa e peça o valor do Imposto Seletivo daquele item. Não assuma zero.
+- **Se a pessoa não souber o valor:** diga com palavras simples que a CBS e o IBS do item não dependem dele (o Imposto Seletivo só entra no total de tributos) e que a lei ainda não definiu a alíquota. Ofereça seguir com "0.00" e só siga se ela concordar. Nesse caso, logo antes da entrega, diga na conversa: "O total de tributos deste item deixa o Imposto Seletivo de fora." A página do `render.py` não traz esse aviso, então ele é seu.
 - Para os outros itens, pergunte uma vez: "Algum destes itens paga Imposto Seletivo (por exemplo bebida alcoólica, refrigerante ou cigarro)?" Só depois que a pessoa confirmar que o item não tem, preencha "0.00".
 - Na NFS-e não há Imposto Seletivo: deixe o campo de fora.
 
 ## Montar a operação e calcular
 
-Grave a operação num arquivo JSON na pasta de trabalho, no formato da calculadora oficial. Copie os números como a pessoa escreveu, entre aspas, sem converter vírgula nem ponto por conta própria: quem converte é o `--humano`, que diz o que mudou. Um exemplo de NFC-e com um item (os números são só para mostrar o formato):
+Grave a operação num arquivo JSON na pasta de trabalho, no formato da calculadora oficial. Copie os números como a pessoa escreveu, entre aspas, sem % nem R$ e sem converter vírgula nem ponto por conta própria: quem converte é o `--humano`, que diz o que mudou. Um exemplo de NFC-e com um item (os números são só para mostrar o formato):
 
 ```json
 {
@@ -157,7 +160,7 @@ Rode sempre com `--humano`:
 python3 <pasta da skill>/scripts/calc.py --humano --input operacao.json > calculo.json
 ```
 
-A saída é `{"status", "corpo", "versao", "normalizacoes"}`. O `corpo` é o JSON da calculadora oficial; `versao` traz `calculadora`, `base` e `conferida_em`.
+A saída é `{"status", "corpo", "versao", "normalizacoes"}`. O `corpo` é o JSON da calculadora oficial; `versao` traz `calculadora`, `base` e `conferida_em`. Se o arquivo nem for um JSON válido, o script sai com código 2 e devolve só `{"errors": [...]}`, em português: o JSON que você gravou está quebrado. Corrija e rode de novo.
 
 **Leia as `normalizacoes` para a pessoa, uma a uma,** antes da entrega: "Troquei 1,1612 por 1.1612", "Troquei 1006.30.21 por 10063021". Se alguma disser que um número com ponto foi lido como decimal e não como milhar (por exemplo "1.000" lido como 1,000), pare e pergunte o que a pessoa quis dizer. Reescreva o valor como ela confirmar e rode de novo. Não entregue conta com essa dúvida aberta.
 
@@ -177,8 +180,10 @@ A pessoa trouxe o JSON. Nada é deduzido, nada é normalizado.
    python3 <pasta da skill>/scripts/calc.py --input operacao.json > calculo.json
    ```
 
-4. Devolva o `corpo` intocado, como JSON, junto com o `status`. É a mesma resposta que a calculadora oficial daria. Diga a versão (`versao.calculadora` e `versao.base`) e a data de conferência (`versao.conferida_em`).
-5. Some o resumo legível: rode o `render.py` em `markdown` (veja [Entrega](#entrega)) com `"sugestoes": null` e `"exemplo": false`.
+4. A saída tem um de dois formatos:
+   - `{"status", "corpo", "versao"}`: devolva o `corpo` intocado, como JSON, junto com o `status`. É a mesma resposta que a calculadora oficial daria, inclusive nos erros 400 e 422. Diga a versão (`versao.calculadora` e `versao.base`) e a data de conferência (`versao.conferida_em`).
+   - `{"errors": [...]}`, com código de saída 2: o texto nem é um JSON que se leia (falta uma chave, sobra uma vírgula, está cortado). Não há `corpo` para devolver nem resumo para montar. Diga à TI que o JSON não chegou à conta, mostre a mensagem do erro, que diz a linha e a coluna, e peça o JSON corrigido. Não corrija você.
+5. No primeiro formato, some o resumo legível: rode o `render.py` em `markdown` (veja [Entrega](#entrega)) com `"sugestoes": null` e `"exemplo": false`.
 
 Se a pessoa pedir uma sugestão de classificação ou quiser mudar a operação, rode o `sugestao.py` à parte e mostre a mudança antes; o JSON dela só muda com o sim dela. Consultas que a TI costuma pedir: `calc.py --atividades AAAA-MM-DD` (com `--anexo`, `--tp-doc` e `--cclasstrib` como filtros), `calc.py --atividade 01 --data AAAA-MM-DD`, `calc.py --erro VSN-001` e `calc.py --versao`. Todas devolvem o corpo da calculadora oficial.
 

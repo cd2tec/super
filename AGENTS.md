@@ -130,7 +130,7 @@ Esta seção vale para as calculadoras da CD2. Elas ficam em repositórios priva
 | `custo-vrva` | https://calc-vrva.cd2.com.br/ |
 | `cbs-ibs-simples` | Nenhum site da CD2. A fonte é a calculadora oficial da Receita, no GitHub |
 
-A `cbs-ibs-simples` não tem site da CD2 e não segue esta seção: ela é sincronizada pelo robô de conferência, como diz [Skills que espelham a calculadora da Receita](#skills-que-espelham-a-calculadora-da-receita).
+A `cbs-ibs-simples` não tem site da CD2 e não segue esta seção: veja [Skills que espelham a calculadora da Receita](#skills-que-espelham-a-calculadora-da-receita). Ela será sincronizada pelo robô de conferência. [Trecho provisório: a próxima tarefa troca esta frase.]
 
 Quando o `legal-params.json` ou o `assumptions.json` de uma calculadora mudar:
 

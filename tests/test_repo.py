@@ -150,6 +150,18 @@ class AtribuicaoReceita(unittest.TestCase):
         for rel in ("core/cd2-super/skills/cbs-ibs-simples/SKILL.md", "core/cd2-super/gpts/cbs-ibs-simples/instructions.md"):
             self.assertIn("não é um aplicativo da Receita Federal", read(rel), rel)
 
+    def test_skill_cobre_seletivo_desconhecido_nfse_e_entrada(self):
+        skill = read("core/cd2-super/skills/cbs-ibs-simples/SKILL.md")
+        gpt = read("core/cd2-super/gpts/cbs-ibs-simples/instructions.md")
+        for texto in (skill, gpt):
+            self.assertIn("deixa o Imposto Seletivo de fora", texto)
+            self.assertIn("sem % nem R$", texto)
+            self.assertIn("nunca escolh", texto)
+        self.assertIn("Se a pessoa não souber o valor", skill)
+        self.assertIn("Na NFS-e, ou se `sugestoes` vier vazia", skill)
+        self.assertIn('`{"errors": [...]}`, com código de saída 2', skill)
+        self.assertIn("Onde o texto acima difere, vale esta seção", gpt)
+
     def test_skill_json_da_skill(self):
         item = next(s for s in json.loads(read("skills.json")) if s["name"] == "cbs-ibs-simples")
         self.assertEqual(item, {

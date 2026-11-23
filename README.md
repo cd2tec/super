@@ -265,22 +265,23 @@ Padaria de exemplo: Alelo, Pluxee, Ticket e VR, com o dinheiro a 2% ao mês. Vej
 ### CBS e IBS no Simples Nacional
 
 ```
-Você:  quanto vou pagar de CBS e IBS no Simples numa venda?
+Você:  quanto vou pagar de CBS e IBS no Simples?
 
-Skill: Eu calculo com a mesma conta da calculadora oficial da Receita.
-       Primeiro: é cupom do caixa (NFC-e) ou nota (NF-e)?
+Skill: Vamos ver juntos. Primeiro: você é o dono, o contador ou da TI?
+       E é uma loja só ou uma rede?
 
-       [usa 01/01/2027, quando as regras começam, mostra a lista de
-        atividades, pede os itens e a alíquota efetiva do PGDAS, que
-        vem do contador, e sugere a classificação pelo NCM]
+       [pergunta o formato, oferece puxar os dados do sistema, confere
+        se a Receita tem versão nova da calculadora e pede documento,
+        data (01/01/2027, quando as regras começam), itens, atividade e
+        a alíquota efetiva do PGDAS, que vem do contador]
 
-Skill: Sem a alíquota do contador, este é um exemplo ilustrativo.
-       Numa venda de R$ 1.000,00 de revenda de mercadorias, sai
+Skill: Sem a alíquota do contador, rodo o exemplo ilustrativo da Receita.
+       Numa venda de R$ 1.000,00 de revenda, sai
        CBS de R$ 11,61 e IBS de R$ 0,13, R$ 11,74 no total.
        Com a sua alíquota, refaço a conta da sua empresa.
 ```
 
-Exemplo ilustrativo da documentação oficial da Receita, anexo I: CBS de 1,1612% e IBS de 0,0129%, rodado pela skill `cbs-ibs-simples`. Não é aplicativo da Receita Federal. Veja [como calculamos](core/cd2-super/skills/cbs-ibs-simples/references/metodologia.md).
+Valores do exemplo oficial da calculadora da Receita (`EXEMPLO_NFE`), anexo I: CBS de 1,1612% e IBS de 0,0129%, venda de R$ 1.000,00, rodado pela skill `cbs-ibs-simples`. Não é aplicativo da Receita Federal. Veja [como calculamos](core/cd2-super/skills/cbs-ibs-simples/references/metodologia.md).
 
 Outros pedidos que a skill entende: *"monta a escala da loja com 2 folgas"*, *"calcula as 4 lojas da rede"*, *"a Ticket pode me cobrar 6%?"*, *"me dá um resumo para mandar no WhatsApp"*.
 

@@ -175,18 +175,21 @@ class SyncTest(unittest.TestCase):
         self.assertIn('UTM_SOURCE = "claude"', brand_py)
 
     def test_gpt_bundle_layout(self):
-        core = ROOT / "core" / PLUGIN / "skills"
-        proprios = {SIMPLES: ("references/base-receita.db", "scripts/simples_motor.py", "scripts/simples_base.py",
-                              "scripts/numeros.py", "scripts/sugestao.py")}
+        # O que cada GPT leva além do comum, listado por skill: sumir um destes arquivos tem de falhar.
+        proprios = {
+            "fim-escala-6x1": ("references/legal-params.json",),
+            "custo-vrva": ("references/legal-params.json",),
+            SIMPLES: ("references/base-receita.db", "scripts/simples_motor.py", "scripts/simples_base.py",
+                      "scripts/numeros.py", "scripts/sugestao.py"),
+        }
+        self.assertEqual(set(proprios), set(GPT_SKILLS))
         for skill in GPT_SKILLS:
             base = self.gpts / skill
             knowledge = base / "knowledge"
             exigidos = ["scripts/calc.py", "scripts/render.py", "scripts/brand.py", "assets/template.html",
                         "assets/fonts/Manrope-Variable.woff2", "assets/brand/cd2tech-horizontal.svg",
                         "assets/brand/simbolo.svg", "references/metodologia.md", "references/fluxo-conversa.md"]
-            if (core / skill / "references" / "legal-params.json").is_file():
-                exigidos.append("references/legal-params.json")
-            exigidos += proprios.get(skill, ())
+            exigidos += proprios[skill]
             for rel in exigidos:
                 self.assertTrue((knowledge / rel).is_file(), f"{skill}: {rel}")
             self.assertFalse((knowledge / "SKILL.md").exists())
