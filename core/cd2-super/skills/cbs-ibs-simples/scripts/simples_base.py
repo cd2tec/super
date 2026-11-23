@@ -1029,6 +1029,51 @@ class Base:
         i, cd, nomenclatura, cst = linhas[0]
         return {"id": i, "codigo": cd, "nomenclatura": nomenclatura, "cst": cst}
 
+    # --- consultas da sugestão de classificação (não entram em nenhum cálculo do motor) ----------------
+    # Origem: scripts/sync-receita.mjs do mini app de imposto por produto da CD2 (MIT), que lê as mesmas
+    # tabelas da calculadora do regime regular da Receita. Tributo: 1 Imposto Seletivo, 2 CBS, 3 IBS estadual,
+    # 4 IBS municipal.
+
+    def percentuais_reducao(self, id_classificacao: int, data: date) -> dict:
+        # sync-receita.mjs, `reductions`: PERCENTUAL_REDUCAO vigente na data (início <= data e fim nulo ou
+        # >= data). Devolve {"cbs", "ibsUf", "ibsMun"} em Decimal, 0 quando não há linha. Em caso de duas
+        # linhas vigentes para o mesmo tributo vale a de maior PERE_ID.
+        tributos = {2: "cbs", 3: "ibsUf", 4: "ibsMun"}
+        resultado = {nome: Decimal(0) for nome in tributos.values()}
+        linhas = self._consultar(
+            "SELECT PERE_TBTO_ID, PERE_VALOR FROM PERCENTUAL_REDUCAO WHERE PERE_CLTR_ID = :id "
+            "AND PERE_INICIO_VIGENCIA <= :data AND (PERE_FIM_VIGENCIA IS NULL OR PERE_FIM_VIGENCIA >= :data) "
+            "ORDER BY PERE_ID", id=id_classificacao, data=_iso(data))[1]
+        for tributo, valor in linhas:
+            if tributo in tributos and valor is not None:
+                resultado[tributos[tributo]] = _converter(valor, "n")
+        return resultado
+
+    def no_imposto_seletivo(self, ncm: str, data: date) -> bool:
+        # sync-receita.mjs, `selective`, com a regra de isSelective (classify.ts): o NCM está na lista quando
+        # um produto com alíquota de Imposto Seletivo (ad valorem ou ad rem, tributo 1) vigente na data é
+        # prefixo do NCM e nenhuma exceção vigente do produto cobre o NCM (ou o prefixo do produto).
+        for produto, taxa, chave, excecao in (
+                ("ALIQUOTA_AD_VALOREM_PRODUTO", "ALIQUOTA_AD_VALOREM", "AAVP", "EXCECAO_AD_VALOREM_PRODUTO"),
+                ("ALIQUOTA_AD_REM_PRODUTO", "ALIQUOTA_AD_REM", "AARP", "EXCECAO_AD_REM_PRODUTO")):
+            sigla_taxa = "AADV" if chave == "AAVP" else "AARE"
+            sigla_excecao = "EAVP" if chave == "AAVP" else "EARP"
+            linhas = self._consultar(
+                f"SELECT a.{chave}_ID, a.{chave}_NCM_CD FROM {produto} a "
+                f"JOIN {taxa} v ON v.{sigla_taxa}_ID = a.{chave}_{sigla_taxa}_ID "
+                f"WHERE v.{sigla_taxa}_TBTO_ID = 1 "
+                f"AND a.{chave}_NCM_CD = SUBSTR(:ncm, 1, LENGTH(a.{chave}_NCM_CD)) "
+                f"AND :data BETWEEN a.{chave}_INICIO_VIGENCIA AND COALESCE(a.{chave}_FIM_VIGENCIA, :data)",
+                ncm=ncm, data=_iso(data))[1]
+            for id_produto, ncm_produto in linhas:
+                excecoes = self._consultar(
+                    f"SELECT {sigla_excecao}_NCM_CD FROM {excecao} WHERE {sigla_excecao}_{chave}_ID = :id "
+                    f"AND :data BETWEEN {sigla_excecao}_INICIO_VIGENCIA "
+                    f"AND COALESCE({sigla_excecao}_FIM_VIGENCIA, :data)", id=id_produto, data=_iso(data))[1]
+                if not any(ncm.startswith(e[0]) or ncm_produto.startswith(e[0]) for e in excecoes):
+                    return True
+        return False
+
     def determinar_nomenclatura(self, sigla_dfe: str, c_class_trib: str, data: date) -> str:
         # NomenclaturaService.determinarNomenclatura: SEM, NCM, NBS, MISTO, EXCECAO_NCM ou EXCECAO_NBS.
         classificacao = self.classificacao_cbs_ibs(c_class_trib, data)

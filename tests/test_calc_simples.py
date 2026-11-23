@@ -1082,7 +1082,16 @@ class ChecarVersaoTest(unittest.TestCase):
 
 class BaseDanificadaTest(unittest.TestCase):
     PAGINA = 4096
-    RAIZ_CLASSIFICACAO_TRIBUTARIA = 4  # página raiz da tabela, lida em sqlite_master
+
+    @property
+    def RAIZ_CLASSIFICACAO_TRIBUTARIA(self):
+        # página raiz da tabela, lida em sqlite_master: muda quando a base ganha ou perde tabelas
+        con = sqlite3.connect(SKILL / "references" / "base-receita.db")
+        try:
+            return con.execute("SELECT rootpage FROM sqlite_master WHERE name = 'CLASSIFICACAO_TRIBUTARIA'"
+                               ).fetchone()[0]
+        finally:
+            con.close()
 
     def copia(self, pasta, dados):
         destino = Path(pasta) / "danificada.db"

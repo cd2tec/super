@@ -11,7 +11,7 @@ Exporta, para scripts/receita_paridade.py e para os testes:
     existentes(base=None)                          o que existe para ver (a base de comparação da cobertura)
 
 Nada aqui usa a data de hoje nem sorteio sem semente: a mesma base e a mesma semente dão a mesma lista.
-`casos` só lê as 25 tabelas da base reduzida da skill, que a base completa das migrações também tem
+`casos` só lê as 25 tabelas do motor, na base reduzida da skill, que a base completa das migrações também tem
 (a leitura é a mesma nas duas, e o teste confere); por isso `base_completa` pode ser omitida.
 """
 
@@ -376,7 +376,9 @@ class _Dados:
     def _datas(con):
         """Datas distintas de vigência das tabelas lidas: início, fim, dia antes do início e dia depois do fim."""
         bruto = set()
-        lidas = set(json.loads((PASTA / "config.json").read_text(encoding="utf-8"))["tabelas"])
+        config = json.loads((PASTA / "config.json").read_text(encoding="utf-8"))
+        # as tabelas da sugestão de classificação vão na base mas o motor não as lê: ficam fora das datas
+        lidas = set(config["tabelas"]) - set(config.get("tabelas_da_sugestao", []))
         tabelas = [r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")
                    if r[0] in lidas]  # só as tabelas que a skill leva: a base completa tem muitas mais
         for tabela in tabelas:

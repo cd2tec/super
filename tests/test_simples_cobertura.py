@@ -349,8 +349,17 @@ class EsperadasTest(unittest.TestCase):
         self.assertEqual(sorted(conferencia), ["casos", "data", "iguais"])
 
     def test_base_da_skill_mantem_o_hash_dos_dados(self):
-        self.assertEqual(META["base"]["hash"],
-                         "sha256:badca3b198055d8da809a761218102a5198c87f2e5895368a8b6c976223f8de9")
+        # o hash do meta é o do conteúdo das tabelas da base da skill (e não um valor fixo no teste: o robô
+        # troca a base quando a Receita publica tabelas novas e grava o hash novo no meta)
+        spec = importlib.util.spec_from_file_location("receita_base_hash", ROOT / "scripts" / "receita_base.py")
+        receita_base = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(receita_base)
+        con = sqlite3.connect(SKILL / "references" / "base-receita.db")
+        try:
+            calculado = receita_base.hash_conteudo(con, CONFIG["tabelas"], CONFIG.get("hash_ignorar_colunas"))
+        finally:
+            con.close()
+        self.assertEqual(META["base"]["hash"], calculado)
 
 
 class ResponderTest(unittest.TestCase):

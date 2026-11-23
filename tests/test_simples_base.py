@@ -982,5 +982,84 @@ class TestNomenclaturaNaBaseReal(ComBase):
         self.assertEqual(self.base.tipo_dfe_classificacao(14, date(2025, 1, 1)), [])
 
 
+class TestConsultasDaSugestao(ComBase):
+    """percentuais_reducao e no_imposto_seletivo: as consultas do mini app de imposto por produto da CD2."""
+
+    def copia(self, pasta):
+        destino = Path(pasta) / "base-receita.db"
+        shutil.copy(SKILL / "references" / "base-receita.db", destino)
+        return destino
+
+    def mudar(self, destino, *comandos):
+        con = sqlite3.connect(destino)
+        try:
+            for sql, parametros in comandos:
+                con.execute(sql, parametros)
+            con.commit()
+        finally:
+            con.close()
+
+    def test_percentuais_de_reducao_por_tributo(self):
+        cesta = self.base.classificacao_cbs_ibs("200003", DATA)["id"]
+        alimento = self.base.classificacao_cbs_ibs("200034", DATA)["id"]
+        for id_classificacao, esperado in ((cesta, Decimal(100)), (alimento, Decimal(60))):
+            valores = self.base.percentuais_reducao(id_classificacao, DATA)
+            self.assertEqual(set(valores), {"cbs", "ibsUf", "ibsMun"})
+            for valor in valores.values():
+                self.assertIsInstance(valor, Decimal)
+                self.assertEqual(valor, esperado)
+
+    def test_sem_linha_ou_fora_da_vigencia_a_reducao_e_zero(self):
+        cesta = self.base.classificacao_cbs_ibs("200003", DATA)["id"]
+        zero = {"cbs": Decimal(0), "ibsUf": Decimal(0), "ibsMun": Decimal(0)}
+        self.assertEqual(self.base.percentuais_reducao(999999, DATA), zero)
+        self.assertEqual(self.base.percentuais_reducao(cesta, date(2025, 12, 31)), zero)
+
+    def test_reducao_respeita_vigencia_e_tributo_na_copia(self):
+        with tempfile.TemporaryDirectory() as pasta:
+            destino = self.copia(pasta)
+            cesta = self.base.classificacao_cbs_ibs("200003", DATA)["id"]
+            self.mudar(destino,
+                       ("UPDATE PERCENTUAL_REDUCAO SET PERE_VALOR = 30.5 WHERE PERE_CLTR_ID = ? AND PERE_TBTO_ID = 3",
+                        (cesta,)),
+                       ("UPDATE PERCENTUAL_REDUCAO SET PERE_FIM_VIGENCIA = '2027-03-14' "
+                        "WHERE PERE_CLTR_ID = ? AND PERE_TBTO_ID = 4", (cesta,)))
+            with sb.Base(destino) as base:
+                valores = base.percentuais_reducao(cesta, DATA)
+                self.assertEqual(valores["cbs"], Decimal(100))
+                self.assertEqual(valores["ibsUf"], Decimal("30.5"))
+                self.assertEqual(valores["ibsMun"], Decimal(0))
+                self.assertEqual(base.percentuais_reducao(cesta, date(2027, 3, 14))["ibsMun"], Decimal(100))
+
+    def test_imposto_seletivo_na_lista_e_fora(self):
+        for ncm in ("22030000", "22021000", "24022000", "87032100", "88029999"):
+            with self.subTest(ncm=ncm):
+                self.assertTrue(self.base.no_imposto_seletivo(ncm, DATA))
+        for ncm in ("22011000", "10063021", "85171231"):
+            with self.subTest(ncm=ncm):
+                self.assertFalse(self.base.no_imposto_seletivo(ncm, DATA))
+
+    def test_imposto_seletivo_fora_da_vigencia(self):
+        self.assertFalse(self.base.no_imposto_seletivo("22030000", date(2020, 1, 1)))
+
+    def test_imposto_seletivo_excecao_e_ad_rem_na_copia(self):
+        with tempfile.TemporaryDirectory() as pasta:
+            destino = self.copia(pasta)
+            # exceção vigente para um NCM coberto por um produto da lista: sai da lista
+            con = sqlite3.connect(destino)
+            produto = con.execute("SELECT AAVP_ID FROM ALIQUOTA_AD_VALOREM_PRODUTO WHERE AAVP_NCM_CD = '22030000'"
+                                  ).fetchone()[0]
+            ad_rem = con.execute("SELECT AARP_NCM_CD FROM ALIQUOTA_AD_REM_PRODUTO a JOIN ALIQUOTA_AD_REM v "
+                                 "ON v.AARE_ID = a.AARP_AARE_ID WHERE v.AARE_TBTO_ID = 1").fetchone()[0]
+            con.close()
+            self.mudar(destino, ("INSERT INTO EXCECAO_AD_VALOREM_PRODUTO (EAVP_ID, EAVP_NCM_CD, EAVP_AAVP_ID, "
+                                 "EAVP_INICIO_VIGENCIA, EAVP_FIM_VIGENCIA) VALUES (9999, '22030000', ?, "
+                                 "'2026-01-01', NULL)", (produto,)))
+            with sb.Base(destino) as base:
+                self.assertFalse(base.no_imposto_seletivo("22030000", DATA))
+                self.assertTrue(base.no_imposto_seletivo("22021000", DATA))
+                self.assertTrue(base.no_imposto_seletivo(ad_rem, DATA))
+
+
 if __name__ == "__main__":
     unittest.main()

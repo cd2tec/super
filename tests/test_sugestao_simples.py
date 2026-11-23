@@ -7,11 +7,13 @@ import importlib.util
 import io
 import json
 import shutil
+import sqlite3
 import subprocess
 import sys
 import tempfile
 import unittest
 from datetime import date
+from decimal import Decimal
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -174,14 +176,55 @@ class SugestaoTest(unittest.TestCase):
         self.assertEqual(self.codigos(r), ["200030", "200032", "200009", "000001"])
         self.assertTrue(any("200009" in a and "mais redução" in a for a in r["avisos"]))
 
-    def test_reducao_do_perfil_nao_muda_sozinha(self):
-        # valores do mini app (core/data/tabelas.json, base V0073). A base reduzida não traz o percentual;
-        # se a base mudar de versão, este teste manda revisar o perfil antes de passar.
-        self.assertEqual(self.base.versao_base()["versao"], "V0073")
-        esperado = {"000001": 0, "200003": 100, "200014": 100, "200034": 60, "200035": 60, "200004": 100,
-                    "200030": 60, "200007": 100, "200031": 60, "200033": 60, "200032": 60, "200009": 100,
-                    "200013": 100}
-        self.assertEqual({c: p["reducao"] for c, p in sugestao.PERFIL["classificacoes"].items()}, esperado)
+    def test_reducao_lida_da_base_bate_com_a_do_perfil_antigo_na_v0073(self):
+        # Âncora de regressão: os valores que o perfil copiava do mini app quando as reduções eram texto fixo.
+        # Só vale para a V0073. Em outra versão o teste é pulado e nunca barra uma atualização de tabelas.
+        versao = self.base.versao_base()["versao"]
+        if versao != "V0073":
+            self.skipTest(f"âncora da V0073; a base está na {versao}, a redução vem da base e não é conferida aqui")
+        antigo = {"000001": 0, "200003": 100, "200014": 100, "200034": 60, "200035": 60, "200004": 100,
+                  "200030": 60, "200007": 100, "200031": 60, "200033": 60, "200032": 60, "200009": 100,
+                  "200013": 100}
+        self.assertEqual(set(antigo), set(sugestao.PERFIL["classificacoes"]))
+        for codigo, esperado in antigo.items():
+            with self.subTest(codigo=codigo):
+                id_classificacao = self.base.classificacao_cbs_ibs(codigo, DATA)["id"]
+                lido = self.base.percentuais_reducao(id_classificacao, DATA)
+                self.assertEqual(lido, {"cbs": Decimal(esperado), "ibsUf": Decimal(esperado),
+                                        "ibsMun": Decimal(esperado)})
+
+    def test_perfil_nao_guarda_copia_de_dado_da_base(self):
+        for perfil in sugestao.PERFIL["classificacoes"].values():
+            self.assertNotIn("reducao", perfil)
+        self.assertNotIn("imposto_seletivo", sugestao.PERFIL)
+
+    def test_tabelas_atualizadas_pelo_robo_chegam_na_sugestao(self):
+        # a situação do robô: a base nova traz outra versão e outra redução, e nenhum teste precisa mudar
+        with tempfile.TemporaryDirectory() as pasta:
+            destino = Path(pasta) / "base-receita.db"
+            shutil.copy(SCRIPTS.parent / "references" / simples_base.NOME_BASE, destino)
+            con = sqlite3.connect(destino)
+            cesta = con.execute("SELECT CLTR_ID FROM CLASSIFICACAO_TRIBUTARIA WHERE CLTR_CD = '200003' "
+                                "AND CLTR_NOMENCLATURA = 'NCM' AND CLTR_INICIO_VIGENCIA = '2026-01-01'").fetchone()[0]
+            con.execute("UPDATE PERCENTUAL_REDUCAO SET PERE_VALOR = 70 WHERE PERE_CLTR_ID = ? AND PERE_TBTO_ID = 2",
+                        (cesta,))
+            con.execute("UPDATE PERCENTUAL_REDUCAO SET PERE_VALOR = 40.5 WHERE PERE_CLTR_ID = ? AND PERE_TBTO_ID = 3",
+                        (cesta,))
+            con.execute("INSERT INTO VERSAO_BASE_DADO (VRBD_ID, VRBD_DATA, VRBD_DESCRICAO, VRBD_VERSAO_BASE_DADO) "
+                        "VALUES (9998, '2027-01-02 00:00:00', 'teste do robô', 'V9998')")
+            con.commit()
+            con.close()
+            with simples_base.Base(destino) as nova:
+                r = sugestao.sugerir("10063021", 65, DATA, nova)
+                self.assertEqual(r["sugestoes"][0]["cClassTrib"], "200003")
+                self.assertEqual(r["sugestoes"][0]["reducao"], "70")
+                self.assertEqual(r["sugestoes"][0]["reducoes"],
+                                 {"cbs": "70", "ibsEstadual": "40.5", "ibsMunicipal": "100"})
+                self.assertIn("70% na CBS", r["sugestoes"][0]["motivo"])
+                self.assertIn("V9998", sugestao.sugerir("22030000", 65, DATA, nova)["imposto_seletivo"]["texto"])
+        # a base original continua como estava
+        self.assertEqual(self.sugerir("10063021")["sugestoes"][0]["reducao"], "100")
+        self.assertNotIn("reducoes", self.sugerir("10063021")["sugestoes"][0])
 
     def test_imposto_seletivo_na_lista(self):
         for ncm in ("22030000", "22021000", "24022000"):
@@ -194,7 +237,7 @@ class SugestaoTest(unittest.TestCase):
                 self.assertIn("não calcula", seletivo["texto"])
                 self.assertIn("contador", seletivo["texto"])
                 self.assertIn("2027", seletivo["texto"])
-                self.assertIn("V0073", seletivo["texto"])
+                self.assertIn(self.base.versao_base()["versao"], seletivo["texto"])
 
     def test_imposto_seletivo_fora_da_lista(self):
         # 22011000 (água) não está na lista que o mini app copia da Receita, ao contrário do que a revisão supôs
@@ -204,10 +247,12 @@ class SugestaoTest(unittest.TestCase):
                 self.assertFalse(seletivo["na_lista"])
                 self.assertIn("não verifica o Imposto Seletivo além", seletivo["texto"])
 
-    def test_imposto_seletivo_respeita_a_regra_do_mini_app(self):
-        self.assertTrue(sugestao._no_imposto_seletivo("88021100"))
-        self.assertTrue(sugestao._no_imposto_seletivo("88029999"))  # prefixo 8802
-        self.assertFalse(sugestao._no_imposto_seletivo("22011000"))
+    def test_imposto_seletivo_vem_da_base_com_a_excecao_da_tabela(self):
+        # 88021100 tem exceção cadastrada (88026000), que a base expressa em EXCECAO_AD_VALOREM_PRODUTO
+        for ncm, esperado in (("88021100", True), ("88029999", True), ("22011000", False)):
+            with self.subTest(ncm=ncm):
+                self.assertEqual(self.base.no_imposto_seletivo(ncm, DATA), esperado)
+        self.assertTrue(self.sugerir("22030000")["imposto_seletivo"]["na_lista"])
 
     def test_sem_ncm_valido_nao_ha_imposto_seletivo(self):
         self.assertNotIn("imposto_seletivo", self.sugerir("85171231"))
