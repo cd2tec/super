@@ -16,6 +16,7 @@ from versao_da_base import base_completa_da_skill  # noqa: E402
 SKILL = "cbs-ibs-regime-regular"
 PASTA = ROOT / "conferencia" / SKILL
 INDICE_COMPRA_GOV = 3  # a primeira nota de compra governamental do lote, na semente padrão do Java
+AMOSTRA = 600  # o --amostra com que o esperadas.json foi gravado
 CAMINHOS = {"/calculadora/regime-geral", "/calculadora/observabilidade/regime-geral"}
 
 
@@ -70,6 +71,8 @@ class CasosTest(unittest.TestCase):
                 self.assertIn(corpo.get("tpDoc"), (None, 55, 65))
                 for item in corpo.get("itens") or []:
                     if isinstance(item, dict):
+                        # "nbs": null passa: os JSONs da Receita o trazem (ObservabilidadeControllerTest, validacao_88).
+                        # A recusa de NBS do calc.py precisa tratar null como ausente.
                         self.assertFalse(item.get("nbs"))
 
     def test_mesma_lista_sempre(self):
@@ -77,13 +80,26 @@ class CasosTest(unittest.TestCase):
         self.assertNotEqual([c["requisicao"] for c in self.b.casos(semente=8)],
                             [c["requisicao"] for c in self.casos])
 
-    def test_amostra_leva_todos_os_escritos_e_todos_os_grupos(self):
-        amostra = self.b.amostra(self.casos, 400)
-        self.assertEqual(len(amostra), 400)
+    def test_amostra_leva_todos_os_escritos_e_todo_tipo(self):
+        amostra = self.b.amostra(self.casos, AMOSTRA)
+        self.assertEqual(len(amostra), AMOSTRA)
         escritos = {c["id"] for c in self.casos if c["origem"] == "escrito"}
         self.assertLessEqual(escritos, {c["id"] for c in amostra})
-        self.assertEqual({c["grupo"] for c in amostra if c["origem"] == "gerado"}, set(self.b.GRUPOS))
-        self.assertEqual(self.b.amostra(self.casos, 400), amostra)
+        tipos = {self.b.tipo(c) for c in self.casos if c["origem"] == "gerado"}
+        self.assertEqual({self.b.tipo(c) for c in amostra if c["origem"] == "gerado"}, tipos)
+        self.assertEqual(self.b.amostra(self.casos, AMOSTRA), amostra)
+
+    def test_amostra_pequena_demais_avisa(self):
+        with self.assertRaises(ValueError):
+            self.b.amostra(self.casos, 400)
+
+    def test_tipo_tira_os_codigos(self):
+        caso = {"chave": "is:sem-grupo-22030000", "requisicao": {"caminho": "/calculadora/observabilidade/regime-geral"}}
+        self.assertEqual(self.b.tipo(caso), "is:sem-grupo-2203:obs")
+        caso = {"chave": "nomenclatura:cst-410-com-000001-2027-01-01", "requisicao": {"caminho": "/calculadora/regime-geral"}}
+        self.assertEqual(self.b.tipo(caso), "nomenclatura:cst-410-com-#-2027-01-01:rg")
+        caso = {"chave": "regime-geral:lote-17-2026-banco", "requisicao": {"caminho": "/calculadora/regime-geral"}}
+        self.assertEqual(self.b.tipo(caso), "regime-geral:lote-2026-banco:rg")
 
     def test_lote_portado_do_java(self):
         # java.util.Random(42).nextInt(100), Random(42).nextDouble() e Random(7).nextInt(7), tirados do Java 25
@@ -139,6 +155,25 @@ class EsperadasTest(unittest.TestCase):
                                  rp.escrever_json(self.por_id[caso["id"]]["requisicao"], None))
                 self.assertEqual(caso["grupo"], self.por_id[caso["id"]]["grupo"])
                 self.assertIn("status", caso["resposta"])
+
+    def test_esperadas_cobrem_todo_tipo_de_caso(self):
+        tipos = {self.b.tipo(c) for c in self.por_id.values() if c["origem"] == "gerado"}
+        gravados = {self.b.tipo(self.por_id[c["id"]]) for c in self.esperadas["casos"]
+                    if self.por_id[c["id"]]["origem"] == "gerado"}
+        self.assertEqual(tipos - gravados, set())
+        # o REG-013 da cerveja (2203) e do refrigerante (2202), que a revisão pediu nomeado
+        self.assertIn("is:sem-grupo-2203:obs", gravados)
+        self.assertIn("is:sem-grupo-2202:obs", gravados)
+
+    def test_esperadas_cobrem_todo_codigo_e_estado_da_bateria(self):
+        # pede a conta local de todos os casos: só com o motor pronto e a base completa (como no robô)
+        completa = base_completa_da_skill(SKILL)
+        if completa is None or not (ROOT / "core" / "cd2-super" / "skills" / SKILL / "scripts" / "calc.py").exists():
+            self.skipTest("precisa do calc.py da skill e da base completa (CD2_BASE_COMPLETA e CD2_BASE_COMPLETA_SKILL)")
+        todos = self.b.cobertura([self.b.responder(c["requisicao"]) for c in self.b.casos(completa)])
+        gravados = self.b.cobertura([c["resposta"] for c in self.esperadas["casos"]])
+        for chave, valores in todos.items():
+            self.assertEqual(set(valores) - set(gravados[chave]), set(), chave)
 
     def test_esperadas_levam_todos_os_escritos(self):
         escritos = {c["id"] for c in self.por_id.values() if c["origem"] == "escrito"}

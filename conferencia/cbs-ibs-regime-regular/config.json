@@ -324,6 +324,42 @@
     {
       "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/arredondamento/Teste_CasosFixosPedagioBasesArredondamento.java",
       "motivo": "Pedágio e base de cálculo unificada: endpoints fora do escopo."
+    },
+    {
+      "teste": "src/test/resources/entradas/arredondamento/T5.json",
+      "motivo": "Compra governamental (gCompraGov): fora do escopo; a skill recusa o grupo antes do motor."
+    },
+    {
+      "teste": "src/test/resources/entradas/calculoscorretos/Teste_011002_1.json",
+      "motivo": "Só tem itens com NBS: a skill recusa NBS antes do motor (só bens, por NCM)."
+    },
+    {
+      "teste": "src/test/resources/entradas/tpdoc/tpdoc_imposto_seletivo_superfluo_2026.json",
+      "motivo": "tpDoc 62: a skill só calcula NF-e (55), NFC-e (65) ou sem tpDoc e recusa o resto antes do motor."
+    },
+    {
+      "teste": "src/test/resources/entradas/tpdoc/tpdoc_nfcom_200044.json",
+      "motivo": "tpDoc 62: a skill só calcula NF-e (55), NFC-e (65) ou sem tpDoc e recusa o resto antes do motor."
+    },
+    {
+      "teste": "src/test/resources/entradas/tpdoc/tpdoc_nfse_200043.json",
+      "motivo": "tpDoc 91: a skill só calcula NF-e (55), NFC-e (65) ou sem tpDoc e recusa o resto antes do motor."
+    },
+    {
+      "teste": "src/test/resources/entradas/tpdoc/tpdoc_nfse_515001.json",
+      "motivo": "tpDoc 91: a skill só calcula NF-e (55), NFC-e (65) ou sem tpDoc e recusa o resto antes do motor."
+    },
+    {
+      "teste": "src/test/resources/entradas/validacoes/Teste_validacao_3_NbsNaoEncontradaException.json",
+      "motivo": "Só tem itens com NBS: a skill recusa NBS antes do motor (só bens, por NCM)."
+    },
+    {
+      "teste": "src/test/resources/entradas/validacoes/Teste_validacao_4_NbsNaoVinculadaException.json",
+      "motivo": "Só tem itens com NBS: a skill recusa NBS antes do motor (só bens, por NCM)."
+    },
+    {
+      "teste": "src/test/resources/entradas/validacoes/Teste_validacao_6_NcmNbsSimultaneasException.json",
+      "motivo": "Só tem itens com NBS: a skill recusa NBS antes do motor (só bens, por NCM)."
     }
   ]
 }

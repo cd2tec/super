@@ -6,7 +6,9 @@ conta local.
 
 Exporta, para scripts/receita_paridade.py e para os testes:
     casos(base_completa=None, semente=7)   lista de casos, sempre na mesma ordem
-    amostra(casos, n)                       n casos: todos os escritos e os gerados espalhados pelos grupos
+    amostra(casos, n)                       n casos: todos os escritos e todo tipo de caso gerado (tipo)
+    tipo(caso)                              o tipo de um caso gerado, que a amostra cobre
+    cobertura(respostas)                    códigos de erro, estados de item, status e títulos que as respostas mostram
     responder(requisicao)                   {"status", "corpo"} da conta local (rr_calc.executar)
     omitidos(base_completa=None, semente=7) o que a base pede e a matriz não gerou, com o motivo
     GRUPOS                                  os grupos fixos, que os testes das Tasks 5 a 10 filtram
@@ -32,6 +34,11 @@ O grupo diz até onde o motor precisa chegar para responder o caso:
                         com exatamente um inválido (com mais de um o Java devolve um erro qualquer, porque
                         processa os itens em parallelStream)
 
+As respostas oficiais do esperadas.json são a amostra de 600 casos (todos os escritos e todo tipo de gerado):
+    python3 scripts/receita_paridade.py --skill cbs-ibs-regime-regular --oficial http://127.0.0.1:8080/api \
+        --gravar-esperadas --amostra 600
+Com menos que escritos + tipos, `amostra` recusa (ValueError).
+
 Fora da bateria, porque a skill recusa antes do motor: NBS, NFS-e, tpDoc que não seja 55 nem 65, e
 gCompraGov. Os testes da Receita que só cobrem isso estão em `excluidos_da_bateria` do config.json.
 
@@ -45,6 +52,7 @@ import copy
 import importlib.util
 import math
 import random
+import re
 import sqlite3
 import sys
 from decimal import ROUND_FLOOR, Decimal, localcontext
@@ -55,7 +63,6 @@ RAIZ = PASTA.parent.parent
 SKILL = RAIZ / "core" / "cd2-super" / "skills" / "cbs-ibs-regime-regular"
 BASE_DA_SKILL = SKILL / "references" / "base-receita.db"
 SEMENTE_PADRAO = 7
-MINIMO_DE_GERADOS_POR_GRUPO = 6  # na amostra, antes de equilibrar os grupos
 CAMINHO_REGIME_GERAL = "/calculadora/regime-geral"
 CAMINHO_OBSERVABILIDADE = "/calculadora/observabilidade/regime-geral"
 GRUPOS = ("entrada", "nomenclatura", "cbs-ibs", "reducao", "diferimento", "tributacao-regular", "is", "memoria",
@@ -930,36 +937,83 @@ def omitidos(base_completa: Path | None = None, semente: int = SEMENTE_PADRAO) -
     return copy.deepcopy(_CACHE[_chave_do_cache(base_completa, semente)[1]][1])
 
 
+def cobertura(respostas: list) -> dict:
+    """Os códigos de erro (do corpo e dos itens), os estados de item, os status HTTP e os títulos dos erros do
+    /regime-geral (que não trazem código) que as respostas mostram."""
+    codigos, estados, status, titulos = set(), set(), set(), set()
+    for resposta in respostas:
+        if not isinstance(resposta, dict):
+            continue
+        status.add(str(resposta.get("status")))
+        corpo = resposta.get("corpo")
+        if not isinstance(corpo, dict):
+            continue
+        if resposta.get("status") != 200 and isinstance(corpo.get("title"), str):
+            titulos.add(corpo["title"])
+        for erro in corpo.get("errors") or []:
+            if isinstance(erro, dict) and isinstance(erro.get("code"), str):
+                codigos.add(erro["code"])
+        for objeto in corpo.get("objetos") or []:
+            if not isinstance(objeto, dict):
+                continue
+            if isinstance(objeto.get("estadoItem"), str):
+                estados.add(objeto["estadoItem"])
+            for erro in objeto.get("erros") or []:
+                if isinstance(erro, dict) and isinstance(erro.get("code"), str):
+                    codigos.add(erro["code"])
+    return {"codigos": sorted(codigos), "estados": sorted(estados), "status": sorted(status),
+            "titulos": sorted(titulos)}
+
+
+def tipo(caso: dict) -> str:
+    """O tipo de um caso gerado: o grupo, a chave sem os códigos e o endpoint.
+
+    Saem da chave o cClassTrib e o NCM (seis a oito dígitos) e o índice das misturas e das notas do lote; ficam
+    o CST, a data, o tpDoc e a quantidade. No grupo is o NCM vira a posição (quatro dígitos), para cada família
+    de produto (cerveja 2203, refrigerante 2202, cigarro 2402, carro 8703...) ser um tipo.
+    """
+    grupo, _, resto = caso["chave"].partition(":")
+    resto = re.sub(r"\b(lote|mistura|um-invalido|todos-validos|nenhum-valido)-\d+", r"\1", resto)
+    if grupo == "is":
+        resto = re.sub(r"(?<!\d)(\d{4})\d{4}(?!\d)", r"\1", resto)
+    resto = re.sub(r"(?<!\d)\d{6,8}(?!\d)", "#", resto)
+    sufixo = "rg" if caso["requisicao"]["caminho"] == CAMINHO_REGIME_GERAL else "obs"
+    return f"{grupo}:{resto}:{sufixo}"
+
+
 def amostra(casos: list, n: int) -> list:
-    """n casos, sempre os mesmos: todos os escritos e, dos gerados, alguns de cada grupo e depois sempre do grupo
-    que tem menos casos na amostra até ali; dentro do grupo, uma chave de cada antes de repetir chave.
-    Saem na ordem da lista original."""
+    """n casos, sempre os mesmos: todos os escritos, depois um caso gerado de cada tipo (ver `tipo`), depois os
+    gerados que sobram, sempre do grupo com menos casos na amostra até ali e, dentro do grupo, passando pelos
+    tipos em rodízio. Saem na ordem da lista original.
+
+    A amostra que vai para o esperadas.json precisa ter todo tipo: é ela que os testes do dia a dia conferem.
+    """
     escritos = [c for c in casos if c.get("origem") == "escrito"]
-    if len(escritos) > n:
-        raise ValueError(f"A amostra de {n} casos não comporta os {len(escritos)} casos escritos.")
+    gerados = [c for c in casos if c.get("origem") != "escrito"]
+    random.Random(SEMENTE_PADRAO).shuffle(gerados)
+    por_tipo: dict = {}
+    for c in gerados:
+        por_tipo.setdefault(tipo(c), []).append(c)
+    minimo = len(escritos) + len(por_tipo)
+    if minimo > n:
+        raise ValueError(f"A amostra de {n} casos não comporta os {len(escritos)} escritos e os {len(por_tipo)} "
+                         f"tipos de caso gerado (mínimo {minimo}).")
     escolhidos = {c["id"] for c in escritos}
     por_grupo = {g: 0 for g in GRUPOS}
     for c in escritos:
-        por_grupo[c["grupo"]] = por_grupo.get(c["grupo"], 0) + 1
-    filas = {g: [] for g in GRUPOS}
-    sorteador = random.Random(SEMENTE_PADRAO)
-    for grupo in GRUPOS:
-        gerados = [c for c in casos if c.get("origem") != "escrito" and c["grupo"] == grupo]
-        sorteador.shuffle(gerados)
-        primeiros, resto, chaves = [], [], set()
-        for c in gerados:
-            chave = c.get("chave", c["id"])
-            (resto if chave in chaves else primeiros).append(c)
-            chaves.add(chave)
-        filas[grupo] = primeiros + resto
-    # primeiro uns poucos gerados de cada grupo, para todo grupo ter casos da matriz; depois o grupo mais magro
-    for _ in range(MINIMO_DE_GERADOS_POR_GRUPO):
-        for grupo in GRUPOS:
-            if filas[grupo] and len(escolhidos) < n:
-                escolhidos.add(filas[grupo].pop(0)["id"])
-                por_grupo[grupo] += 1
+        por_grupo[c["grupo"]] += 1
+    filas = {g: [] for g in GRUPOS}  # por grupo, os tipos em rodízio
+    for nome, lista in por_tipo.items():
+        primeiro = lista.pop(0)
+        escolhidos.add(primeiro["id"])
+        por_grupo[primeiro["grupo"]] += 1
+        if lista:
+            filas[primeiro["grupo"]].append(lista)
     while len(escolhidos) < n and any(filas.values()):
         grupo = min((g for g in GRUPOS if filas[g]), key=lambda g: (por_grupo[g], GRUPOS.index(g)))
-        escolhidos.add(filas[grupo].pop(0)["id"])
+        lista = filas[grupo].pop(0)
+        escolhidos.add(lista.pop(0)["id"])
         por_grupo[grupo] += 1
+        if lista:
+            filas[grupo].append(lista)
     return [c for c in casos if c["id"] in escolhidos]
