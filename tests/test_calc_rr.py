@@ -575,6 +575,41 @@ class CalcCLITest(unittest.TestCase):
                           rr_calc.executar_operacao(bruto, base, porta="tecnica")):
                 self.assertIn("não é um aplicativo da Receita Federal", saida["aviso_origem"])
 
+    def cerveja(self, com_bloco=True):
+        item = {"descricao": "cerveja", "ncm": "22030000", "cst": "000", "classificacao": "000001",
+                "valor": Decimal("100.00"), "quantidade": Decimal("10"), "unidade": "LT",
+                "aliquotas": {"cbs": Decimal("8.8"), "ibs_estadual": Decimal("8.85"),
+                              "ibs_municipal": Decimal("8.85"),
+                              "imposto_seletivo": {"ad_valorem": Decimal("10"), "ad_rem": Decimal("0")}}}
+        if com_bloco:
+            item["imposto_seletivo"] = {"cst": "000", "classificacao": "000001", "valor": Decimal("100.00")}
+        return self.operacao(data="2027-03-01", itens=[item])
+
+    def test_item_com_is_pela_porta_em_portugues(self):
+        op = self.cerveja()
+        bloco = rr_calc.normalizar(op, "em-2027")["itens"][0]["impostoSeletivo"]
+        self.assertEqual(bloco, {"cst": "000", "cClassTrib": "000001", "baseCalculo": Decimal("100.00"),
+                                 "quantidade": Decimal("10"), "unidade": "LT"})
+        with rr_base.Base() as base:
+            saida = rr_calc.executar_operacao(op, base)
+        item = saida["corpo"]["objetos"][0]
+        self.assertEqual(item["estadoItem"], "CALCULO_SIMULADO", item)
+        self.assertIn("vIS", json.dumps(item["tribCalc"]))
+
+    def test_bloco_do_is_nao_perde_o_que_tem(self):
+        op = self.cerveja()
+        op["itens"][0]["imposto_seletivo"].update({"quantidade": 3, "unidade": "KG"})
+        bloco = rr_calc.normalizar(op, "em-2027")["itens"][0]["impostoSeletivo"]
+        self.assertEqual((bloco["quantidade"], bloco["unidade"]), (3, "KG"))
+
+    def test_item_sem_bloco_do_is_da_o_erro_oficial(self):
+        with rr_base.Base() as base:
+            saida = rr_calc.executar_operacao(self.cerveja(com_bloco=False), base)
+        self.assertEqual(saida["status"], 200)
+        item = saida["corpo"]["objetos"][0]
+        self.assertNotIn(item["estadoItem"], ("CALCULADO", "CALCULO_SIMULADO"))
+        self.assertIn("REG-013", json.dumps(item))
+
     def test_aliquota_informada_vence_o_cenario(self):
         op = self.operacao()
         op["itens"][0]["aliquotas"] = {"cbs": Decimal("1.5"), "ibsEstadual": Decimal("2"), "ibsMunicipal": 0}

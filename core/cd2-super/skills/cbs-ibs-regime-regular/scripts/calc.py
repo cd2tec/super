@@ -23,9 +23,16 @@ Porta em português (padrão). A operação é:
                 "ncm": "84713012",          como veio (NCM de 7 dígitos não é corrigido)
                 "cst": "000", "classificacao": "000001",
                 "valor": 100.00,            base de cálculo
-                "quantidade": 1, "unidade": "UN",   (o item com IS ad rem usa)
+                "quantidade": 10, "unidade": "LT",  quantidade e unidade do item (copiadas para o bloco do IS)
                 "aliquotas": {"cbs": 8.8, "ibs_estadual": 8.85, "ibs_municipal": 8.85,
-                              "imposto_seletivo": {"ad_valorem": 0, "ad_rem": 0}}}]}   opcional
+                              "imposto_seletivo": {"ad_valorem": 0, "ad_rem": 0}},   opcional
+                "imposto_seletivo": {"cst": "000", "classificacao": "000001", "valor": 100.00,
+                                     "quantidade": 10, "unidade": "LT"}}]}   o bloco do IS
+Item com Imposto Seletivo leva dois blocos: `aliquotas.imposto_seletivo` (alíquota ad valorem e ad rem) e o
+`imposto_seletivo` do item, com a tributação do IS: `cst` e `classificacao` (a classificação tributária do IS),
+`valor` (a base de cálculo do IS), `quantidade` e `unidade` (a unidade tributável, para o IS ad rem) e, se
+for o caso, `imposto_informado`. Sem `quantidade` ou `unidade` no bloco, vale a do item; o que está no bloco
+nunca é trocado. Sem o bloco, a calculadora responde com o erro oficial (REG-013).
                 (o nome da Receita também vale: ibsEstadual, ibsMunicipal, impostoSeletivo, adValorem, adRem)
 Sem `aliquotas`, de 2027 em diante o item leva as do cenário (`--cenario`, padrão em-2027); antes de 2027
 nunca leva (a calculadora recusa alíquota nominal em 2026, REG-036). Alíquota informada vence o cenário.
@@ -231,8 +238,13 @@ def _item_receita(item, posicao: int):
         saida[_ITEM_ALIAS.get(chave, chave)] = valor
     if "aliquotasNominais" in saida:
         saida["aliquotasNominais"] = _aliquotas_receita(saida["aliquotasNominais"])
-    if "impostoSeletivo" in saida:
-        saida["impostoSeletivo"] = _renomear(saida["impostoSeletivo"], _IS_ITEM_ALIAS)
+    bloco_is = saida.get("impostoSeletivo")
+    if isinstance(bloco_is, dict):
+        bloco_is = _renomear(bloco_is, _IS_ITEM_ALIAS)
+        for campo in ("quantidade", "unidade"):
+            if campo not in bloco_is and campo in saida:
+                bloco_is[campo] = saida[campo]
+        saida["impostoSeletivo"] = bloco_is
     saida.setdefault("numero", posicao)
     if "ncm" in saida and isinstance(saida["ncm"], (int, Decimal)) and not isinstance(saida["ncm"], bool):
         saida["ncm"] = str(saida["ncm"])
