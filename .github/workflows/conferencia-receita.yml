@@ -89,6 +89,8 @@ jobs:
       - name: Config da skill
         run: |
           set -euo pipefail
+          mkdir -p "$SAIDA"
+          echo "Config da skill" > "$ETAPA"
           cfg() { python3 scripts/receita_robo.py config --skill "$SKILL" --campo "$1"; }
           PORTA=$(cfg oficial.porta)
           CONTEXTO=$(cfg oficial.contexto)

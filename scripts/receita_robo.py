@@ -699,13 +699,12 @@ def _resumo_upstream(meta: dict, upstream: dict, config: dict | None = None) -> 
             texto += f" Tabelas: seguem no commit `{de_m[:7]}`."
         linhas.append(texto)
     else:
-        nome = texto_seguro(config["nome_humano"])
         if para_c["versao"] != de_c["versao"]:
-            linhas.append(f"- Calculadora ({nome}): da {de_c['versao']} (commit `{de_c['commit'][:7]}`) para a "
+            linhas.append(f"- Calculadora: da {de_c['versao']} (commit `{de_c['commit'][:7]}`) para a "
                           f"{para_c['versao']} (commit `{para_c['commit'][:7]}`). Diferença: "
                           f"{_url_compare(calc_repo, de_c['commit'], para_c['commit'])}")
         else:
-            linhas.append(f"- Calculadora ({nome}): segue na {de_c['versao']}.")
+            linhas.append(f"- Calculadora: segue na {de_c['versao']}.")
         if para_m != de_m:
             linhas.append(f"- Migrações: do commit `{de_m[:7]}` para o `{para_m[:7]}`. Diferença: "
                           f"{_url_compare(migr_repo, de_m, para_m)}")
