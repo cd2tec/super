@@ -1,0 +1,32 @@
+{
+  "version": "2026-11-22",
+  "checked_at": "2026-11-22",
+  "lei": "Lei Complementar 214/2025",
+  "lei_url": "https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp214.htm",
+  "fontes": [
+    "https://www.diariodepernambuco.com.br/economia/2026/11/11729363-ministro-defende-aliquota-da-reforma-e-estima-media-efetiva-de-85.html",
+    "https://www.gov.br/fazenda/pt-br/central-de-conteudo/publicacoes/apresentacoes/2024/abril/2024-04-24_Regulamentacao-da-Reforma-Tributaria.pdf",
+    "https://github.com/ReceitaFederal/calculadora-rtc-regime-regular/blob/main/docs/exemplos.md"
+  ],
+  "padrao": "em-2027",
+  "cenarios": {
+    "em-2027": {
+      "nome": "Em 2027",
+      "cbs": 11.3,
+      "ibs_estadual": 0.05,
+      "ibs_municipal": 0.05
+    },
+    "reforma-completa": {
+      "nome": "Reforma completa",
+      "cbs": 8.8,
+      "ibs_estadual": 8.85,
+      "ibs_municipal": 8.85,
+      "hipotese_cd2": true,
+      "nota": "A divisão do IBS entre estado e município é uma hipótese da CD2."
+    }
+  },
+  "imposto_seletivo": {
+    "padrao": null,
+    "nota": "Sem alíquota padrão: a pessoa informa a alíquota, ou a entrega usa um exemplo marcado como exemplo."
+  }
+}

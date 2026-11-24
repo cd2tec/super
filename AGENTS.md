@@ -1,6 +1,6 @@
 # Instruções para agentes neste repositório
 
-Este repositório publica o plugin `cd2-super`, da CD2 Tech, para mais de uma plataforma: Claude Code e Claude Cowork, Codex e ChatGPT Work, DeepSeek Harness e GPT Store. São vinte e oito skills de cinco tipos: três calculadoras (duas levam para dentro do assistente a conta de uma calculadora gratuita da CD2, e a `cbs-ibs-simples` leva a da calculadora oficial do Simples Nacional da Receita Federal), oito relatórios gerenciais `relatorio-*`, o painel `painel-varejo`, a ficha `ficha-archeo-mcp` e quinze rotinas do dia. Relatório não é painel: só o `painel-varejo` entrega painel visual, e as outras palavras ficam separadas nos textos.
+Este repositório publica o plugin `cd2-super`, da CD2 Tech, para mais de uma plataforma: Claude Code e Claude Cowork, Codex e ChatGPT Work, DeepSeek Harness e GPT Store. São vinte e nove skills de cinco tipos: quatro calculadoras (duas levam para dentro do assistente a conta de uma calculadora gratuita da CD2, a `cbs-ibs-simples` leva a da calculadora oficial do Simples Nacional da Receita Federal e a `cbs-ibs-regime-regular`, a da calculadora oficial do regime regular), oito relatórios gerenciais `relatorio-*`, o painel `painel-varejo`, a ficha `ficha-archeo-mcp` e quinze rotinas do dia. Relatório não é painel: só o `painel-varejo` entrega painel visual, e as outras palavras ficam separadas nos textos.
 
 Nomes fixos: repositório `cd2tec/super`, marketplace `super`, plugin `cd2-super`. A titular é só a CD2 Tech, em todos os arquivos.
 
@@ -41,7 +41,7 @@ Cada item do `skills.json` tem `tipo` e `gpt`. O `tipo` escolhe os kits que o sy
 
 | `tipo` | Skills | Kits | Entrega |
 |---|---|---|---|
-| `calculadora` | `fim-escala-6x1`, `custo-vrva`, `cbs-ibs-simples` | `calculadora` | A conta da calculadora gratuita da CD2 ou, na `cbs-ibs-simples`, a da calculadora oficial da Receita, em `calc.py` e `render.py` |
+| `calculadora` | `fim-escala-6x1`, `custo-vrva`, `cbs-ibs-simples`, `cbs-ibs-regime-regular` | `calculadora` | A conta da calculadora gratuita da CD2 ou, na `cbs-ibs-simples` e na `cbs-ibs-regime-regular`, a da calculadora oficial da Receita, em `calc.py` e `render.py` |
 | `relatorio` | os oito `relatorio-*` | `sql`, `dados`, `relatorio` | Relatório gerencial com a prova, em `render_relatorio.py` |
 | `painel` | `painel-varejo` | `sql`, `dados` | Painel visual, em `build_dashboard.py` |
 | `ficha` | `ficha-archeo-mcp` | `sql` | Ficha de ferramenta do Archeo MCP Creator da CD2 |
@@ -57,7 +57,7 @@ O que cada kit traz:
 
 O campo `departamento` diz em que área da loja a skill aparece no README e no site, um dos nomes de `DEPARTAMENTOS` em `scripts/sync_plugins.py`, que também define a ordem das áreas. Dentro de cada área, vale a ordem do `skills.json`, da skill que mais chama a atenção para a que menos chama.
 
-O campo `fonte_externa` é opcional e booleano. Com `true`, o `site_url` da skill aponta para uma fonte que não é da CD2 (hoje, o GitHub da calculadora oficial do Simples Nacional): o README e o site levam o link sem UTM e o card diz "Ver a calculadora oficial" em vez de "Abrir a calculadora gratuita".
+O campo `fonte_externa` é opcional e booleano. Com `true`, o `site_url` da skill aponta para uma fonte que não é da CD2 (hoje, o GitHub das calculadoras oficiais do Simples Nacional e do regime regular): o README e o site levam o link sem UTM e o card diz "Ver a calculadora oficial" em vez de "Abrir a calculadora gratuita".
 
 O campo `gpt` é booleano e **vale só para calculadoras**: só as skills com `gpt: true` viram pacote de GPT, e relatório, painel e ficha ficam em `false`. O sync acusa GPT faltando em skill com `gpt: true`.
 
@@ -129,8 +129,9 @@ Esta seção vale para as calculadoras da CD2. Elas ficam em repositórios priva
 | `fim-escala-6x1` | https://calc-fim-escala6x1.cd2.com.br/ |
 | `custo-vrva` | https://calc-vrva.cd2.com.br/ |
 | `cbs-ibs-simples` | Nenhum site da CD2. A fonte é a calculadora oficial da Receita, no GitHub |
+| `cbs-ibs-regime-regular` | A fonte é a calculadora oficial da Receita, no GitHub. O fechamento convida para https://calc-imposto.cd2.com.br/, a calculadora gratuita da CD2 para a loja inteira, e as alíquotas dos cenários (`references/aliquotas.json`) são sincronizadas à mão com ela |
 
-A `cbs-ibs-simples` não tem site da CD2 e não segue esta seção: veja [Skills que espelham a calculadora da Receita](#skills-que-espelham-a-calculadora-da-receita). Quem a mantém em dia é o robô de conferência, um workflow agendado descrito na mesma seção.
+A `cbs-ibs-simples` e a `cbs-ibs-regime-regular` seguem [Skills que espelham a calculadora da Receita](#skills-que-espelham-a-calculadora-da-receita). Desta seção, só o `aliquotas.json` da `cbs-ibs-regime-regular` vale: quando as hipóteses de alíquota da calculadora gratuita da CD2 (https://calc-imposto.cd2.com.br/) mudarem, copie os números, a data de conferência e as fontes para ele e atualize a `metodologia.md`, o `SKILL.md` e as instruções do GPT da skill. Quem mantém a conta das duas em dia é o robô de conferência, um workflow agendado descrito na mesma seção.
 
 Quando o `legal-params.json` ou o `assumptions.json` de uma calculadora mudar:
 
@@ -147,7 +148,7 @@ Cada skill mostra a data de conferência dos parâmetros, e a pergunta sobre nov
 
 A `cbs-ibs-simples` porta para Python a calculadora oficial do Simples Nacional da Receita Federal (https://github.com/ReceitaFederal/calculadora-rtc-simples-nacional) e leva dentro a base montada das migrações de https://github.com/ReceitaFederal/calculadora-rtc-regime-regular. Os dois repositórios são públicos e MIT; o aviso de copyright e a licença estão no `NOTICE`. A skill não é um aplicativo da Receita Federal, e todo resultado diz isso.
 
-A segunda skill desse tipo, a conta do regime regular (Lucro Real e Presumido), está por fazer. Quem for tocar esse projeto começa por `projetos/regime-regular.md`, que diz onde o projeto 1 parou, o que decidir antes do desenho e o que do robô ainda precisa generalizar.
+A segunda skill desse tipo, a `cbs-ibs-regime-regular`, porta a calculadora oficial do regime regular (https://github.com/ReceitaFederal/calculadora-rtc-regime-regular), Lucro Real e Presumido, com o Imposto Seletivo, e lê a base do mesmo repositório. Os módulos do motor são os `rr_*.py` e o `numeros.py` (cópia byte a byte do da `cbs-ibs-simples`, conferida por `tests/test_copias_receita.py`), listados em `arquivos_motor` do `config.json`; a conferência roda a calculadora oficial na porta 8080. De 2027 em diante a base da Receita não traz alíquota, e a skill usa as alíquotas informadas ou os cenários de `references/aliquotas.json` (veja a `metodologia.md` dela). Tudo o que esta seção diz da `cbs-ibs-simples` vale para ela, com os nomes dela; os testes são `tests/test_calc_rr.py`, `tests/test_render_rr.py`, `tests/test_sugestao_rr.py`, `tests/test_bateria_rr.py` e os `tests/test_rr_*.py`.
 
 **A exceção ao "sem job no CI".** As calculadoras da CD2 sincronizam à mão porque a fonte é privada e um job exigiria segredo num repositório público. Aqui a fonte é pública, e por isso esta skill pode ter um job agendado, o robô de conferência, que não precisa de segredo nenhum além do `GITHUB_TOKEN` do próprio repositório. A meta é que mudança de tabela na Receita chegue à skill sem depender de alguém lembrar.
 
@@ -298,7 +299,7 @@ O `publicar` mexe na versão e no `CHANGELOG.md`: rode numa cópia do repositór
 - Todo link para `cd2.com.br`, `archeo.cd2.com.br` e os sites das calculadoras leva `utm_source=<origem>&utm_medium=skill&utm_campaign=<campanha>`.
   - Nas skills e nas referências, escreva `utm_source={{UTM_SOURCE}}`. O sync troca o placeholder pelo `utm_source` da plataforma em `harnesses.json`: `claude`, `codex`, `deepseek` e `gpt-store`.
   - No `README.md`, `utm_source=github`. No `docs/index.html`, `utm_source=site-skills`.
-  - O GitHub da calculadora oficial da Receita, fonte da `cbs-ibs-simples`, vai sem UTM, em todo lugar.
+  - O GitHub das calculadoras oficiais da Receita, fontes da `cbs-ibs-simples` e da `cbs-ibs-regime-regular`, vai sem UTM, em todo lugar.
   - A campanha (`utm_campaign`) depende de quem emite o link. O que sai de uma skill (o `SKILL.md`, as instruções do GPT da skill e as entregas do `render.py`) usa o nome da skill, em todo link: calculadora, `cd2.com.br` e Archeo. Os links do repositório como um todo usam `cd2-super`: `README.md`, `docs/index.html`, as referências de `shared/`, o `COMMERCIAL.md`, os READMEs dos pacotes e os links gerais do `_preamble.md` dos GPTs.
 - Os sites das calculadoras sempre com barra no fim: `https://calc-vrva.cd2.com.br/`.
 - WhatsApp comercial: `https://wa.me/5519982355172`, com mensagem preenchida que diz a origem. Nas skills: `Oi, vim pela skill {nome_humano} no {plataforma_humana} e quero falar sobre uso na minha empresa.` No README, "vim pelo GitHub das skills da CD2"; no site, "vim pelo site das skills da CD2".

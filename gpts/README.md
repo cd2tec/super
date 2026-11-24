@@ -7,6 +7,7 @@ Um GPT por calculadora, para quem usa o ChatGPT Plus ou o gratuito. A GPT Store 
 | [`fim-escala-6x1/`](fim-escala-6x1/) | CD2 Escala 6x1 |
 | [`custo-vrva/`](custo-vrva/) | CD2 VR/VA: quanto custa |
 | [`cbs-ibs-simples/`](cbs-ibs-simples/) | CD2 CBS e IBS no Simples |
+| [`cbs-ibs-regime-regular/`](cbs-ibs-regime-regular/) | CD2 CBS, IBS e IS no regime regular |
 
 > As pastas dos GPTs e os arquivos `LICENSE`, `NOTICE` e `COMMERCIAL.md` daqui são **gerados** por `python3 scripts/sync_plugins.py` a partir de `core/cd2-super/` (as instruções vêm de `core/cd2-super/gpts/`). Não edite aqui: edite lá e rode o sync. Só este README é escrito à mão.
 
@@ -25,13 +26,13 @@ Use a conta da CD2 Tech, com o perfil de criador verificado no domínio `cd2.com
 
 1. Abra https://chatgpt.com/gpts/editor e escolha a aba **Configure**. Não use a aba Create, que reescreve as instruções.
 2. **Foto de perfil:** o editor não aceita SVG. Exporte o `knowledge/assets/brand/simbolo.svg` como PNG quadrado (512 x 512 px, com margem em volta do símbolo e fundo `#f2f2f2`) e suba no círculo da foto. Não gere imagem pelo DALL-E.
-3. **Name:** o campo `name` do `gpt.json` (`CD2 Escala 6x1`, `CD2 VR/VA: quanto custa` ou `CD2 CBS e IBS no Simples`).
+3. **Name:** o campo `name` do `gpt.json` (`CD2 Escala 6x1`, `CD2 VR/VA: quanto custa`, `CD2 CBS e IBS no Simples` ou `CD2 CBS, IBS e IS no regime regular`).
 4. **Description:** o campo `description` do `gpt.json`.
 5. **Instructions:** abra o `instructions.md`, copie o arquivo inteiro e cole. Confira que o fim do texto colado é o fim do arquivo.
 6. **Conversation starters:** as 4 frases de `conversation_starters`, uma por campo, na ordem.
-7. **Knowledge:** clique em **Upload files** e suba todos os arquivos de `knowledge/`, inclusive os das subpastas `scripts/`, `references/`, `assets/`, `assets/fonts/` e `assets/brand/` (16 arquivos no CD2 Escala 6x1, 17 no CD2 VR/VA e 19 no CD2 CBS e IBS no Simples; o limite do GPT é 20). Detalhes em [Como o ChatGPT guarda os arquivos](#como-o-chatgpt-guarda-os-arquivos).
+7. **Knowledge:** clique em **Upload files** e suba todos os arquivos de `knowledge/`, inclusive os das subpastas `scripts/`, `references/`, `assets/`, `assets/fonts/` e `assets/brand/` (16 arquivos no CD2 Escala 6x1, 17 no CD2 VR/VA e 19 no CD2 CBS e IBS no Simples; o limite do GPT é 20). O CD2 CBS, IBS e IS no regime regular tem hoje 29 arquivos, acima do limite: não publique esse GPT até o pacote dele caber nos 20. Detalhes em [Como o ChatGPT guarda os arquivos](#como-o-chatgpt-guarda-os-arquivos).
 8. **Capabilities**, conforme `capabilities` do `gpt.json`:
-   - **Web Search:** ligado (`web_browsing: true`). É o que permite a pesquisa de novidades da etapa 3. O CD2 CBS e IBS no Simples não pesquisa: a etapa 3 dele é o aviso de versão nova da calculadora da Receita.
+   - **Web Search:** ligado (`web_browsing: true`). É o que permite a pesquisa de novidades da etapa 3. O CD2 CBS e IBS no Simples e o CD2 CBS, IBS e IS no regime regular não pesquisam: a etapa 3 deles é o aviso de versão nova da calculadora da Receita.
    - **Code Interpreter & Data Analysis:** ligado (`code_interpreter: true`). Sem ele o GPT não roda o `calc.py` nem o `render.py`.
    - **Image Generation:** desligado (`image_generation: false`).
    - **Canvas:** pode ficar desligado.

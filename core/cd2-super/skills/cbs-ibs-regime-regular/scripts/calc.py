@@ -74,7 +74,9 @@ ROTAS = {
 }
 ROTA_OBSERVABILIDADE = ("POST", "/calculadora/observabilidade/regime-geral")
 
-ARQUIVO_ALIQUOTAS = _AQUI.parent / "references" / "aliquotas.json"
+# No pacote, references/ fica ao lado de scripts/; no GPT, o upload é plano e o arquivo fica ao lado deste.
+ARQUIVO_ALIQUOTAS = next((p for p in (_AQUI.parent / "references" / "aliquotas.json", _AQUI / "aliquotas.json")
+                          if p.is_file()), _AQUI.parent / "references" / "aliquotas.json")
 DATA_PADRAO = "2027-01-01"
 CENARIO_PADRAO = "em-2027"
 VERSAO_OPERACAO = "1.0.0"

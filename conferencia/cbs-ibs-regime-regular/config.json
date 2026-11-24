@@ -3,8 +3,15 @@
   "nome_humano": "calculadora oficial do regime regular",
   "arquivos_motor": [
     "rr_motor.py",
+    "rr_entrada.py",
+    "rr_erros.py",
     "rr_item.py",
+    "rr_expressao.py",
+    "rr_base_calculo.py",
     "rr_calculo.py",
+    "rr_calculo_is.py",
+    "rr_memoria.py",
+    "rr_saida.py",
     "rr_base.py",
     "numeros.py"
   ],
