@@ -35,8 +35,10 @@ Port (calculadora-rtc-regime-regular, tag 1.7.2) de:
 Ordem da operação, nos dois: o JSON (400 se ilegível), o Bean Validation, a UF (tirada do município
 quando ausente), o município, a data do fato gerador e o tpDoc. Depois, os itens.
 
-Estado: esta versão responde a entrada (erros de JSON, Bean Validation e da operação). O cálculo de um
-item válido chega nas Tasks 7 a 10 do plano e, até lá, `_processar_item` levanta NotImplementedError.
+Estado: esta versão responde a entrada (erros de JSON, Bean Validation e da operação) e os erros do
+processamento do item (rr_item.processar_item, ProcessamentoItemService até o tratamento). O cálculo
+(CalculoTributoService.calcular) chega nas Tasks 8 a 10 e, até lá, `_calcular_item` levanta
+CalculoNaoPortado; a resposta de sucesso do /regime-geral chega na Task 10.
 """
 from __future__ import annotations
 
@@ -49,6 +51,7 @@ if str(_AQUI) not in sys.path:
 
 import rr_entrada  # noqa: E402  (precisa do caminho acima)
 import rr_erros  # noqa: E402
+import rr_item  # noqa: E402
 from rr_erros import ErroRR  # noqa: E402
 
 BASE_URL_PADRAO = "http://127.0.0.1"  # HttpUtils.getBaseURL da oficial rodando na máquina (esquema://host)
@@ -118,9 +121,19 @@ def _tipo_dfe(tp_doc, data, base):
     return tipo
 
 
+class CalculoNaoPortado(NotImplementedError):
+    """O item passou pelo processamento e chegou ao cálculo, que ainda não foi portado (Tasks 8 a 10)."""
+
+
+def _calcular_item(proc, base):
+    """CalculoTributoService.calcular (o tribCalc do item): chega nas Tasks 8 a 10."""
+    raise CalculoNaoPortado("o cálculo do item ainda não foi portado (Tasks 8 a 10 do plano)")
+
+
 def _processar_item(op, item, data, tipo_dfe, base):
-    """ProcessamentoItemService.processarItem: chega nas Tasks 7 a 10."""
-    raise NotImplementedError("o cálculo do item ainda não foi portado (Tasks 7 a 10 do plano)")
+    """ProcessamentoItemService.processarItem: o processamento até o tratamento e, depois, o cálculo."""
+    proc = rr_item.processar_item(item, op, tipo_dfe, base, data)
+    return _calcular_item(proc, base)
 
 
 def _sistema(detalhe, base_url, instancia, agora):
@@ -172,6 +185,13 @@ def observabilidade(corpo: object, base, base_url: str = BASE_URL_PADRAO, agora=
             objetos.append({"nObj": n_obj, "estadoItem": rr_erros.INCONSISTENCIA_ENTRADA,
                             "erros": [rr_erros.detalhe_de_item(v, indice, base_url) for v in violacoes]})
             continue
-        objetos.append(_processar_item(op, item, data, tipo_dfe, base))
+        try:  # processarItemComValidacao: a exceção do item fica no item (ItemCollector.addErro)
+            trib_calc = _processar_item(op, item, data, tipo_dfe, base)
+        except ErroRR as erro:
+            objetos.append({"nObj": n_obj, "estadoItem": erro.estado_item,
+                            "erros": [rr_erros.detalhe_de_item(erro, indice, base_url)]})
+            continue
+        estado = rr_erros.CALCULADO if item.aliquotas_nominais is None else rr_erros.CALCULO_SIMULADO
+        objetos.append({"nObj": n_obj, "estadoItem": estado, "tribCalc": trib_calc})
     objetos.sort(key=lambda objeto: objeto["nObj"])  # Stream.sorted: estável
     return 200, {"objetos": objetos}, base.cabecalhos_versao()

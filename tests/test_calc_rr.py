@@ -11,6 +11,12 @@ cálculo e os totais só nascem na Task 10). Ficam então o `nObj`, o `estadoIte
 (código, título, tipo, ponteiro e detalhe) e os campos numéricos dos tributos. A Task 10 troca
 `PROJECAO` para False, e a comparação passa a ser a do robô, inteira.
 
+Parte de erro. Um grupo em `GRUPOS_SO_ERROS` é cobrado só no que não é sucesso (`divergencias_de_erro`):
+as respostas de erro e os itens cujo `estadoItem` esperado não é CALCULADO nem CALCULO_SIMULADO têm de
+sair iguais (dentro da projeção); os de sucesso têm de chegar ao cálculo sem erro de processamento (o
+`rr_motor._calcular_item` ainda levanta `CalculoNaoPortado`). Na Task 7 o grupo `nomenclatura` fica
+assim; a Task 8 tira o grupo de `GRUPOS_SO_ERROS` (a troca é só essa) e ele passa a ser cobrado inteiro.
+
 As partes comparadas usam `receita_paridade.comparar` (Decimal pela forma escrita) com a lista `ignorar`
 do config.json, como a conferência com a calculadora oficial.
 """
@@ -19,6 +25,7 @@ import importlib.util
 import json
 import sys
 import unittest
+from unittest import mock
 from decimal import Decimal
 from pathlib import Path
 
@@ -28,7 +35,10 @@ PASTA = ROOT / "conferencia" / "cbs-ibs-regime-regular"
 
 # A Task 10 troca para False: daí em diante a comparação é inteira, sem projeção.
 PROJECAO = True
-GRUPOS_LIGADOS = ["entrada"]
+GRUPOS_LIGADOS = ["entrada", "nomenclatura"]
+# Grupos ligados cobrados só na parte de erro (ver a docstring). A Task 8 tira "nomenclatura" daqui.
+GRUPOS_SO_ERROS = {"nomenclatura"}
+SUCESSO = ("CALCULADO", "CALCULO_SIMULADO")
 
 
 def load_module(name, path):
@@ -49,6 +59,8 @@ receita_paridade = load_module("receita_paridade", ROOT / "scripts" / "receita_p
 bateria = load_module("bateria_rr", PASTA / "bateria.py")
 rr_erros = load_module("rr_erros", SKILL / "scripts" / "rr_erros.py")
 rr_entrada = load_module("rr_entrada", SKILL / "scripts" / "rr_entrada.py")
+# O calc.py faz `import rr_motor`: carregado aqui com o mesmo nome, o módulo é o mesmo objeto.
+rr_motor = load_module("rr_motor", SKILL / "scripts" / "rr_motor.py")
 
 ESPERADAS = receita_paridade.ler_json((PASTA / "esperadas.json").read_text(encoding="utf-8"))
 CONFIG = json.loads((PASTA / "config.json").read_text(encoding="utf-8"))
@@ -88,6 +100,59 @@ def paridade_do_grupo(grupo: str, projecao: bool = PROJECAO) -> list:
     return [c["id"] for c in ESPERADAS["casos"] if c["grupo"] == grupo and diferencas_do_caso(c, projecao)]
 
 
+CALCULO_PENDENTE = "<cálculo pendente>"
+
+
+def _calculo_pendente(*_args, **_kwargs):
+    return CALCULO_PENDENTE
+
+
+def divergencias_de_erro(caso: dict) -> list:
+    """A parte de erro do caso (ver a docstring do módulo): vazia se a resposta local confere.
+
+    Com `_calcular_item` trocado por um marcador, os erros de processamento saem como sairiam com o
+    cálculo pronto; um caso de sucesso do /regime-geral é rodado sem a troca e tem de parar no cálculo.
+    """
+    oficial = caso["resposta"]
+    requisicao = caso["requisicao"]
+    observabilidade = "observabilidade" in requisicao["caminho"]
+    if oficial["status"] == 200 and not observabilidade:
+        try:
+            local = bateria.responder(requisicao)
+        except rr_motor.CalculoNaoPortado:
+            return []
+        except Exception as erro:
+            return [f"local falhou: {type(erro).__name__}: {erro}"]
+        return [f"esperava chegar ao cálculo, veio status {local.get('status')}"]
+    try:
+        with mock.patch.object(rr_motor, "_calcular_item", _calculo_pendente):
+            local = bateria.responder(requisicao)
+    except Exception as erro:
+        return [f"local falhou: {type(erro).__name__}: {erro}"]
+    if oficial["status"] != 200:
+        return receita_paridade.comparar(projetar(oficial), projetar(local), IGNORAR)
+    if local.get("status") != 200:
+        return [f"status: 200 != {local.get('status')}"]
+    esperados, locais = oficial["corpo"]["objetos"], local["corpo"]["objetos"]
+    if len(esperados) != len(locais):
+        return [f"objetos: {len(esperados)} != {len(locais)}"]
+    saida = []
+    for esperado, obtido in zip(esperados, locais):
+        if esperado.get("estadoItem") in SUCESSO:
+            alvo = {"nObj": esperado.get("nObj"), "estadoItem": esperado["estadoItem"], "tribCalc": CALCULO_PENDENTE}
+            if obtido != alvo:
+                saida.append(f"nObj {esperado.get('nObj')}: esperava chegar ao cálculo, veio {obtido}")
+            continue
+        saida += receita_paridade.comparar({"status": 200, "corpo": _sem_chave(esperado, "memoriaCalculo")},
+                                           {"status": 200, "corpo": obtido}, IGNORAR)
+    return saida
+
+
+def erros_do_grupo(grupo: str) -> list:
+    """Os ids dos casos do grupo cuja parte de erro diverge."""
+    return [c["id"] for c in ESPERADAS["casos"] if c["grupo"] == grupo and divergencias_de_erro(c)]
+
+
 class ParidadeTest(unittest.TestCase):
     def _conferir(self, grupo):
         self.assertIn(grupo, GRUPOS_LIGADOS)
@@ -97,8 +162,25 @@ class ParidadeTest(unittest.TestCase):
         detalhes = {i: diferencas_do_caso(next(c for c in casos if c["id"] == i))[:3] for i in divergentes[:10]}
         self.assertEqual(divergentes, [], json.dumps(detalhes, ensure_ascii=False, indent=1))
 
+    def _conferir_erros(self, grupo):
+        self.assertIn(grupo, GRUPOS_LIGADOS)
+        casos = [c for c in ESPERADAS["casos"] if c["grupo"] == grupo]
+        self.assertTrue(casos, f"o esperadas.json não tem casos do grupo {grupo}")
+        divergentes = erros_do_grupo(grupo)
+        detalhes = {i: divergencias_de_erro(next(c for c in casos if c["id"] == i))[:3] for i in divergentes[:10]}
+        self.assertEqual(divergentes, [], json.dumps(detalhes, ensure_ascii=False, indent=1))
+
+    def _conferir_grupo(self, grupo):
+        if grupo in GRUPOS_SO_ERROS:
+            self._conferir_erros(grupo)
+        else:
+            self._conferir(grupo)
+
     def test_grupo_entrada(self):
-        self._conferir("entrada")
+        self._conferir_grupo("entrada")
+
+    def test_grupo_nomenclatura(self):
+        self._conferir_grupo("nomenclatura")
 
 
 class ProjecaoTest(unittest.TestCase):
