@@ -67,5 +67,263 @@
   },
   "ignorar": [
     "timestamp"
+  ],
+  "excluidos_da_bateria": [
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/arredondamento/Teste_CasosFixosArredondamento.java (T5)",
+      "motivo": "Compra governamental (gCompraGov): fora do escopo; a skill recusa o grupo antes do motor."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/arredondamento/Teste_LoteArredondamento.java (perfis compra-gov-*)",
+      "motivo": "As notas de compra governamental do lote (gCompraGov) ficam fora; as dos outros perfis são geradas pela bateria.py, no grupo regime-geral, com o mesmo gerador portado."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/calculadora/TesteCalculadoraNcmZero.java (tpDoc 57, 62, 63, 66, 67, 75, 76, 77, 83, 91, 92, 93, 94, 95, 96, 97)",
+      "motivo": "Outros tipos de documento: a skill só calcula NF-e (55), NFC-e (65) ou sem tpDoc e recusa os demais antes do motor."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/calculoscorretos/comprasgovernamentais/CompraGovControllerArquivoTest.java",
+      "motivo": "Compra governamental (gCompraGov): fora do escopo; a skill recusa o grupo antes do motor."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/calculoscorretos/comprasgovernamentais/CompraGovControllerComObservabilidadeArquivoTest.java",
+      "motivo": "Compra governamental (gCompraGov): fora do escopo; a skill recusa o grupo antes do motor."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/calculoscorretos/comprasgovernamentais/CompraGovControllerComObservabilidadeTest.java",
+      "motivo": "Compra governamental (gCompraGov): fora do escopo; a skill recusa o grupo antes do motor."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/calculoscorretos/comprasgovernamentais/CompraGovControllerTest.java",
+      "motivo": "Compra governamental (gCompraGov): fora do escopo; a skill recusa o grupo antes do motor."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/observabilidade/ObservabilidadeControllerTest.java (como escrito, com o item 1)",
+      "motivo": "O item 1 tem várias violações de Bean Validation, e a oficial não devolve os erros sempre na mesma ordem. A bateria usa a mesma entrada sem o item 1; violações isoladas estão no grupo entrada."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/tpdoc/Teste_tpdoc_1_NfeNomenclaturaNcm.java (teste_nbsInformadaErro, teste_controller_nbsIncompativel)",
+      "motivo": "NBS informada: a skill recusa NBS antes do motor (só bens, por NCM)."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/tpdoc/Teste_tpdoc_5_TpDocInvalido.java (tpDoc 99)",
+      "motivo": "tpDoc fora de 55 e 65: a skill recusa antes do motor."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/tpdoc/Teste_tpdoc_5_TpDocInvalido.java (catálogo de erros)",
+      "motivo": "GET /calculadora/observabilidade/erros: endpoint fora do escopo da bateria (a skill descreve os códigos pelo calc.py --erro)."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/tpdoc/Teste_tpdoc_6_ClassificacaoSemVinculoTipoDfe.java (como escrito, com NBS no item 2)",
+      "motivo": "O item 2 informa NBS, que a skill recusa antes do motor. A bateria usa o mesmo cenário com um NCM do anexo da 200044 no lugar da NBS."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/tpdoc/Teste_tpdoc_8_ImpostoSeletivo.java (tpDoc 62)",
+      "motivo": "NFCom (tpDoc 62): a skill recusa outros documentos antes do motor."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/tpdoc/Teste_tpdoc_9_RegressaoAnexoVigenciaExcecao.java (consultas tem() dos repositórios)",
+      "motivo": "Chamam o repositório direto, sem cálculo; a mesma regra entra pelos cenários de NCM com e sem exceção."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/tpdoc/Teste_tpdoc_2_NfseNomenclaturaMisto.java",
+      "motivo": "NFS-e (tpDoc 91) com NBS: a skill só calcula bens em NF-e e NFC-e e recusa o resto antes do motor."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/tpdoc/Teste_tpdoc_3_NfcomPermissivoRigido.java",
+      "motivo": "NFCom (tpDoc 62): a skill só calcula bens em NF-e e NFC-e e recusa o resto antes do motor."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/tpdoc/Teste_tpdoc_4_ClassificacaoSemAnexo.java",
+      "motivo": "NFS-e e NBS: a skill só calcula bens em NF-e e NFC-e e recusa o resto antes do motor."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/tpdoc/Teste_tpdoc_10_NfseAnexoIxSemNcm.java",
+      "motivo": "NFS-e (tpDoc 91): a skill só calcula bens em NF-e e NFC-e e recusa o resto antes do motor."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/validacoes/negocio/Teste_validacao_3_NbsNaoEncontradaException.java",
+      "motivo": "NBS informada: a skill recusa NBS antes do motor (só bens, por NCM)."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/validacoes/negocio/Teste_validacao_4_NbsNaoVinculadaException.java",
+      "motivo": "NBS informada: a skill recusa NBS antes do motor (só bens, por NCM)."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/validacoes/negocio/Teste_validacao_6_NcmNbsSimultaneasException.java",
+      "motivo": "NCM e NBS juntas: a skill recusa NBS antes do motor (só bens, por NCM)."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/validacoes/negocio/Teste_validacao_26_TipoDfeNaoTratadoException.java (tpDoc 57, 62, 63, 66, 67, 75, 76, 77, 83, 91, 94, 95, 96)",
+      "motivo": "Outros tipos de documento: a skill recusa antes do motor."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/xml/XmlControllerGeracaoTest.java",
+      "motivo": "Geração e validação de XML de DF-e: endpoints fora do escopo da skill."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/xml/XmlControllerValidacaoTest.java",
+      "motivo": "Geração e validação de XML de DF-e: endpoints fora do escopo da skill."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/xml/XmlServiceGeracaoTest.java",
+      "motivo": "Geração e validação de XML de DF-e: endpoints fora do escopo da skill."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/xml/XmlServiceValidacaoTest.java",
+      "motivo": "Geração e validação de XML de DF-e: endpoints fora do escopo da skill."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/nfse/Teste_nfse_1_consultarIndicadoresOperacao.java",
+      "motivo": "NFS-e (serviços, NBS): a skill só calcula bens em NF-e e NFC-e."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/nfse/Teste_nfse_2_consultarLocalOperacao.java",
+      "motivo": "NFS-e (serviços, NBS): a skill só calcula bens em NF-e e NFC-e."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/nfse/Teste_nfse_3_calcularBaseCalculo.java",
+      "motivo": "NFS-e (serviços, NBS): a skill só calcula bens em NF-e e NFC-e."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/nfse/Teste_nfse_4_validarIndicadorOperacao.java",
+      "motivo": "NFS-e (serviços, NBS): a skill só calcula bens em NF-e e NFC-e."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/nfse/Teste_nfse_5_consultarSituacoesClassificacoes.java",
+      "motivo": "NFS-e (serviços, NBS): a skill só calcula bens em NF-e e NFC-e."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/dadosabertos/Teste_dadosabertos_10_classificacaoUnicaCbsIbs.java",
+      "motivo": "Dados abertos: consultas às tabelas, sem cálculo; a skill lê a base direto."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/dadosabertos/Teste_dadosabertos_11_situacaoClassificacaoAninhada.java",
+      "motivo": "Dados abertos: consultas às tabelas, sem cálculo; a skill lê a base direto."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/dadosabertos/Teste_dadosabertos_13_classificacaoUnicaIs.java",
+      "motivo": "Dados abertos: consultas às tabelas, sem cálculo; a skill lê a base direto."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/dadosabertos/Teste_dadosabertos_14_tiposDfeAgrupados.java",
+      "motivo": "Dados abertos: consultas às tabelas, sem cálculo; a skill lê a base direto."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/dadosabertos/Teste_dadosabertos_15_atoresAgrupados.java",
+      "motivo": "Dados abertos: consultas às tabelas, sem cálculo; a skill lê a base direto."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/dadosabertos/Teste_dadosabertos_16_classificacoesPorAtores.java",
+      "motivo": "Dados abertos: consultas às tabelas, sem cálculo; a skill lê a base direto."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/dadosabertos/Teste_dadosabertos_1_consultarUfs.java",
+      "motivo": "Dados abertos: consultas às tabelas, sem cálculo; a skill lê a base direto."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/dadosabertos/Teste_dadosabertos_2_consultarMunicipiosPorSiglaUf.java",
+      "motivo": "Dados abertos: consultas às tabelas, sem cálculo; a skill lê a base direto."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/dadosabertos/Teste_dadosabertos_3_consultarSituacoesTributariasCbsIbs.java",
+      "motivo": "Dados abertos: consultas às tabelas, sem cálculo; a skill lê a base direto."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/dadosabertos/Teste_dadosabertos_4_consultarClassificacoesTributariasPorIdSituacaoTributaria.java",
+      "motivo": "Dados abertos: consultas às tabelas, sem cálculo; a skill lê a base direto."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/dadosabertos/Teste_dadosabertos_5_consultarSituacoesTributariasImpostoSeletivo.java",
+      "motivo": "Dados abertos: consultas às tabelas, sem cálculo; a skill lê a base direto."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/dadosabertos/Teste_dadosabertos_6_consultarNcm.java",
+      "motivo": "Dados abertos: consultas às tabelas, sem cálculo; a skill lê a base direto."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/dadosabertos/Teste_dadosabertos_7_consultarNbs.java",
+      "motivo": "Dados abertos: consultas às tabelas, sem cálculo; a skill lê a base direto."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/dadosabertos/Teste_dadosabertos_8_consultarFundamentacoesLegais.java",
+      "motivo": "Dados abertos: consultas às tabelas, sem cálculo; a skill lê a base direto."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/dadosabertos/Teste_dadosabertos_9_classificacoesTributariasPorCst.java",
+      "motivo": "Dados abertos: consultas às tabelas, sem cálculo; a skill lê a base direto."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/dadosabertos/Teste_nomenclatura_12_determinarNomenclatura.java",
+      "motivo": "Dados abertos: consultas às tabelas, sem cálculo; a skill lê a base direto."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/dadosabertos/Teste_nomenclatura_13_obrigatoriedade.java",
+      "motivo": "Dados abertos: consultas às tabelas, sem cálculo; a skill lê a base direto."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/dadosabertos/controller/DadosAbertosControllerTest.java",
+      "motivo": "Dados abertos: consultas às tabelas, sem cálculo; a skill lê a base direto."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/dadosabertos/controller/DadosAbertosNcmVigentesControllerIT.java",
+      "motivo": "Dados abertos: consultas às tabelas, sem cálculo; a skill lê a base direto."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/dadosabertos/controller/DadosAbertosServiceTest.java",
+      "motivo": "Dados abertos: consultas às tabelas, sem cálculo; a skill lê a base direto."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/pedagio/PedagioControllerTest.java",
+      "motivo": "Pedágio: endpoint e documento fora do escopo."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/pedagio/PedagioServiceTest.java",
+      "motivo": "Pedágio: endpoint e documento fora do escopo."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/validacoes/pedagio/Teste_pedagio_validacao_1_NumeroDuplicado.java",
+      "motivo": "Pedágio: endpoint e documento fora do escopo."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/validacoes/pedagio/Teste_pedagio_validacao_2_NumeroZero.java",
+      "motivo": "Pedágio: endpoint e documento fora do escopo."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/validacoes/pedagio/Teste_pedagio_validacao_3_NumeroNegativo.java",
+      "motivo": "Pedágio: endpoint e documento fora do escopo."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/validacoes/pedagio/Teste_pedagio_validacao_4_OrigemUfMunicipioDivergentes.java",
+      "motivo": "Pedágio: endpoint e documento fora do escopo."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/validacoes/pedagio/Teste_pedagio_validacao_5_TrechoUfMunicipioDivergentes.java",
+      "motivo": "Pedágio: endpoint e documento fora do escopo."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/validacoes/pedagio/Teste_pedagio_validacao_6_OrigemMunicipioInvalido.java",
+      "motivo": "Pedágio: endpoint e documento fora do escopo."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/validacoes/pedagio/Teste_pedagio_validacao_7_TrechoMunicipioInvalido.java",
+      "motivo": "Pedágio: endpoint e documento fora do escopo."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/basecalculo/Teste_BaseCalculoCibs_Controller.java",
+      "motivo": "Base de cálculo unificada: endpoints próprios, fora do escopo da skill."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/basecalculo/Teste_BaseCalculoIS_Controller.java",
+      "motivo": "Base de cálculo unificada: endpoints próprios, fora do escopo da skill."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/basecalculo/Teste_BaseCalculoUnificadaNfse_Controller.java",
+      "motivo": "Base de cálculo unificada: endpoints próprios, fora do escopo da skill."
+    },
+    {
+      "teste": "src/test/java/br/gov/serpro/rtc/testesintegracao/arredondamento/Teste_CasosFixosPedagioBasesArredondamento.java",
+      "motivo": "Pedágio e base de cálculo unificada: endpoints fora do escopo."
+    }
   ]
 }
