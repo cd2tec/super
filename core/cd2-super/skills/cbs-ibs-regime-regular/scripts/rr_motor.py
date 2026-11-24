@@ -35,10 +35,16 @@ Port (calculadora-rtc-regime-regular, tag 1.7.2) de:
 Ordem da operação, nos dois: o JSON (400 se ilegível), o Bean Validation, a UF (tirada do município
 quando ausente), o município, a data do fato gerador e o tpDoc. Depois, os itens.
 
-Estado: esta versão responde a entrada (erros de JSON, Bean Validation e da operação) e os erros do
-processamento do item (rr_item.processar_item, ProcessamentoItemService até o tratamento). O cálculo
-(CalculoTributoService.calcular) chega nas Tasks 8 a 10 e, até lá, `_calcular_item` levanta
-CalculoNaoPortado; a resposta de sucesso do /regime-geral chega na Task 10.
+Estado: esta versão responde a entrada (erros de JSON, Bean Validation e da operação), os erros do
+processamento do item (rr_item.processar_item) e o cálculo da CBS e do IBS (rr_calculo.calcular_tributos,
+CalculoTributoService.calcular). O Imposto Seletivo chega na Task 9 (item com tratamento de IS levanta
+rr_calculo.CalculoNaoPortado) e a memória de cálculo, os totais e os cabeçalhos de aviso na Task 10.
+
+Exceção sem código. Como no Java, no /observabilidade qualquer exceção do processamento de um item
+(ItemCollector.addErro, ProblemType ERRO_SISTEMA) vira CAL-999 nesse item, com o texto da exceção; no
+/regime-geral é o 500 do ApiExceptionHandler.handleGenericException ("Erro de sistema não previsto").
+NotImplementedError (CalculoNaoPortado, rr_item.ForaDoEscopo) não entra nessa regra: é ramo sem port, e
+sobe, para não virar resposta que a oficial não daria.
 """
 from __future__ import annotations
 
@@ -50,6 +56,7 @@ if str(_AQUI) not in sys.path:
     sys.path.append(str(_AQUI))
 
 import rr_entrada  # noqa: E402  (precisa do caminho acima)
+import rr_calculo  # noqa: E402
 import rr_erros  # noqa: E402
 import rr_item  # noqa: E402
 from rr_erros import ErroRR  # noqa: E402
@@ -121,13 +128,17 @@ def _tipo_dfe(tp_doc, data, base):
     return tipo
 
 
-class CalculoNaoPortado(NotImplementedError):
-    """O item passou pelo processamento e chegou ao cálculo, que ainda não foi portado (Tasks 8 a 10)."""
+CalculoNaoPortado = rr_calculo.CalculoNaoPortado
 
 
 def _calcular_item(proc, base):
-    """CalculoTributoService.calcular (o tribCalc do item): chega nas Tasks 8 a 10."""
-    raise CalculoNaoPortado("o cálculo do item ainda não foi portado (Tasks 8 a 10 do plano)")
+    """CalculoTributoService.calcular: o tribCalc do item, já no JSON que o Jackson escreve."""
+    return rr_calculo.para_json(rr_calculo.calcular_tributos(proc, base))
+
+
+def _erro_de_sistema(erro: Exception) -> ErroRR:
+    """Uma exceção sem ProblemType próprio (ERRO_SISTEMA): o detalhe é o getMessage() dela."""
+    return ErroRR(None, str(erro))
 
 
 def _processar_item(op, item, data, tipo_dfe, base):
@@ -150,15 +161,25 @@ def regime_geral(corpo: object, base, base_url: str = BASE_URL_PADRAO, agora=Non
     violacoes = rr_entrada.validar_bean(op)
     if violacoes:
         return (*rr_erros.corpo_campos_invalidos(violacoes, base_url, instancia, agora), {})
+    objetos = []
     try:
         data, tipo_dfe = _validar_operacao(op, base)
         for item in op.itens:
             if item is None:
                 return 500, _sistema(_ITEM_NULO_REGIME_GERAL, base_url, instancia, agora), {}
-            _processar_item(op, item, data, tipo_dfe, base)
+            trib_calc = _processar_item(op, item, data, tipo_dfe, base)
+            # ObjetoDomain {nObj, tribCalc, calculoSimulado}
+            objetos.append({"nObj": item.numero, "tribCalc": trib_calc,
+                            "calculoSimulado": item.aliquotas_nominais is not None})
     except ErroRR as erro:
         return (*rr_erros.corpo_de_erro(erro, base_url, instancia, agora), {})
-    raise NotImplementedError("a resposta de sucesso do /regime-geral chega na Task 10 do plano")
+    except NotImplementedError:
+        raise
+    except Exception as erro:  # ApiExceptionHandler.handleGenericException
+        return (*rr_erros.corpo_de_erro(_erro_de_sistema(erro), base_url, instancia, agora), {})
+    objetos.sort(key=lambda objeto: (objeto["nObj"] is not None, objeto["nObj"] or 0))  # nullsFirst
+    # ROCDomain {oper, objetos, total}: oper só com gCompraGov (fora do escopo); o total é da Task 10
+    return 200, {"objetos": objetos}, base.cabecalhos_versao()
 
 
 def observabilidade(corpo: object, base, base_url: str = BASE_URL_PADRAO, agora=None) -> tuple:
@@ -173,7 +194,10 @@ def observabilidade(corpo: object, base, base_url: str = BASE_URL_PADRAO, agora=
         return (*rr_erros.corpo_erros_calculo(erros, instancia, agora), {})
     try:
         data, tipo_dfe = _validar_operacao(op, base)
-    except ErroRR as erro:  # ItemCollector(-1): o erro da operação aponta para #/itens/-1
+    except NotImplementedError:
+        raise
+    except Exception as erro:  # ItemCollector(-1): o erro da operação aponta para #/itens/-1
+        erro = erro if isinstance(erro, ErroRR) else _erro_de_sistema(erro)
         return (*rr_erros.corpo_erros_calculo([rr_erros.detalhe_de_item(erro, -1, base_url)], instancia, agora), {})
     if any(item is None for item in op.itens):
         return 500, _sistema(_ITEM_NULO_OBSERVABILIDADE, base_url, instancia, agora), {}
@@ -187,7 +211,10 @@ def observabilidade(corpo: object, base, base_url: str = BASE_URL_PADRAO, agora=
             continue
         try:  # processarItemComValidacao: a exceção do item fica no item (ItemCollector.addErro)
             trib_calc = _processar_item(op, item, data, tipo_dfe, base)
-        except ErroRR as erro:
+        except NotImplementedError:
+            raise
+        except Exception as erro:
+            erro = erro if isinstance(erro, ErroRR) else _erro_de_sistema(erro)
             objetos.append({"nObj": n_obj, "estadoItem": erro.estado_item,
                             "erros": [rr_erros.detalhe_de_item(erro, indice, base_url)]})
             continue

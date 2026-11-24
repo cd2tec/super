@@ -14,8 +14,8 @@ cálculo e os totais só nascem na Task 10). Ficam então o `nObj`, o `estadoIte
 Parte de erro. Um grupo em `GRUPOS_SO_ERROS` é cobrado só no que não é sucesso (`divergencias_de_erro`):
 as respostas de erro e os itens cujo `estadoItem` esperado não é CALCULADO nem CALCULO_SIMULADO têm de
 sair iguais (dentro da projeção); os de sucesso têm de chegar ao cálculo sem erro de processamento (o
-`rr_motor._calcular_item` ainda levanta `CalculoNaoPortado`). Na Task 7 o grupo `nomenclatura` fica
-assim; a Task 8 tira o grupo de `GRUPOS_SO_ERROS` (a troca é só essa) e ele passa a ser cobrado inteiro.
+`rr_motor._calcular_item` levantava `CalculoNaoPortado`). Na Task 7 o grupo `nomenclatura` ficou
+assim; desde a Task 8 nenhum grupo está nessa lista, e todo grupo ligado é cobrado inteiro.
 
 As partes comparadas usam `receita_paridade.comparar` (Decimal pela forma escrita) com a lista `ignorar`
 do config.json, como a conferência com a calculadora oficial.
@@ -35,9 +35,9 @@ PASTA = ROOT / "conferencia" / "cbs-ibs-regime-regular"
 
 # A Task 10 troca para False: daí em diante a comparação é inteira, sem projeção.
 PROJECAO = True
-GRUPOS_LIGADOS = ["entrada", "nomenclatura"]
-# Grupos ligados cobrados só na parte de erro (ver a docstring). A Task 8 tira "nomenclatura" daqui.
-GRUPOS_SO_ERROS = {"nomenclatura"}
+GRUPOS_LIGADOS = ["entrada", "nomenclatura", "cbs-ibs", "reducao", "diferimento", "tributacao-regular"]
+# Grupos ligados cobrados só na parte de erro (ver a docstring).
+GRUPOS_SO_ERROS = set()
 SUCESSO = ("CALCULADO", "CALCULO_SIMULADO")
 
 
@@ -181,6 +181,61 @@ class ParidadeTest(unittest.TestCase):
 
     def test_grupo_nomenclatura(self):
         self._conferir_grupo("nomenclatura")
+
+    def test_grupo_cbs_ibs(self):
+        self._conferir_grupo("cbs-ibs")
+
+    def test_grupo_reducao(self):
+        self._conferir_grupo("reducao")
+
+    def test_grupo_diferimento(self):
+        self._conferir_grupo("diferimento")
+
+    def test_grupo_tributacao_regular(self):
+        self._conferir_grupo("tributacao-regular")
+
+
+class ExcecaoTecnicaTest(unittest.TestCase):
+    """Exceção sem código no cálculo de um item: CAL-999 só nesse item (/observabilidade) e o 500 genérico
+    (/regime-geral), como ItemCollector.addErro e ApiExceptionHandler.handleGenericException."""
+
+    ITEM = {"cst": "000", "cClassTrib": "000001", "baseCalculo": Decimal("25.0"), "ncm": "84713012"}
+
+    def _requisicao(self, caminho):
+        itens = [dict(self.ITEM, numero=1), dict(self.ITEM, numero=2)]
+        return {"metodo": "POST", "caminho": caminho, "corpo": {
+            "id": "falha", "versao": "0.0.1", "dhFatoGerador": "2026-10-20T10:00:00-03:00", "municipio": 3550308,
+            "uf": "SP", "tpDoc": 55, "itens": itens}}
+
+    def _falhar_no_item_2(self):
+        original = rr_motor.rr_calculo.calcular_cbs_ibs
+
+        def calcular(proc, tributo, base, *args):
+            if proc.item.numero == 2:
+                raise RuntimeError("falha forçada no teste")
+            return original(proc, tributo, base, *args)
+        return mock.patch.object(rr_motor.rr_calculo, "calcular_cbs_ibs", calcular)
+
+    def test_observabilidade_cal_999_so_no_item(self):
+        with self._falhar_no_item_2():
+            resposta = bateria.responder(self._requisicao("/calculadora/observabilidade/regime-geral"))
+        self.assertEqual(resposta["status"], 200)
+        um, dois = resposta["corpo"]["objetos"]
+        self.assertEqual((um["nObj"], um["estadoItem"]), (1, "CALCULADO"))
+        self.assertIn("IBSCBS", um["tribCalc"])
+        self.assertEqual(dois, {"nObj": 2, "estadoItem": "FALHA_TECNICA", "erros": [{
+            "type": "http://127.0.0.1/api/calculadora/observabilidade/erros?codigo=CAL-999",
+            "title": "Erro de sistema não previsto", "code": "CAL-999", "pointer": "#/itens/1",
+            "detail": "falha forçada no teste"}]})
+
+    def test_regime_geral_500_generico(self):
+        with self._falhar_no_item_2():
+            resposta = bateria.responder(self._requisicao("/calculadora/regime-geral"))
+        self.assertEqual(resposta["status"], 500)
+        corpo = resposta["corpo"]
+        self.assertEqual((corpo["title"], corpo["detail"], corpo["type"]), (
+            "Erro de sistema não previsto", "falha forçada no teste",
+            "http://127.0.0.1/errors/erro-de-sistema-nao-previsto"))
 
 
 class ProjecaoTest(unittest.TestCase):
