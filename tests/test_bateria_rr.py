@@ -16,7 +16,7 @@ from versao_da_base import base_completa_da_skill  # noqa: E402
 SKILL = "cbs-ibs-regime-regular"
 PASTA = ROOT / "conferencia" / SKILL
 INDICE_COMPRA_GOV = 3  # a primeira nota de compra governamental do lote, na semente padrão do Java
-AMOSTRA = 600  # o --amostra com que o esperadas.json foi gravado
+AMOSTRA = 400  # o --amostra com que o robô (e a gravação do esperadas.json) chama a bateria
 CAMINHOS = {"/calculadora/regime-geral", "/calculadora/observabilidade/regime-geral"}
 
 
@@ -82,16 +82,29 @@ class CasosTest(unittest.TestCase):
 
     def test_amostra_leva_todos_os_escritos_e_todo_tipo(self):
         amostra = self.b.amostra(self.casos, AMOSTRA)
-        self.assertEqual(len(amostra), AMOSTRA)
         escritos = {c["id"] for c in self.casos if c["origem"] == "escrito"}
         self.assertLessEqual(escritos, {c["id"] for c in amostra})
         tipos = {self.b.tipo(c) for c in self.casos if c["origem"] == "gerado"}
         self.assertEqual({self.b.tipo(c) for c in amostra if c["origem"] == "gerado"}, tipos)
         self.assertEqual(self.b.amostra(self.casos, AMOSTRA), amostra)
 
-    def test_amostra_pequena_demais_avisa(self):
-        with self.assertRaises(ValueError):
-            self.b.amostra(self.casos, 400)
+    def test_n_da_amostra_e_piso(self):
+        # o workflow grava com --amostra 400 fixo: abaixo do mínimo (escritos + tipos) vale o mínimo, sem erro
+        minimo = (len([c for c in self.casos if c["origem"] == "escrito"])
+                  + len({self.b.tipo(c) for c in self.casos if c["origem"] == "gerado"}))
+        self.assertGreater(minimo, 400)
+        pequena = self.b.amostra(self.casos, 400)
+        self.assertEqual([c["id"] for c in pequena], [c["id"] for c in self.b.amostra(self.casos, minimo)])
+        self.assertEqual(len(pequena), minimo)
+        self.assertEqual({self.b.tipo(c) for c in pequena if c["origem"] == "gerado"},
+                         {self.b.tipo(c) for c in self.casos if c["origem"] == "gerado"})
+        self.assertEqual(len(self.b.amostra(self.casos, minimo + 10)), minimo + 10)
+
+    def test_esperadas_sao_a_amostra_do_robo(self):
+        # regravar com o --amostra 400 do workflow não pode mudar a lista de casos do esperadas.json
+        rp = self.b.receita_paridade
+        esperadas = rp.ler_json((PASTA / "esperadas.json").read_text(encoding="utf-8"))
+        self.assertEqual([c["id"] for c in esperadas["casos"]], [c["id"] for c in self.b.amostra(self.casos, 400)])
 
     def test_tipo_tira_os_codigos(self):
         caso = {"chave": "is:sem-grupo-22030000", "requisicao": {"caminho": "/calculadora/observabilidade/regime-geral"}}
@@ -143,8 +156,12 @@ class EsperadasTest(unittest.TestCase):
         for caso in self.esperadas["casos"]:
             grupos[caso["grupo"]] = grupos.get(caso["grupo"], 0) + 1
         self.assertEqual(set(grupos), set(self.b.GRUPOS))
+        na_bateria = {}
+        for caso in self.por_id.values():
+            na_bateria[caso["grupo"]] = na_bateria.get(caso["grupo"], 0) + 1
         for grupo, quantos in grupos.items():
-            self.assertGreaterEqual(quantos, 10, grupo)
+            # dez por grupo, ou metade do grupo quando a bateria inteira tem menos de vinte (diferimento tem 10)
+            self.assertGreaterEqual(quantos, min(10, na_bateria[grupo] // 2), grupo)
 
     def test_esperadas_sao_casos_da_bateria(self):
         rp = self.b.receita_paridade

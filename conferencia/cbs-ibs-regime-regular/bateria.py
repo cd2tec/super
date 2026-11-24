@@ -6,7 +6,7 @@ conta local.
 
 Exporta, para scripts/receita_paridade.py e para os testes:
     casos(base_completa=None, semente=7)   lista de casos, sempre na mesma ordem
-    amostra(casos, n)                       n casos: todos os escritos e todo tipo de caso gerado (tipo)
+    amostra(casos, n)                       pelo menos n casos: todos os escritos e todo tipo de caso gerado (tipo)
     tipo(caso)                              o tipo de um caso gerado, que a amostra cobre
     cobertura(respostas)                    códigos de erro, estados de item, status e títulos que as respostas mostram
     responder(requisicao)                   {"status", "corpo"} da conta local (rr_calc.executar)
@@ -34,10 +34,11 @@ O grupo diz até onde o motor precisa chegar para responder o caso:
                         com exatamente um inválido (com mais de um o Java devolve um erro qualquer, porque
                         processa os itens em parallelStream)
 
-As respostas oficiais do esperadas.json são a amostra de 600 casos (todos os escritos e todo tipo de gerado):
+As respostas oficiais do esperadas.json são a amostra mínima (todos os escritos e um gerado de cada tipo), que
+sai do mesmo comando do robô:
     python3 scripts/receita_paridade.py --skill cbs-ibs-regime-regular --oficial http://127.0.0.1:8080/api \
-        --gravar-esperadas --amostra 600
-Com menos que escritos + tipos, `amostra` recusa (ValueError).
+        --gravar-esperadas --amostra 400
+O n de `amostra` é piso: abaixo de escritos + tipos, vale escritos + tipos.
 
 Fora da bateria, porque a skill recusa antes do motor: NBS, NFS-e, tpDoc que não seja 55 nem 65, e
 gCompraGov. Os testes da Receita que só cobrem isso estão em `excluidos_da_bateria` do config.json.
@@ -982,9 +983,12 @@ def tipo(caso: dict) -> str:
 
 
 def amostra(casos: list, n: int) -> list:
-    """n casos, sempre os mesmos: todos os escritos, depois um caso gerado de cada tipo (ver `tipo`), depois os
-    gerados que sobram, sempre do grupo com menos casos na amostra até ali e, dentro do grupo, passando pelos
-    tipos em rodízio. Saem na ordem da lista original.
+    """Pelo menos n casos, sempre os mesmos: todos os escritos, depois um caso gerado de cada tipo (ver `tipo`),
+    depois, se n pedir mais, os gerados que sobram, sempre do grupo com menos casos na amostra até ali e, dentro
+    do grupo, passando pelos tipos em rodízio. Saem na ordem da lista original.
+
+    n é piso: com n menor que escritos + tipos, a amostra sai com escritos + tipos casos. O robô grava com
+    `--amostra 400` (fixo no workflow), que hoje dá a amostra mínima.
 
     A amostra que vai para o esperadas.json precisa ter todo tipo: é ela que os testes do dia a dia conferem.
     """
@@ -994,10 +998,7 @@ def amostra(casos: list, n: int) -> list:
     por_tipo: dict = {}
     for c in gerados:
         por_tipo.setdefault(tipo(c), []).append(c)
-    minimo = len(escritos) + len(por_tipo)
-    if minimo > n:
-        raise ValueError(f"A amostra de {n} casos não comporta os {len(escritos)} escritos e os {len(por_tipo)} "
-                         f"tipos de caso gerado (mínimo {minimo}).")
+    n = max(n, len(escritos) + len(por_tipo))  # n é piso: o robô grava com --amostra 400
     escolhidos = {c["id"] for c in escritos}
     por_grupo = {g: 0 for g in GRUPOS}
     for c in escritos:
