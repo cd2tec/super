@@ -203,8 +203,16 @@ class WorkflowTest(unittest.TestCase):
             if "receita_robo.py config" in bloco and '"$GITHUB_ENV"' in bloco
         ]
         self.assertEqual(len(achados), 1)
-        for nome in ("PORTA", "CONTEXTO", "JAR_REL", "FLYWAY_CONF", "ARQUIVO_DB"):
+        for nome in ("PORTA", "CONTEXTO", "JAR_REL", "FLYWAY_CONF", "ARQUIVO_DB", "CAMINHO_VERSAO"):
             self.assertIn(nome, achados[0])
+        self.assertIn("CAMINHO_VERSAO=$(cfg oficial.caminho_versao)", achados[0])
+        self.assertIn('echo "CAMINHO_VERSAO=$CAMINHO_VERSAO"', achados[0])
+
+    def test_esperar_oficial_recebe_o_caminho_da_versao(self):
+        # o regime regular responde a versão em /calculadora/dados-abertos/versao, não em /versao
+        blocos = [b for b in run_blocks(wf("conferencia-receita.yml")) if "esperar-oficial" in b]
+        self.assertEqual(len(blocos), 1)
+        self.assertIn('--caminho-versao "$CAMINHO_VERSAO"', blocos[0])
 
     def test_comentarios_so_pela_api_rest(self):
         # o gh --json comments não diz se o autor do comentário é bot: o robô se perderia e comentaria todo dia

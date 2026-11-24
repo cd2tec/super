@@ -65,7 +65,8 @@
     "contexto": "/api",
     "jar": "target/api-regime-geral.jar",
     "flyway_conf": "./flyway/flyway-pro.conf",
-    "arquivo_db": "calculadora-pro.db"
+    "arquivo_db": "calculadora-pro.db",
+    "caminho_versao": "/calculadora/dados-abertos/versao"
   },
   "hash_ignorar_colunas": {
     "VERSAO_BASE_DADO": [

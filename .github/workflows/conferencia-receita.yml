@@ -97,12 +97,14 @@ jobs:
           JAR_REL=$(cfg oficial.jar)
           FLYWAY_CONF=$(cfg oficial.flyway_conf)
           ARQUIVO_DB=$(cfg oficial.arquivo_db)
+          CAMINHO_VERSAO=$(cfg oficial.caminho_versao)
           {
             echo "PORTA=$PORTA"
             echo "CONTEXTO=$CONTEXTO"
             echo "JAR_REL=$JAR_REL"
             echo "FLYWAY_CONF=$FLYWAY_CONF"
             echo "ARQUIVO_DB=$ARQUIVO_DB"
+            echo "CAMINHO_VERSAO=$CAMINHO_VERSAO"
           } >> "$GITHUB_ENV"
 
       - name: Olhar a Receita
@@ -244,7 +246,7 @@ jobs:
             "$IMAGEM" java -Dspring.profiles.active=offline -jar /app/api.jar
           BASE=$(jq -er .base.versao "conferencia/$SKILL/meta.json")
           python3 scripts/receita_robo.py esperar-oficial --url "http://127.0.0.1:$PORTA$CONTEXTO" \
-            --versao "$VERSAO" --base "$BASE" --prazo 600
+            --versao "$VERSAO" --base "$BASE" --caminho-versao "$CAMINHO_VERSAO" --prazo 600
 
       - name: Conferência completa
         id: paridade

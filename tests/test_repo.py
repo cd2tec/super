@@ -64,6 +64,20 @@ class RepoTest(unittest.TestCase):
             for needle in LEAKS:
                 self.assertFalse(needle.lower() in lowered, f"{rel}: {needle}")
 
+    def test_no_local_paths_in_tests(self):
+        # Os testes ficam fora de tracked_texts (citam o que procuram), mas caminho local e nome de pessoa
+        # também não entram neles: o repositório é público. Só este arquivo guarda as agulhas.
+        agulhas = ("/private/tmp", "scratchpad", "claude-" + "501", PERSON.lower())
+        for rel in tracked_files():
+            if not rel.startswith("tests/") or rel == "tests/test_repo.py" or not (ROOT / rel).is_file():
+                continue
+            try:
+                texto = (ROOT / rel).read_text(encoding="utf-8").lower()
+            except UnicodeDecodeError:
+                continue
+            for agulha in agulhas:
+                self.assertNotIn(agulha, texto, f"{rel}: {agulha}")
+
     def test_internal_dirs_are_ignored_and_untracked(self):
         ignore = read(".gitignore").split()
         for folder in INTERNAL_DIRS:
@@ -231,13 +245,12 @@ class SkillRegimeRegular(unittest.TestCase):
 
     def test_metodologia(self):
         texto = read("core/cd2-super/skills/cbs-ibs-regime-regular/references/metodologia.md")
-        config = json.loads(read("conferencia/cbs-ibs-regime-regular/config.json"))
-        meta = json.loads(read("conferencia/cbs-ibs-regime-regular/meta.json"))
-        for needle in (meta["calculadora"]["versao"], meta["base"]["versao"], "ignorar", "timestamp",
-                       "hipótese da CD2", "Em 2027", "Reforma completa", "Bean Validation", "CAL-007",
-                       "notação científica", "parallelStream", "0000", "excluidos_da_bateria"):
+        # A versão, a base e os casos são os da entrada da skill (passagem histórica "Na entrada da skill
+        # no plugin (versão 0.7.0)"), não os do meta.json de hoje: o robô troca as tabelas sem mexer no texto.
+        for needle in ("Na entrada da skill no plugin (versão 0.7.0)", "1.7.2", "V0073", "1.368 casos iguais em 1.368",
+                       "ignorar", "timestamp", "hipótese da CD2", "Em 2027", "Reforma completa", "Bean Validation",
+                       "CAL-007", "notação científica", "parallelStream", "0000", "excluidos_da_bateria"):
             self.assertIn(needle, texto, needle)
-        self.assertIn(f"{meta['conferencia']['casos']:,}".replace(",", "."), texto)
 
     def test_arquivos_motor_lista_os_modulos(self):
         config = json.loads(read("conferencia/cbs-ibs-regime-regular/config.json"))

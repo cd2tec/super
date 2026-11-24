@@ -10,7 +10,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SKILL = ROOT / "core" / "cd2-super" / "skills" / "cbs-ibs-regime-regular"
 BASE_REDUZIDA = SKILL / "references" / "base-receita.db"
-BASE_COMPLETA = Path("/caminho/da/rr-completa.db")
 
 
 def load_module(name, path):
@@ -27,7 +26,9 @@ def load_module(name, path):
     return module
 
 
-sys.path.insert(0, str(SKILL / "scripts"))
+# Carga por spec, sem pôr a pasta de scripts no sys.path: o numeros.py entra primeiro em sys.modules,
+# e o `import numeros` do rr_expressao.py acha ele lá.
+base_completa_da_skill = load_module("versao_da_base", ROOT / "tests" / "versao_da_base.py").base_completa_da_skill
 num = load_module("numeros", SKILL / "scripts" / "numeros.py")
 rx = load_module("rr_expressao", SKILL / "scripts" / "rr_expressao.py")
 D = Decimal
@@ -100,18 +101,25 @@ class TestAvaliador(unittest.TestCase):
         with self.assertRaises(ValueError):
             rx.avaliar("aliquota+1", {})
 
-    def test_todas_as_expressoes_da_base_avaliam_com_variaveis_0_5(self):
+    def avaliar_todas(self, base):
         # Com 1, (1-pBio) vira zero e a divisão falha, igual ao Java; 0.5 evita isso.
         variaveis = {n: D("0.5") for n in rx.VARIAVEIS}
         self.assertEqual(len(variaveis), 21)
-        bases = [BASE_REDUZIDA] + ([BASE_COMPLETA] if BASE_COMPLETA.exists() else [])
-        for base in bases:
-            exprs = expressoes(base)
-            self.assertGreater(len(exprs), 5, base)
-            # Quem chama (CalculoCbsIbsService) só avalia expressão não vazia (isNotBlank).
-            for e in (e for e in exprs if e.strip()):
-                with self.subTest(base=base.name, expressao=e):
-                    self.assertIsInstance(rx.avaliar(e, variaveis), Decimal)
+        exprs = expressoes(base)
+        self.assertGreater(len(exprs), 5, base)
+        # Quem chama (CalculoCbsIbsService) só avalia expressão não vazia (isNotBlank).
+        for e in (e for e in exprs if e.strip()):
+            with self.subTest(base=base.name, expressao=e):
+                self.assertIsInstance(rx.avaliar(e, variaveis), Decimal)
+
+    def test_todas_as_expressoes_da_base_avaliam_com_variaveis_0_5(self):
+        self.avaliar_todas(BASE_REDUZIDA)
+
+    def test_todas_as_expressoes_da_base_completa_avaliam(self):
+        completa = base_completa_da_skill("cbs-ibs-regime-regular")
+        if completa is None:
+            self.skipTest("sem CD2_BASE_COMPLETA da cbs-ibs-regime-regular")
+        self.avaliar_todas(completa)
 
 
 if __name__ == "__main__":

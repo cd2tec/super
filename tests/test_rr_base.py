@@ -70,8 +70,19 @@ class TestBaseDoRegimeRegular(unittest.TestCase):
 
 
 
+_SQLITE = sqlite3.connect(":memory:")
+
+
 def _dec(valor):
-    """O BigDecimal que o sqlite-jdbc lê de uma coluna REAL: o texto do número."""
+    """O BigDecimal que o sqlite-jdbc lê de uma coluna REAL: new BigDecimal do texto que o SQLite escreve
+    (CAST AS TEXT, até 15 dígitos significativos), não o repr do float do Python."""
+    if valor is None:
+        return None
+    return Decimal(_SQLITE.execute("SELECT CAST(? AS TEXT)", (valor,)).fetchone()[0])
+
+
+def _dec_nativa(valor):
+    """O BigDecimal da native query: o texto mais curto do número de ponto flutuante (veja rr_base.py)."""
     if valor is None:
         return None
     return Decimal(repr(valor)) if isinstance(valor, float) else Decimal(str(valor))
@@ -267,7 +278,7 @@ class TestLeituraDaBase(unittest.TestCase):
         data = date.fromisoformat(inicio)
         self.assertEqual(
             self.base.buscar_aliquota_ad_valorem_por_classificacao_tributaria(tributo, id_classificacao, data),
-            _dec(valor))
+            _dec_nativa(valor))
         # sem NBS a consulta da alíquota de serviço não acha nada (EXISTS em NBS com código nulo)
         self.assertIsNone(self.base.buscar_aliquota_ad_valorem_dto(None, tributo, id_classificacao, data))
 
@@ -399,6 +410,34 @@ class TestLeituraDaBase(unittest.TestCase):
         self.assertIsNone(self.base.get_percentual_transferencia(date(2000, 1, 1)))
         with self.assertRaises(RuntimeError):
             self.base.percentual_transferencia(date(2000, 1, 1))
+
+    def test_bigdecimal_e_o_texto_do_sqlite_e_nao_o_repr_do_float(self):
+        # 0.30000000000000004 sai do SQLite como "0.3" (é o que o getBigDecimal do sqlite-jdbc lê); o repr
+        # do float do Python daria 0.30000000000000004. Só a native query fica com o número de ponto flutuante.
+        inicio, = self.um("SELECT TCEG_INICIO_VIGENCIA FROM TRANSFERENCIA_CBS_ENTE_GOV ORDER BY TCEG_INICIO_VIGENCIA")
+        tributo, id_classificacao, inicio_aadv, id_aadv = self.um(
+            "SELECT AADV_TBTO_ID, AADV_CLTR_ID, AADV_INICIO_VIGENCIA, AADV_ID FROM ALIQUOTA_AD_VALOREM "
+            "WHERE AADV_CLTR_ID IS NOT NULL ORDER BY AADV_ID")
+        pasta = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, pasta)
+        copia = pasta / "base.db"
+        shutil.copyfile(BASE, copia)
+        con = sqlite3.connect(copia)
+        with con:
+            con.execute("UPDATE TRANSFERENCIA_CBS_ENTE_GOV SET TCEG_VALOR = 0.30000000000000004")
+            con.execute("UPDATE ALIQUOTA_AD_VALOREM SET AADV_VALOR = 0.30000000000000004 WHERE AADV_ID = ?", (id_aadv,))
+        con.close()
+        with rb.Base(copia) as base:
+            self.assertEqual(str(base.get_percentual_transferencia(date.fromisoformat(inicio))), "0.3")
+            nativa = base.buscar_aliquota_ad_valorem_por_classificacao_tributaria(
+                tributo, id_classificacao, date.fromisoformat(inicio_aadv))
+        self.assertEqual(str(nativa), "0.30000000000000004")
+
+    def test_coluna_bigdecimal_sem_cast_e_erro(self):
+        with self.assertRaises(TypeError):
+            rb._converter(0.3, "n")
+        self.assertEqual(str(rb._converter("1.0e-05", "n")), "0.000010")
+        self.assertIsNone(rb._converter(None, "n"))
 
     # --- NCM e anexos -------------------------------------------------------------------
 

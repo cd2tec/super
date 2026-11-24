@@ -189,8 +189,9 @@ Escritos à mão, na mesma pasta: `config.json` (tabelas, lista `ignorar`, exce�
 | `oficial.jar` | O JAR que o build gera, sempre `target/<arquivo>.jar` |
 | `oficial.flyway_conf` | O arquivo de configuração do Flyway oficial, dentro do clone das migrações |
 | `oficial.arquivo_db` | O arquivo de base que o Flyway gera e o JAR usa |
+| `oficial.caminho_versao` | Onde a calculadora oficial responde a versão (`versaoApp` e `versaoDb`), depois do contexto (opcional). Sem a chave vale `/versao`, o do Simples; no regime regular é `/calculadora/dados-abertos/versao` |
 
-O comando `python3 scripts/receita_robo.py config --skill <skill> --campo <caminho.pontuado>` imprime um desses valores já validado por padrão fixo (o JAR em `target/`, a porta entre 1024 e 65535, nada com quebra de linha) ou sai com código 2. O workflow lê os valores de `oficial` por ele; `calculadora.*` e `migracoes.*` e, no job `agir`, `base_destino` ele lê direto com `jq`. No job `conferir`, o passo "Config da skill" (depois do `setup-python`, antes de "Olhar a Receita") grava `PORTA`, `CONTEXTO`, `JAR_REL`, `FLYWAY_CONF` e `ARQUIVO_DB` no `$GITHUB_ENV`, e os passos seguintes usam essas variáveis. Os clones ficam em `$RECEITA/calc` (a calculadora, na tag da release) e `$RECEITA/migr` (as migrações, na ponta), montados nos contêineres como `/calc` e `/migr`. Se as duas são o mesmo repositório o robô clona duas vezes do mesmo jeito.
+O comando `python3 scripts/receita_robo.py config --skill <skill> --campo <caminho.pontuado>` imprime um desses valores já validado por padrão fixo (o JAR em `target/`, a porta entre 1024 e 65535, nada com quebra de linha) ou sai com código 2. Um campo opcional ausente (`oficial.caminho_versao`) sai com o padrão. O workflow lê os valores de `oficial` por ele; `calculadora.*` e `migracoes.*` e, no job `agir`, `base_destino` ele lê direto com `jq`. No job `conferir`, o passo "Config da skill" (depois do `setup-python`, antes de "Olhar a Receita") grava `PORTA`, `CONTEXTO`, `JAR_REL`, `FLYWAY_CONF`, `ARQUIVO_DB` e `CAMINHO_VERSAO` no `$GITHUB_ENV`, e os passos seguintes usam essas variáveis. Os clones ficam em `$RECEITA/calc` (a calculadora, na tag da release) e `$RECEITA/migr` (as migrações, na ponta), montados nos contêineres como `/calc` e `/migr`. Se as duas são o mesmo repositório o robô clona duas vezes do mesmo jeito.
 
 **Rodar a conferência local.** Precisa de Docker, de um clone de cada repositório da Receita nas versões do `meta.json` e de alguns minutos.
 
@@ -226,7 +227,7 @@ O comando `python3 scripts/receita_robo.py config --skill <skill> --campo <camin
 
 1. **Olha a Receita.** Lê a última release do repositório do Simples e o último commit do repositório das migrações, clona os dois e lista os caminhos que mudaram desde o que está no `meta.json`. Nada mudou: termina. As versões são comparadas por número: uma release anterior à espelhada (a "latest" do GitHub segue a marca e a data, não a ordem) ou a mesma versão com outro commit nunca se publica e vira issue de falha.
 2. **Monta a base de dois jeitos**: pelo Flyway oficial, dentro de um contêiner, e pelo `receita_base.py`, na máquina. Compara o conteúdo de todas as tabelas (`receita_robo.py comparar-bases`). Diferença é defeito do montador e vira issue de falha.
-3. **Sobe a calculadora oficial** compilada da release, num contêiner próprio, no perfil `offline`, e confere que `/versao` responde a versão da release e a base montada.
+3. **Sobe a calculadora oficial** compilada da release, num contêiner próprio, no perfil `offline`, e confere que o caminho da versão (`oficial.caminho_versao` do `config.json`, `/versao` se faltar) responde a versão da release e a base montada.
 4. **Roda a bateria inteira** (`receita_paridade.py --completa`) e, com 100%, regrava as respostas oficiais. Todas as respostas oficiais gravadas no repositório moram no `esperadas.json` (o `casos-escritos.json` só tem as requisições), e ele é regravado da calculadora oficial da mesma execução antes de os testes rodarem.
 5. **Decide**, pela tabela abaixo, e age.
 
@@ -278,6 +279,8 @@ python3 scripts/receita_robo.py decidir --estado estado.json --paridade paridade
 ```
 
 Sem `--ramo refs/heads/main`, o `decidir` responde como fora da `main`: diz o que faria e devolve `terminar`.
+
+No regime regular, o `esperar-oficial` leva `--url http://127.0.0.1:8080/api --caminho-versao /calculadora/dados-abertos/versao` (o `oficial.caminho_versao` do `config.json` dele); sem a opção, vale `/versao`.
 
 O `publicar` mexe na versão e no `CHANGELOG.md`: rode numa cópia do repositório, nunca no checkout em que você trabalha.
 

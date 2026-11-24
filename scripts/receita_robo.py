@@ -6,7 +6,8 @@ Os subcomandos conversam por arquivos JSON e, no GitHub Actions, por `$GITHUB_OU
 
     detectar        compara a Receita (upstream.json) com o meta.json da skill e diz a classe da mudança
     comparar-bases  confere que a base do Flyway oficial e a do receita_base.py têm o mesmo conteúdo
-    esperar-oficial espera a calculadora oficial responder /versao com a versão e a base esperadas
+    esperar-oficial espera a calculadora oficial responder a versão (no caminho `oficial.caminho_versao` do
+                    config, `/versao` se ele faltar) com a versão e a base esperadas
     reconferir      no job que escreve: valida o artefato e refaz, sem código da Receita, o que dá para refazer
     decidir         junta a classe, a conferência e o PR de regra aberto e diz a ação
     publicar        grava a meta nova, sobe a versão (patch) e escreve o CHANGELOG.md
@@ -365,15 +366,25 @@ def _abrir_so_leitura(caminho: Path) -> sqlite3.Connection:
 _SO_LOCAL = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 
-def esperar_oficial(url: str, versao: str, base: str, prazo: float = 600, intervalo: float = 5) -> str | None:
-    """Espera /versao responder. Devolve None se respondeu com a versão e a base esperadas, senão o motivo."""
+# Caminho da versão quando o config.json não traz `oficial.caminho_versao` (o do Simples).
+CAMINHO_VERSAO_PADRAO = "/versao"
+_CAMINHO_VERSAO = re.compile(r"/[a-z0-9/-]*")
+
+
+def esperar_oficial(url: str, versao: str, base: str, prazo: float = 600, intervalo: float = 5,
+                    caminho_versao: str = CAMINHO_VERSAO_PADRAO) -> str | None:
+    """Espera o caminho da versão responder (`/versao` no Simples, `/calculadora/dados-abertos/versao` no
+    regime regular; os dois devolvem `versaoApp` e `versaoDb`). Devolve None se respondeu com a versão e a
+    base esperadas, senão o motivo."""
     if not re.match(r"^http://(127\.0\.0\.1|localhost)(:\d+)?/", url):
         return f"a calculadora oficial tem de rodar na própria máquina, não em {url}"
+    if not _CAMINHO_VERSAO.fullmatch(caminho_versao):
+        return f"caminho da versão fora do padrão: {caminho_versao[:60]!r}"
     fim = time.monotonic() + prazo
     ultimo = "sem resposta"
     while time.monotonic() < fim:
         try:
-            with _SO_LOCAL.open(url.rstrip("/") + "/versao", timeout=10) as resposta:
+            with _SO_LOCAL.open(url.rstrip("/") + caminho_versao, timeout=10) as resposta:
                 corpo = json.loads(resposta.read(100_000).decode("utf-8"))
             if corpo.get("versaoApp") != versao:
                 return f"a calculadora oficial respondeu a versão {corpo.get('versaoApp')!r}, e a release é a {versao!r}"
@@ -383,7 +394,7 @@ def esperar_oficial(url: str, versao: str, base: str, prazo: float = 600, interv
         except (urllib.error.URLError, OSError, ValueError, AttributeError) as erro:
             ultimo = str(erro)
         time.sleep(intervalo)
-    return f"a calculadora oficial não respondeu /versao em {prazo:.0f} s ({ultimo})"
+    return f"a calculadora oficial não respondeu {caminho_versao} em {prazo:.0f} s ({ultimo})"
 
 
 # --- o artefato e a reconferência ---------------------------------------------------------
@@ -980,7 +991,7 @@ def _cmd_comparar_bases(args) -> int:
 
 
 def _cmd_esperar_oficial(args) -> int:
-    motivo = esperar_oficial(args.url, args.versao, args.base, args.prazo)
+    motivo = esperar_oficial(args.url, args.versao, args.base, args.prazo, caminho_versao=args.caminho_versao)
     if motivo:
         print(f"erro: {motivo}", file=sys.stderr)
         return 1
@@ -1161,15 +1172,24 @@ _PADROES_CONFIG = {
     "oficial.jar": re.compile(r"target/[A-Za-z0-9._-]+\.jar"),
     "oficial.flyway_conf": re.compile(r"\./flyway/[A-Za-z0-9._-]+\.conf"),
     "oficial.arquivo_db": re.compile(r"[A-Za-z0-9._-]+\.db"),
+    "oficial.caminho_versao": _CAMINHO_VERSAO,
 }
+# Campos opcionais do config: ausentes, o comando config imprime o padrão (que passa pelo mesmo padrão fixo).
+_PADROES_AUSENTES = {"oficial.caminho_versao": CAMINHO_VERSAO_PADRAO}
 
 
 def valor_do_config(config: dict, campo: str) -> str:
     """Um valor do config.json pelo caminho pontuado, validado por padrão fixo quando o campo é
-    um dos que o workflow usa em comando. Levanta ValueError se faltar ou estiver fora do padrão."""
+    um dos que o workflow usa em comando. Um campo opcional ausente (`oficial.caminho_versao`) vale o
+    padrão. Levanta ValueError se faltar um campo obrigatório ou se o valor estiver fora do padrão."""
     valor = config
     for parte in campo.split("."):
-        if not isinstance(valor, dict) or parte not in valor:
+        if not isinstance(valor, dict):
+            raise ValueError(f"o config não tem o campo {campo}")
+        if parte not in valor:
+            if campo in _PADROES_AUSENTES:
+                valor = _PADROES_AUSENTES[campo]
+                break
             raise ValueError(f"o config não tem o campo {campo}")
         valor = valor[parte]
     if isinstance(valor, (dict, list)) or valor is None or isinstance(valor, bool):
@@ -1229,6 +1249,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--versao", required=True)
     p.add_argument("--base", required=True)
     p.add_argument("--prazo", type=float, default=600)
+    p.add_argument("--caminho-versao", default=CAMINHO_VERSAO_PADRAO,
+                   help="caminho da versão depois do contexto (oficial.caminho_versao do config)")
     p.set_defaults(func=_cmd_esperar_oficial)
 
     p = sub.add_parser("reconferir")

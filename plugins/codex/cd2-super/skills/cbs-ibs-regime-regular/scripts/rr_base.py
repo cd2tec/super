@@ -41,8 +41,15 @@ Convenções:
   as colunas como estão gravadas (algumas têm hora, `aaaa-mm-dd 00:00:00`). Aqui é igual: o parâmetro é
   `date.isoformat()` e o SQL roda no próprio SQLite.
 - Linhas saem como `dict` com os nomes dos campos das entidades e DTOs Java. Datas são `datetime.date`,
-  booleanos são `bool`, BigDecimal é `decimal.Decimal` (o texto do número, como o sqlite-jdbc lê),
-  enums são o nome do enum (texto).
+  booleanos são `bool` e enums são o nome do enum (texto).
+- BigDecimal é `decimal.Decimal` do texto do número. O sqlite-jdbc (getBigDecimal) lê a coluna como texto,
+  que o próprio SQLite escreve (um REAL sai com até 15 dígitos significativos: 0.30000000000000004 vira
+  "0.3"), e faz `new BigDecimal(texto)`. Aqui a consulta pede `CAST(coluna AS TEXT)` e o Python faz
+  `Decimal(texto)`: o mesmo texto, do mesmo SQLite, por construção (tipo "n" do mapa). A exceção é a native
+  query de AliquotaAdValoremServicoRepository.buscarAliquotaAdValoremPorClassificacaoTributaria: nela o
+  Hibernate lê a coluna pelo tipo do metadado JDBC (ponto flutuante, não texto) e o Spring converte o
+  número para BigDecimal pelo texto dele (`toString`, o decimal mais curto). Ali a coluna vem como REAL e
+  o Python faz `Decimal(repr(valor))` (tipo "f"). Hoje os dois caminhos dão o mesmo número em toda a base.
 - "Nenhuma linha" é `None` (o `null` ou o `Optional.empty()` do Java). Consulta que no Java devolve um
   resultado só e acha mais de um levanta `ResultadoNaoUnico` (IncorrectResultSizeDataAccessException).
 - Sem cache além de um dicionário por instância. A base abre somente leitura. Só biblioteca padrão.
@@ -115,7 +122,9 @@ class ClassificacaoTributariaNaoEncontradaException(EntidadeNaoEncontradaExcepti
 
 
 # --- Mapeamento coluna -> campo -----------------------------------------------------------
-# Tipos: s texto, i inteiro, b Boolean (nulo fica None), B boolean primitivo (nulo vira False), d data, n Decimal.
+# Tipos: s texto, i inteiro, b Boolean (nulo fica None), B boolean primitivo (nulo vira False), d data,
+# n Decimal do texto que o SQLite escreve (a consulta pede CAST(coluna AS TEXT), como o getBigDecimal do
+# sqlite-jdbc) e f Decimal do número de ponto flutuante (só a native query, veja a docstring do módulo).
 
 _TIPO_DFE = (  # entity/TipoDfe.java
     ("id", "TPDF_ID", "i"), ("tipo", "TPDF_TIPO", "i"), ("sigla", "TPDF_SIGLA", "s"),
@@ -168,6 +177,10 @@ def _converter(valor, tipo):
     if tipo == "d":
         return date.fromisoformat(str(valor)[:10])
     if tipo == "n":
+        if not isinstance(valor, str):  # sem o CAST AS TEXT a conta deixaria de ser a do sqlite-jdbc
+            raise TypeError(f"coluna BigDecimal tem de vir como texto (CAST AS TEXT), veio {type(valor).__name__}")
+        return Decimal(valor)
+    if tipo == "f":
         return Decimal(repr(valor)) if isinstance(valor, float) else Decimal(str(valor))
     return valor
 
@@ -521,7 +534,8 @@ class Base:
         """PercentualReducaoRepository.buscar (via PercentualReducaoService.buscar). SQL gerado da JPQL."""
         linha = self._unico(
             f"Percentual de redução da classificação {id_classificacao}, tributo {id_tributo}, em {_iso(data)}",
-            "SELECT PERE_VALOR FROM PERCENTUAL_REDUCAO WHERE PERE_CLTR_ID = :id AND PERE_TBTO_ID = :id_tributo "
+            "SELECT CAST(PERE_VALOR AS TEXT) FROM PERCENTUAL_REDUCAO "
+            "WHERE PERE_CLTR_ID = :id AND PERE_TBTO_ID = :id_tributo "
             "AND (PERE_INICIO_VIGENCIA <= :data AND (PERE_FIM_VIGENCIA IS NULL OR PERE_FIM_VIGENCIA >= :data))",
             id=id_classificacao, id_tributo=id_tributo, data=_iso(data))
         return None if linha is None else _converter(linha[0], "n")
@@ -588,7 +602,7 @@ class Base:
         """AliquotaReferenciaRepository.buscar (via AliquotaReferenciaService.buscar). SQL gerado da JPQL."""
         linha = self._unico(
             f"Alíquota de referência do tributo {id_tributo} em {_iso(data)}",
-            "SELECT ar.ALRE_VALOR FROM ALIQUOTA_REFERENCIA ar WHERE ar.ALRE_TBTO_ID = :id_tributo "
+            "SELECT CAST(ar.ALRE_VALOR AS TEXT) FROM ALIQUOTA_REFERENCIA ar WHERE ar.ALRE_TBTO_ID = :id_tributo "
             "AND :data BETWEEN ar.ALRE_INICIO_VIGENCIA AND COALESCE(ar.ALRE_FIM_VIGENCIA, :data)",
             id_tributo=id_tributo, data=_iso(data))
         return None if linha is None else _converter(linha[0], "n")
@@ -603,7 +617,8 @@ class Base:
         """
         linha = self._unico(
             f"Alíquota do tributo {id_tributo}, UF {codigo_uf}, município {municipio}, em {_iso(data)}",
-            "SELECT r.ALRE_VALOR, p.ALPA_VALOR, p.ALPA_FORMA_APLICACAO FROM ALIQUOTA_REFERENCIA r "
+            "SELECT CAST(r.ALRE_VALOR AS TEXT), CAST(p.ALPA_VALOR AS TEXT), p.ALPA_FORMA_APLICACAO "
+            "FROM ALIQUOTA_REFERENCIA r "
             "LEFT JOIN ALIQUOTA_PADRAO p ON p.ALPA_ALRE_ID = r.ALRE_ID "
             "AND ((:municipio IS NULL AND p.ALPA_MUNI_CD IS NULL) "
             "OR (:municipio IS NOT NULL AND p.ALPA_MUNI_CD = :municipio)) "
@@ -644,7 +659,7 @@ class Base:
         longo vence. Devolve o AliquotaAdValoremDTO {valor} (o valor pode ser nulo com a linha existindo).
         """
         sql = self._sql_aliquota_produto(
-            "v.AADV_VALOR", "ALIQUOTA_AD_VALOREM_PRODUTO", "AAVP", "ALIQUOTA_AD_VALOREM", "AADV",
+            "CAST(v.AADV_VALOR AS TEXT)", "ALIQUOTA_AD_VALOREM_PRODUTO", "AAVP", "ALIQUOTA_AD_VALOREM", "AADV",
             "EXCECAO_AD_VALOREM_PRODUTO", "EAVP", "ORDER BY LENGTH(a.AAVP_NCM_CD) DESC LIMIT 1").format(juntar="")
         linhas = self._consultar(sql, ncm=ncm, id_tributo=id_tributo, data=_iso(data))[1]
         return {"valor": _converter(linhas[0][0], "n")} if linhas else None
@@ -667,7 +682,7 @@ class Base:
         é a existência dele que ProcessamentoItemService.existeIncidenciaImpostoSeletivo testa.
         """
         sql = self._sql_aliquota_produto(
-            "v.AARE_VALOR, u.UNMD_SIGLA", "ALIQUOTA_AD_REM_PRODUTO", "AARP", "ALIQUOTA_AD_REM", "AARE",
+            "CAST(v.AARE_VALOR AS TEXT), u.UNMD_SIGLA", "ALIQUOTA_AD_REM_PRODUTO", "AARP", "ALIQUOTA_AD_REM", "AARE",
             "EXCECAO_AD_REM_PRODUTO", "EARP", "ORDER BY LENGTH(a.AARP_NCM_CD) DESC LIMIT 1").format(
             juntar="JOIN UNIDADE_MEDIDA u ON u.UNMD_ID = v.AARE_UNMD_ID ")
         linhas = self._consultar(sql, ncm=ncm, id_tributo=id_tributo, data=_iso(data))[1]
@@ -685,7 +700,7 @@ class Base:
         """
         linha = self._unico(
             f"Alíquota ad valorem do NBS {nbs}, tributo {id_tributo}, classificação {id_classificacao}",
-            "SELECT v.AADV_VALOR FROM ALIQUOTA_AD_VALOREM_SERVICO a "
+            "SELECT CAST(v.AADV_VALOR AS TEXT) FROM ALIQUOTA_AD_VALOREM_SERVICO a "
             "JOIN ALIQUOTA_AD_VALOREM v ON v.AADV_ID = a.AAVS_AADV_ID "
             "WHERE EXISTS (SELECT 1 FROM NBS n WHERE n.NBS_CD = :nbs) "
             "AND a.AAVS_NBS_CD = SUBSTR(:nbs, 1, LENGTH(a.AAVS_NBS_CD)) "
@@ -706,6 +721,8 @@ class Base:
                                                                 data: date) -> Decimal | None:
         """AliquotaAdValoremServicoRepository.buscarAliquotaAdValoremPorClassificacaoTributaria (native query).
 
+        A única leitura de BigDecimal sem CAST AS TEXT: na native query o valor chega ao Java como número de
+        ponto flutuante, e vira BigDecimal pelo texto mais curto dele (tipo "f"; veja a docstring do módulo).
         CalculoCbsIbsService: tipo de alíquota "Fixa" e o segundo passo de "Uniforme setorial". Mais de uma
         linha é ResultadoNaoUnico (o service troca por ErroGenericoValidacaoException).
         """
@@ -715,7 +732,7 @@ class Base:
             "AND aadv.AADV_CLTR_ID = :id_classificacao "
             "AND :data BETWEEN aadv.AADV_INICIO_VIGENCIA AND COALESCE(aadv.AADV_FIM_VIGENCIA, :data)",
             id_tributo=id_tributo, id_classificacao=id_classificacao, data=_iso(data))
-        return None if linha is None else _converter(linha[0], "n")
+        return None if linha is None else _converter(linha[0], "f")
 
     def get_percentual_transferencia(self, data: date) -> Decimal | None:
         """TransferenciaCBSRepository.getPercentualTransferencia (Optional<BigDecimal>). SQL gerado da JPQL.
@@ -724,7 +741,7 @@ class Base:
         """
         linha = self._unico(
             f"Percentual de transferência da CBS em {_iso(data)}",
-            "SELECT TCEG_VALOR FROM TRANSFERENCIA_CBS_ENTE_GOV WHERE TCEG_INICIO_VIGENCIA <= :data "
+            "SELECT CAST(TCEG_VALOR AS TEXT) FROM TRANSFERENCIA_CBS_ENTE_GOV WHERE TCEG_INICIO_VIGENCIA <= :data "
             "AND (TCEG_FIM_VIGENCIA IS NULL OR TCEG_FIM_VIGENCIA >= :data)",
             data=_iso(data))
         return None if linha is None else _converter(linha[0], "n")

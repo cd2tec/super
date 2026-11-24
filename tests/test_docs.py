@@ -517,9 +517,10 @@ class GuidesTest(unittest.TestCase):
         text = read("CHANGELOG.md")
         self.assertLess(text.index("## 0.7.0"), text.index("## 0.6.0"))
         section = text.split("## 0.7.0", 1)[1].split("## 0.6.0", 1)[0]
-        meta = json.loads(read("conferencia/cbs-ibs-regime-regular/meta.json"))
-        for needle in ("cbs-ibs-regime-regular", "Receita Federal", meta["calculadora"]["versao"],
-                       meta["base"]["versao"], "1.368", "Lucro Real", "Imposto Seletivo"):
+        # A seção é histórica: guarda a versão, a base e os casos da entrada da skill, não os de hoje,
+        # para não travar quando o robô publicar tabelas novas.
+        for needle in ("cbs-ibs-regime-regular", "Receita Federal", "1.7.2", "V0073", "1.368",
+                       "Lucro Real", "Imposto Seletivo"):
             self.assertIn(needle, section, needle)
 
     def test_changelog_0_2_0(self):
