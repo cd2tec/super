@@ -147,7 +147,7 @@ class WorkflowTest(unittest.TestCase):
         for origem in montagens:
             self.assertTrue(origem.startswith("$ISOL/") or origem in ("$JAR", "$BANCO"), origem)
         self.assertIn("ISOL: /tmp/receita-isolada", text)
-        self.assertIn(":/app/calculadora/db/calculadora-pro.db:ro", text)
+        self.assertIn(":/app/calculadora/db/$ARQUIVO_DB:ro", text)
         self.assertIn("--network receita-oficial", text)
         self.assertIn("DOCKER-USER -i br-receita -j DROP", text)
         self.assertIn('-p "127.0.0.1:$PORTA:$PORTA"', text)
@@ -165,12 +165,26 @@ class WorkflowTest(unittest.TestCase):
                 self.assertIn('[ ! -f "$p" ]', bloco)
                 self.assertIn('realpath "$ISOL/produtos"', bloco)
             for variavel in ("JAR", "BANCO"):
-                if f'"${variavel}' in bloco or f'"${variavel}:' in bloco:
-                    self.assertRegex(bloco, rf"{variavel}=\$\(produto [a-z.-]+\)")
+                if f'"${variavel}"' in bloco or f'"${variavel}:' in bloco:
+                    self.assertRegex(bloco, rf'{variavel}=\$\(produto ("\$ARQUIVO_DB"|"\$\(basename "\$JAR_REL"\)")\)')
         text = wf("conferencia-receita.yml")
         self.assertEqual(text.count("-c core.symlinks=false"), 2)
         self.assertEqual(len(re.findall(r"diff -z --no-renames --name-only", text)), 2)
         self.assertNotRegex(text, r"diff --no-renames --name-only")
+
+    def test_sem_nome_de_skill_no_workflow(self):
+        text = wf("conferencia-receita.yml")
+        for agulha in ("api-simples-nacional", "8082", "/sn", "/rr", "calculadora-pro", "flyway-pro"):
+            self.assertNotIn(agulha, text, agulha)
+
+    def test_config_da_skill_vai_pelo_github_env(self):
+        achados = [
+            bloco for bloco in run_blocks(wf("conferencia-receita.yml"))
+            if "receita_robo.py config" in bloco and '"$GITHUB_ENV"' in bloco
+        ]
+        self.assertEqual(len(achados), 1)
+        for nome in ("PORTA", "CONTEXTO", "JAR_REL", "FLYWAY_CONF", "ARQUIVO_DB"):
+            self.assertIn(nome, achados[0])
 
     def test_comentarios_so_pela_api_rest(self):
         # o gh --json comments não diz se o autor do comentário é bot: o robô se perderia e comentaria todo dia

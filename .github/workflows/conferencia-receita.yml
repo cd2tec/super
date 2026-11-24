@@ -65,7 +65,6 @@ jobs:
       ISOL: /tmp/receita-isolada
       # A mesma família de imagem do ensaio local (Maven com Temurin 25), presa pelo digest.
       IMAGEM: maven:3-eclipse-temurin-25@sha256:84bd96155bf37d1be2858433aee89320f487c2d21faf06406640e7dc2b82d686
-      PORTA: "8082"
     steps:
       # O contexto runner não existe no env do job, só nos passos: as pastas entram por aqui.
       - name: Pastas de trabalho
@@ -84,6 +83,25 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
+      # Os valores do oficial vêm do config da skill (validados por receita_robo.py config). Precisa do
+      # checkout e do Python, por isso fica aqui, antes do primeiro passo que usa algum deles.
+      - name: Config da skill
+        run: |
+          set -euo pipefail
+          cfg() { python3 scripts/receita_robo.py config --skill "$SKILL" --campo "$1"; }
+          PORTA=$(cfg oficial.porta)
+          CONTEXTO=$(cfg oficial.contexto)
+          JAR_REL=$(cfg oficial.jar)
+          FLYWAY_CONF=$(cfg oficial.flyway_conf)
+          ARQUIVO_DB=$(cfg oficial.arquivo_db)
+          {
+            echo "PORTA=$PORTA"
+            echo "CONTEXTO=$CONTEXTO"
+            echo "JAR_REL=$JAR_REL"
+            echo "FLYWAY_CONF=$FLYWAY_CONF"
+            echo "ARQUIVO_DB=$ARQUIVO_DB"
+          } >> "$GITHUB_ENV"
 
       - name: Olhar a Receita
         id: detectar
@@ -107,21 +125,21 @@ jobs:
           # Clone sem blobs: o histórico basta para o diff de nomes; o checkout baixa o resto.
           # Sem links simbólicos no checkout: link vira arquivo de texto e o nosso Python nunca segue um
           # link da Receita para fora do clone.
-          git clone --quiet --filter=blob:none -c core.symlinks=false "https://github.com/$CALC_REPO.git" "$RECEITA/sn"
-          git -C "$RECEITA/sn" -c advice.detachedHead=false checkout --quiet "refs/tags/$TAG"
-          CALC_DEPOIS=$(git -C "$RECEITA/sn" rev-parse HEAD)
-          git clone --quiet --filter=blob:none -c core.symlinks=false "https://github.com/$MIGR_REPO.git" "$RECEITA/rr"
-          MIGR_DEPOIS=$(git -C "$RECEITA/rr" rev-parse HEAD)
+          git clone --quiet --filter=blob:none -c core.symlinks=false "https://github.com/$CALC_REPO.git" "$RECEITA/calc"
+          git -C "$RECEITA/calc" -c advice.detachedHead=false checkout --quiet "refs/tags/$TAG"
+          CALC_DEPOIS=$(git -C "$RECEITA/calc" rev-parse HEAD)
+          git clone --quiet --filter=blob:none -c core.symlinks=false "https://github.com/$MIGR_REPO.git" "$RECEITA/migr"
+          MIGR_DEPOIS=$(git -C "$RECEITA/migr" rev-parse HEAD)
           # Caminhos mudados: tudo o que mudou na calculadora e, das migrações, só o que está no caminho delas.
           # Separados por NUL (-z): nome com acento ou com quebra de linha chega inteiro e sem aspas.
           # Commit espelhado que sumiu do histórico faz o git falhar aqui: vira issue de falha.
           : > "$SAIDA/caminhos.txt"
           if [ "$CALC_ANTES" != "$CALC_DEPOIS" ]; then
-            git -C "$RECEITA/sn" diff -z --no-renames --name-only "$CALC_ANTES" "$CALC_DEPOIS" >> "$SAIDA/caminhos.txt"
-            git -C "$RECEITA/sn" -c core.quotePath=false diff --no-renames "$CALC_ANTES" "$CALC_DEPOIS" -- "$CALC_CODIGO" > "$SAIDA/diff-java.txt"
+            git -C "$RECEITA/calc" diff -z --no-renames --name-only "$CALC_ANTES" "$CALC_DEPOIS" >> "$SAIDA/caminhos.txt"
+            git -C "$RECEITA/calc" -c core.quotePath=false diff --no-renames "$CALC_ANTES" "$CALC_DEPOIS" -- "$CALC_CODIGO" > "$SAIDA/diff-java.txt"
           fi
           if [ "$MIGR_ANTES" != "$MIGR_DEPOIS" ]; then
-            git -C "$RECEITA/rr" diff -z --no-renames --name-only "$MIGR_ANTES" "$MIGR_DEPOIS" -- "$MIGR_CAMINHO" >> "$SAIDA/caminhos.txt"
+            git -C "$RECEITA/migr" diff -z --no-renames --name-only "$MIGR_ANTES" "$MIGR_DEPOIS" -- "$MIGR_CAMINHO" >> "$SAIDA/caminhos.txt"
           fi
           jq -n --arg v "${TAG#v}" --arg c "$CALC_DEPOIS" --arg m "$MIGR_DEPOIS" \
             '{calculadora: {versao: $v, commit: $c}, migracoes: {commit: $m}}' > "$SAIDA/upstream.json"
@@ -134,25 +152,26 @@ jobs:
         if: steps.detectar.outputs.classe != 'nada'
         env:
           CONSTRUIR: |
-            cd /rr
+            cd /migr
             mkdir -p calculadora/db
-            mvn -B -q -Dmaven.repo.local=/m2/repository flyway:migrate -Dflyway.configFiles=./flyway/flyway-pro.conf
-            cp calculadora/db/calculadora-pro.db /produtos/
-            cd /sn
+            mvn -B -q -Dmaven.repo.local=/m2/repository flyway:migrate "-Dflyway.configFiles=$FLYWAY_CONF"
+            cp "calculadora/db/$ARQUIVO_DB" /produtos/
+            cd /calc
             mkdir -p calculadora/db
-            cp /produtos/calculadora-pro.db calculadora/db/
+            cp "/produtos/$ARQUIVO_DB" calculadora/db/
             mvn -B -q -Dmaven.repo.local=/m2/repository clean package -DskipTests
-            cp target/api-simples-nacional.jar /produtos/
+            cp "$JAR_REL" /produtos/
         run: |
           set -euo pipefail
           echo "Montar a base pelo Flyway e compilar a calculadora oficial" > "$ETAPA"
           rm -rf "$ISOL"
-          mkdir -p "$ISOL/rr" "$ISOL/sn" "$ISOL/m2" "$ISOL/produtos"
+          mkdir -p "$ISOL/migr" "$ISOL/calc" "$ISOL/m2" "$ISOL/produtos"
           # Cópias: o contêiner nunca mexe nos clones que o nosso Python lê.
-          cp -a "$RECEITA/rr/." "$ISOL/rr/"
-          cp -a "$RECEITA/sn/." "$ISOL/sn/"
+          cp -a "$RECEITA/migr/." "$ISOL/migr/"
+          cp -a "$RECEITA/calc/." "$ISOL/calc/"
           docker run --rm --name receita-build --user "$(id -u):$(id -g)" -e HOME=/tmp \
-            -v "$ISOL/rr:/rr" -v "$ISOL/sn:/sn" -v "$ISOL/m2:/m2" -v "$ISOL/produtos:/produtos" \
+            -e FLYWAY_CONF -e ARQUIVO_DB -e JAR_REL \
+            -v "$ISOL/migr:/migr" -v "$ISOL/calc:/calc" -v "$ISOL/m2:/m2" -v "$ISOL/produtos:/produtos" \
             "$IMAGEM" bash -euo pipefail -c "$CONSTRUIR"
           # Produto do build só se for arquivo comum (nunca link) e de dentro da pasta de produtos.
           produto() {
@@ -163,15 +182,15 @@ jobs:
               *) echo "Produto do build fora da pasta de produtos: $1" >&2; exit 1 ;;
             esac
           }
-          test -s "$(produto calculadora-pro.db)"
-          test -s "$(produto api-simples-nacional.jar)"
+          test -s "$(produto "$ARQUIVO_DB")"
+          test -s "$(produto "$(basename "$JAR_REL")")"
 
       - name: Montar a base pelo receita_base.py e comparar as duas
         if: steps.detectar.outputs.classe != 'nada'
         run: |
           set -euo pipefail
           echo "Montar a base pelo receita_base.py" > "$ETAPA"
-          python3 scripts/receita_base.py --skill "$SKILL" --repo "$RECEITA/rr" --completa "$TRAB/base-completa.db"
+          python3 scripts/receita_base.py --skill "$SKILL" --repo "$RECEITA/migr" --completa "$TRAB/base-completa.db"
           # Produto do build só se for arquivo comum (nunca link) e de dentro da pasta de produtos.
           produto() {
             local p="$ISOL/produtos/$1"
@@ -181,7 +200,7 @@ jobs:
               *) echo "Produto do build fora da pasta de produtos: $1" >&2; exit 1 ;;
             esac
           }
-          BANCO=$(produto calculadora-pro.db)
+          BANCO=$(produto "$ARQUIVO_DB")
           cp "$BANCO" "$TRAB/flyway.db"
           echo "Comparar as duas bases" > "$ETAPA"
           python3 scripts/receita_robo.py comparar-bases --skill "$SKILL" \
@@ -214,15 +233,15 @@ jobs:
               *) echo "Produto do build fora da pasta de produtos: $1" >&2; exit 1 ;;
             esac
           }
-          JAR=$(produto api-simples-nacional.jar)
-          BANCO=$(produto calculadora-pro.db)
+          JAR=$(produto "$(basename "$JAR_REL")")
+          BANCO=$(produto "$ARQUIVO_DB")
           docker run -d --name receita-oficial --network receita-oficial --dns 127.0.0.1 \
             -p "127.0.0.1:$PORTA:$PORTA" --user "$(id -u):$(id -g)" -e HOME=/tmp -w /app \
             -v "$JAR:/app/api.jar:ro" \
-            -v "$BANCO:/app/calculadora/db/calculadora-pro.db:ro" \
+            -v "$BANCO:/app/calculadora/db/$ARQUIVO_DB:ro" \
             "$IMAGEM" java -Dspring.profiles.active=offline -jar /app/api.jar
           BASE=$(jq -er .base.versao "conferencia/$SKILL/meta.json")
-          python3 scripts/receita_robo.py esperar-oficial --url "http://127.0.0.1:$PORTA/api" \
+          python3 scripts/receita_robo.py esperar-oficial --url "http://127.0.0.1:$PORTA$CONTEXTO" \
             --versao "$VERSAO" --base "$BASE" --prazo 600
 
       - name: Conferência completa
@@ -234,7 +253,7 @@ jobs:
           set +e
           set -uo pipefail
           echo "Conferência completa" > "$ETAPA"
-          python3 scripts/receita_paridade.py --skill "$SKILL" --oficial "http://127.0.0.1:$PORTA/api" \
+          python3 scripts/receita_paridade.py --skill "$SKILL" --oficial "http://127.0.0.1:$PORTA$CONTEXTO" \
             --completa --base-completa "$TRAB/base-completa.db" > "$TRAB/paridade.txt" 2>&1
           codigo=$?
           case "$codigo" in ""|*[!0-9]*) exit 1;; esac
@@ -251,7 +270,7 @@ jobs:
         run: |
           set -euo pipefail
           echo "Regravar as respostas oficiais" > "$ETAPA"
-          python3 scripts/receita_paridade.py --skill "$SKILL" --oficial "http://127.0.0.1:$PORTA/api" --gravar-esperadas --amostra 400
+          python3 scripts/receita_paridade.py --skill "$SKILL" --oficial "http://127.0.0.1:$PORTA$CONTEXTO" --gravar-esperadas --amostra 400
 
       - name: Desligar os contêineres
         if: always()
