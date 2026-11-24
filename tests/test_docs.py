@@ -112,11 +112,11 @@ class ReadmeTest(unittest.TestCase):
     def test_gpt_so_nas_calculadoras(self):
         skills = json.loads(read("skills.json"))
         com_gpt = {s["name"] for s in skills if s.get("gpt")}
-        self.assertEqual(com_gpt, {"fim-escala-6x1", "custo-vrva", "cbs-ibs-simples"})
+        self.assertEqual(com_gpt, {"fim-escala-6x1", "custo-vrva", "cbs-ibs-simples", "cbs-ibs-regime-regular"})
         self.assertEqual(sorted(p.name for p in (ROOT / "gpts").iterdir() if p.is_dir()), sorted(com_gpt))
         for rel in ("README.md", "docs/index.html"):
             text = read(rel)
-            self.assertIn("só para as três calculadoras", text, rel)
+            self.assertIn("só para as quatro calculadoras", text, rel)
             self.assertNotIn("um GPT para cada skill", text, rel)
 
     def test_teste_sem_prazo_nao_fala_em_periodo(self):
@@ -193,6 +193,43 @@ class ReadmeExampleTest(unittest.TestCase):
             self.assertIn("0,0129%", text, rel)
             self.assertIn("exemplo ilustrativo", text, rel)
             self.assertIn("cbs-ibs-simples", text, rel)
+
+    def test_regime_regular_example_sai_da_conta(self):
+        # Operação em português do exemplo: chocolate de R$ 1.000,00 e arroz de R$ 100,00, NFC-e, 01/01/2027.
+        import subprocess
+        import sys
+        operacao = {
+            "documento": "NFC-e", "uf": "SP", "municipio": 3550308, "data": "2027-01-01",
+            "itens": [
+                {"descricao": "Chocolate", "ncm": "18063110", "cst": "000", "classificacao": "000001",
+                 "valor": "1000.00"},
+                {"descricao": "Arroz 5 kg", "ncm": "10063021", "cst": "200", "classificacao": "200003",
+                 "valor": "100.00"},
+            ],
+        }
+        calc = ROOT / "core" / "cd2-super" / "skills" / "cbs-ibs-regime-regular" / "scripts" / "calc.py"
+        totais = {}
+        for cenario in ("em-2027", "reforma-completa"):
+            saida = subprocess.run([sys.executable, str(calc), "--cenario", cenario], input=json.dumps(operacao),
+                                   capture_output=True, text=True, check=True)
+            tot = json.loads(saida.stdout)["corpo"]["total"]["tribCalc"]["IBSCBSTot"]
+            totais[cenario] = (tot["gCBS"]["vCBS"], tot["gIBS"]["vIBS"])
+        self.assertEqual(totais, {"em-2027": ("113.00", "1.00"), "reforma-completa": ("88.00", "177.00")})
+        for rel in ("README.md", "docs/index.html"):
+            text = read(rel)
+            for needle in ("CBS de R$ 113,00 e IBS de R$ 1,00", "CBS de R$ 88,00 e IBS de R$ 177,00",
+                           "chocolate de R$ 1.000,00", "arroz de R$ 100,00", "11,3%", "simulad",
+                           "cbs-ibs-regime-regular", "hipótese da CD2"):
+                self.assertIn(needle, text, f"{rel}: {needle}")
+
+    def test_reforma_lucro_real_deixa_de_ser_ainda_nao(self):
+        section = read("docs/index.html").split('<section id="reforma">', 1)[1].split("</section>", 1)[0]
+        linha = section.split("Lucro Real e Lucro Presumido", 1)[1].split("</li>", 1)[0]
+        self.assertNotIn("Ainda não", linha)
+        self.assertIn("pill--sim", linha)
+        self.assertIn("cbs-ibs-regime-regular", linha)
+        self.assertIn("https://github.com/ReceitaFederal/calculadora-rtc-regime-regular", section)
+        self.assertNotIn("calculadora-rtc-regime-regular?utm", section)
 
     def test_relatorio_example_abc_numbers(self):
         # Mercearia de exemplo do README e do site: seis produtos, cortes de 80% (A) e 95% (B).
@@ -301,13 +338,13 @@ class SiteTest(unittest.TestCase):
         self.assertRegex(section, r'class="chat"')
         # O hero e os fatos falam das vinte e oito skills, não de duas.
         self.assertNotIn('<span class="stat">2</span>', html)
-        self.assertIn('<span class="stat">28</span>', html)
+        self.assertIn('<span class="stat">29</span>', html)
         self.assertNotRegex(html, r"(?i)dados? (nunca )?sa[ei]m? da (sua )?empresa|nada sai da")
         # Os cards gerados mostram todas e não fingem calculadora nos relatórios.
         block = html.split("<!-- skills:start -->")[1].split("<!-- skills:end -->")[0]
         self.assertEqual(block.count('class="skill-card"'), len(json.loads(read("skills.json"))))
         self.assertEqual(block.count("Abrir a calculadora gratuita"), 2)
-        self.assertEqual(block.count("Ver a calculadora oficial"), 1)
+        self.assertEqual(block.count("Ver a calculadora oficial"), 2)
 
     def test_site_contact_and_utm(self):
         urls = [u.replace("&amp;", "&") for u in urls_in(self.html)]
@@ -471,10 +508,20 @@ class GuidesTest(unittest.TestCase):
 
     def test_agents_md_explica_a_skill_da_receita(self):
         text = read("AGENTS.md")
-        for needle in ("vinte e oito skills", "três calculadoras", "cbs-ibs-simples",
+        for needle in ("vinte e nove skills", "quatro calculadoras", "cbs-ibs-simples", "cbs-ibs-regime-regular",
                        "Skills que espelham a calculadora da Receita", "base-receita.db", "meta.json",
                        "esperadas.json", "receita_paridade.py", "receita_base.py", "fonte_externa"):
             self.assertIn(needle, text, needle)
+
+    def test_changelog_0_7_0(self):
+        text = read("CHANGELOG.md")
+        self.assertLess(text.index("## 0.7.0"), text.index("## 0.6.0"))
+        section = text.split("## 0.7.0", 1)[1].split("## 0.6.0", 1)[0]
+        # A seção é histórica: guarda a versão, a base e os casos da entrada da skill, não os de hoje,
+        # para não travar quando o robô publicar tabelas novas.
+        for needle in ("cbs-ibs-regime-regular", "Receita Federal", "1.7.2", "V0073", "1.368",
+                       "Lucro Real", "Imposto Seletivo"):
+            self.assertIn(needle, section, needle)
 
     def test_changelog_0_2_0(self):
         text = read("CHANGELOG.md")

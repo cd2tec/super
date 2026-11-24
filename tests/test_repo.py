@@ -64,6 +64,20 @@ class RepoTest(unittest.TestCase):
             for needle in LEAKS:
                 self.assertFalse(needle.lower() in lowered, f"{rel}: {needle}")
 
+    def test_no_local_paths_in_tests(self):
+        # Os testes ficam fora de tracked_texts (citam o que procuram), mas caminho local e nome de pessoa
+        # também não entram neles: o repositório é público. Só este arquivo guarda as agulhas.
+        agulhas = ("/private/tmp", "scratchpad", "claude-" + "501", PERSON.lower())
+        for rel in tracked_files():
+            if not rel.startswith("tests/") or rel == "tests/test_repo.py" or not (ROOT / rel).is_file():
+                continue
+            try:
+                texto = (ROOT / rel).read_text(encoding="utf-8").lower()
+            except UnicodeDecodeError:
+                continue
+            for agulha in agulhas:
+                self.assertNotIn(agulha, texto, f"{rel}: {agulha}")
+
     def test_internal_dirs_are_ignored_and_untracked(self):
         ignore = read(".gitignore").split()
         for folder in INTERNAL_DIRS:
@@ -120,7 +134,8 @@ class RepoTest(unittest.TestCase):
         self.assertEqual(
             {s["name"] for s in skills},
             {
-                "fim-escala-6x1", "custo-vrva", "cbs-ibs-simples", "relatorio-vendas", "relatorio-estoque",
+                "fim-escala-6x1", "custo-vrva", "cbs-ibs-simples", "cbs-ibs-regime-regular", "relatorio-vendas",
+                "relatorio-estoque",
                 "relatorio-compras", "relatorio-precos", "relatorio-perdas", "relatorio-financeiro",
                 "relatorio-fiscal", "relatorio-contabil", "painel-varejo", "ficha-archeo-mcp",
                 "perfil-da-operacao", "briefing-do-dia", "sinais-da-operacao", "preparo-de-negociacao", "ata-de-negociacao", "plano-de-ofertas", "comunicacao-de-ofertas",
@@ -149,7 +164,9 @@ class AtribuicaoReceita(unittest.TestCase):
             self.assertIn(needle, text, needle)
 
     def test_skill_e_gpt_dizem_que_nao_sao_da_receita(self):
-        for rel in ("core/cd2-super/skills/cbs-ibs-simples/SKILL.md", "core/cd2-super/gpts/cbs-ibs-simples/instructions.md"):
+        for rel in ("core/cd2-super/skills/cbs-ibs-simples/SKILL.md", "core/cd2-super/gpts/cbs-ibs-simples/instructions.md",
+                    "core/cd2-super/skills/cbs-ibs-regime-regular/SKILL.md",
+                    "core/cd2-super/gpts/cbs-ibs-regime-regular/instructions.md"):
             self.assertIn("não é um aplicativo da Receita Federal", read(rel), rel)
 
     def test_skill_cobre_seletivo_desconhecido_nfse_e_entrada(self):
@@ -176,6 +193,70 @@ class AtribuicaoReceita(unittest.TestCase):
             "site_url": self.SN, "rule": "Lei Complementar 214/2025", "status": "disponível",
             "tipo": "calculadora", "gpt": True, "departamento": "Fiscal", "fonte_externa": True,
         })
+
+
+class SkillRegimeRegular(unittest.TestCase):
+    """A skill cbs-ibs-regime-regular porta a calculadora oficial do regime regular da Receita Federal."""
+
+    RR = "https://github.com/ReceitaFederal/calculadora-rtc-regime-regular"
+    SKILL = "core/cd2-super/skills/cbs-ibs-regime-regular/SKILL.md"
+    GPT = "core/cd2-super/gpts/cbs-ibs-regime-regular/instructions.md"
+    CALC_IMPOSTO = ("https://calc-imposto.cd2.com.br/?utm_source={{UTM_SOURCE}}&utm_medium=skill"
+                    "&utm_campaign=cbs-ibs-regime-regular")
+
+    def test_skill_json_da_skill(self):
+        skills = json.loads(read("skills.json"))
+        item = next(s for s in skills if s["name"] == "cbs-ibs-regime-regular")
+        simples = next(s for s in skills if s["name"] == "cbs-ibs-simples")
+        self.assertEqual(item["site_url"], self.RR)
+        self.assertEqual((item["tipo"], item["gpt"], item["fonte_externa"]), ("calculadora", True, True))
+        self.assertEqual(item["departamento"], simples["departamento"])
+        self.assertEqual(item["rule"], "Lei Complementar 214/2025")
+
+    def test_description_com_as_palavras_da_pessoa(self):
+        texto = read(self.SKILL)
+        description = texto.split("description:", 1)[1].split("\n", 1)[0]
+        for palavra in ("Lucro Real", "Lucro Presumido", "regime regular", "Imposto Seletivo", "CBS", "IBS",
+                        "cClassTrib", "JSON da calculadora da Receita", "Simples", "NFS-e", "emitir"):
+            self.assertIn(palavra, description, palavra)
+
+    def test_simples_aponta_para_o_regime_regular(self):
+        texto = read("core/cd2-super/skills/cbs-ibs-simples/SKILL.md")
+        description = texto.split("description:", 1)[1].split("\n", 1)[0]
+        self.assertIn("cbs-ibs-regime-regular", description)
+
+    def test_conversa_e_gpt(self):
+        skill, gpt = read(self.SKILL), read(self.GPT)
+        for texto in (skill, gpt):
+            for needle in ("2027-01-01", "em-2027", "reforma-completa", "hipótese da CD2", "simulad",
+                           "REG-036", "REG-037", "REG-013", "sugestao.py", "--checar-versao", "render.py",
+                           "não é um aplicativo da Receita Federal", self.CALC_IMPOSTO,
+                           "NFS-e", "gCompraGov", "Lucro Real", "Presumido"):
+                self.assertIn(needle, texto, needle)
+            # A redução vale no regime regular: a frase do Simples não vem para cá.
+            self.assertNotIn("não baixa a CBS", texto)
+            self.assertNotIn("sem efeito", texto)
+            self.assertNotIn("PGDAS", texto)
+        self.assertIn("cbs-ibs-simples", skill)
+        self.assertIn("CD2 CBS e IBS no Simples", gpt)
+        self.assertLessEqual(len(gpt), 8000)
+        self.assertIn("01/01/2027", skill)
+        self.assertIn("7 dígitos", skill)
+
+    def test_metodologia(self):
+        texto = read("core/cd2-super/skills/cbs-ibs-regime-regular/references/metodologia.md")
+        # A versão, a base e os casos são os da entrada da skill (passagem histórica "Na entrada da skill
+        # no plugin (versão 0.7.0)"), não os do meta.json de hoje: o robô troca as tabelas sem mexer no texto.
+        for needle in ("Na entrada da skill no plugin (versão 0.7.0)", "1.7.2", "V0073", "1.368 casos iguais em 1.368",
+                       "ignorar", "timestamp", "hipótese da CD2", "Em 2027", "Reforma completa", "Bean Validation",
+                       "CAL-007", "notação científica", "parallelStream", "0000", "excluidos_da_bateria"):
+            self.assertIn(needle, texto, needle)
+
+    def test_arquivos_motor_lista_os_modulos(self):
+        config = json.loads(read("conferencia/cbs-ibs-regime-regular/config.json"))
+        scripts = ROOT / "core/cd2-super/skills/cbs-ibs-regime-regular/scripts"
+        modulos = sorted(p.name for p in scripts.glob("rr_*.py")) + ["numeros.py"]
+        self.assertEqual(sorted(config["arquivos_motor"]), sorted(modulos))
 
 
 class Departamentos(unittest.TestCase):

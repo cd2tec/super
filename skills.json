@@ -34,6 +34,19 @@
     "fonte_externa": true
   },
   {
+    "name": "cbs-ibs-regime-regular",
+    "title": "CBS, IBS e Imposto Seletivo no regime regular",
+    "summary": "Calcula a CBS, o IBS e o Imposto Seletivo de uma venda do Lucro Real ou Presumido com a mesma conta da calculadora oficial da Receita Federal.",
+    "site_url": "https://github.com/ReceitaFederal/calculadora-rtc-regime-regular",
+    "rule": "Lei Complementar 214/2025",
+    "status": "disponível",
+    "tipo": "calculadora",
+    "gpt": true,
+    "departamento": "Fiscal",
+    "fonte_externa": true,
+    "gpt_pacote": "rr_"
+  },
+  {
     "name": "briefing-do-dia",
     "title": "Briefing do dia",
     "summary": "Monta o briefing da manhã, com venda contra a meta, ruptura, validade, contas, agenda e três ações.",

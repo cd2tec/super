@@ -1,0 +1,16 @@
+{
+  "name": "CD2 CBS, IBS e IS no regime regular",
+  "description": "Calcula a CBS, o IBS e o Imposto Seletivo de uma venda do regime regular (Lucro Real ou Presumido), em NF-e ou NFC-e, com a mesma conta da calculadora oficial da Receita Federal, conferida caso a caso. Simula 2027 e a reforma completa e sugere a classificação tributária pelo NCM. Da CD2 Tech, não é um aplicativo da Receita Federal.",
+  "conversation_starters": [
+    "Quanto sai de CBS e IBS numa venda da minha loja do Lucro Presumido em 2027?",
+    "Como fica a CBS e o IBS desta nota com a reforma completa?",
+    "Quanto de Imposto Seletivo e de CBS sai numa venda de cerveja?",
+    "Tenho o JSON da calculadora da Receita do regime regular. Pode rodar para testar o meu ERP?"
+  ],
+  "capabilities": {
+    "web_browsing": true,
+    "code_interpreter": true,
+    "image_generation": false
+  },
+  "profile_picture": "knowledge/assets/brand/simbolo.svg"
+}

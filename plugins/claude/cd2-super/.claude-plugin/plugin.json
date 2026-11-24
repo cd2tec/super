@@ -1,7 +1,7 @@
 {
   "name": "cd2-super",
-  "version": "0.6.0",
-  "description": "Skills da CD2 Tech para o varejo alimentar: rotinas do dia (briefing-do-dia, sinais, semana, negociação com fornecedor, ofertas e visita de loja); calculadoras fim-escala-6x1, custo-vrva e cbs-ibs-simples (CBS e IBS no Simples, com a conta da calculadora oficial da Receita); oito relatórios gerenciais relatorio-*; painel-varejo; e ficha-archeo-mcp para o Archeo MCP Creator da CD2. Rotinas, relatórios e painel funcionam conectados ao ERP ou com arquivo exportado.",
+  "version": "0.7.0",
+  "description": "Skills da CD2 Tech para o varejo alimentar: rotinas do dia (briefing-do-dia, sinais, semana, negociação com fornecedor, ofertas e visita de loja); calculadoras fim-escala-6x1, custo-vrva, cbs-ibs-simples e cbs-ibs-regime-regular (CBS e IBS com a conta oficial da Receita); oito relatórios gerenciais relatorio-*; painel-varejo; e ficha-archeo-mcp para o Archeo MCP Creator da CD2. Rotinas, relatórios e painel funcionam conectados ao ERP ou com arquivo exportado.",
   "author": {
     "name": "CD2 Tech",
     "url": "https://cd2.com.br"
@@ -18,6 +18,8 @@
     "ibs",
     "simples-nacional",
     "reforma-tributaria",
+    "regime-regular",
+    "imposto-seletivo",
     "calculadora",
     "relatorio",
     "painel",

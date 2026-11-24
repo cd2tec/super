@@ -102,6 +102,67 @@ class ConfigCampoTest(unittest.TestCase):
     def test_outro_campo_imprime_como_esta(self):
         self.assertEqual(self.campo(ROOT, "nome_humano")[1], "calculadora oficial do Simples Nacional\n")
 
+    def test_caminho_versao_ausente_vale_o_padrao(self):
+        # o Simples não traz a chave: vale /versao; ausente o oficial inteiro, também
+        self.assertNotIn("caminho_versao", CONFIG["oficial"])
+        self.assertEqual(self.campo(ROOT, "oficial.caminho_versao")[:2], (0, "/versao\n"))
+        self.assertEqual(self.campo(self.raiz_com({}), "oficial.caminho_versao")[:2], (0, "/versao\n"))
+        # o padrão vale só para o campo opcional: outro campo ausente segue saindo com 2
+        self.assertEqual(self.campo(self.raiz_com({}), "oficial.contexto")[0], 2)
+
+    def test_caminho_versao_do_regime_regular(self):
+        raiz = self.raiz_com({"oficial": {"caminho_versao": "/calculadora/dados-abertos/versao"}})
+        self.assertEqual(self.campo(raiz, "oficial.caminho_versao")[:2], (0, "/calculadora/dados-abertos/versao\n"))
+        rr = json.loads((ROOT / "conferencia" / "cbs-ibs-regime-regular" / "config.json").read_text(encoding="utf-8"))
+        self.assertEqual(robo.valor_do_config(rr, "oficial.caminho_versao"), "/calculadora/dados-abertos/versao")
+
+    def test_recusa_caminho_versao_fora_do_padrao(self):
+        for ruim in ("versao", "/../x", "/a?b=1", "/Versao", "", "/a b", "//x.y", 7, None):
+            raiz = self.raiz_com({"oficial": {"caminho_versao": ruim}})
+            self.assertEqual(self.campo(raiz, "oficial.caminho_versao")[0], 2, repr(ruim))
+
+
+class EsperarOficialTest(unittest.TestCase):
+    CORPO = b'{"versaoApp": "1.7.2", "versaoDb": "V0073", "ambiente": "offline"}'
+
+    def esperar(self, corpo=None, **kw):
+        urls = []
+
+        def abrir(url, timeout):
+            urls.append(url)
+            return contextlib.nullcontext(io.BytesIO(corpo or self.CORPO))
+
+        with mock.patch.object(robo._SO_LOCAL, "open", side_effect=abrir):
+            motivo = robo.esperar_oficial("http://127.0.0.1:8080/api", "1.7.2", "V0073", prazo=5, intervalo=0, **kw)
+        return motivo, urls
+
+    def test_padrao_pergunta_em_versao(self):
+        self.assertEqual(self.esperar(), (None, ["http://127.0.0.1:8080/api/versao"]))
+
+    def test_caminho_do_regime_regular(self):
+        motivo, urls = self.esperar(caminho_versao="/calculadora/dados-abertos/versao")
+        self.assertIsNone(motivo)
+        self.assertEqual(urls, ["http://127.0.0.1:8080/api/calculadora/dados-abertos/versao"])
+
+    def test_versao_ou_base_diferente_diz_o_motivo(self):
+        self.assertIn("1.7.1", self.esperar(b'{"versaoApp": "1.7.1", "versaoDb": "V0073"}')[0])
+        self.assertIn("V0072", self.esperar(b'{"versaoApp": "1.7.2", "versaoDb": "V0072"}')[0])
+
+    def test_recusa_caminho_fora_do_padrao_sem_abrir_nada(self):
+        motivo, urls = self.esperar(caminho_versao="/../x")
+        self.assertIn("fora do padrão", motivo)
+        self.assertEqual(urls, [])
+
+    def test_cli_passa_o_caminho(self):
+        with mock.patch.object(robo, "esperar_oficial", return_value=None) as esperar:
+            codigo, _, _ = rodar_cli(["esperar-oficial", "--url", "http://127.0.0.1:8080/api", "--versao", "1.7.2",
+                                      "--base", "V0073", "--caminho-versao", "/calculadora/dados-abertos/versao"])
+        self.assertEqual(codigo, 0)
+        self.assertEqual(esperar.call_args.kwargs["caminho_versao"], "/calculadora/dados-abertos/versao")
+        with mock.patch.object(robo, "esperar_oficial", return_value=None) as esperar:
+            rodar_cli(["esperar-oficial", "--url", "http://127.0.0.1:8082/api", "--versao", "1.0.2", "--base", "V0073"])
+        self.assertEqual(esperar.call_args.kwargs["caminho_versao"], "/versao")
+
 
 class ClassificarTest(unittest.TestCase):
     def test_nada_quando_nada_mudou(self):

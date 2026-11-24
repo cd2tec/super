@@ -23,7 +23,8 @@ PACKAGE = ROOT / "scripts" / "package_plugins.py"
 PLUGIN = "cd2-super"
 SKILLS = ("fim-escala-6x1", "custo-vrva")  # calculadoras com calc.py --input e render.py --result
 SIMPLES = "cbs-ibs-simples"  # calculadora que espelha a da Receita: outra linha de comando
-GPT_SKILLS = SKILLS + (SIMPLES,)
+RR = "cbs-ibs-regime-regular"  # a do regime regular, também espelho da Receita
+GPT_SKILLS = SKILLS + (SIMPLES, RR)
 # A versão sobe a cada publicação (à mão ou pelo robô de conferência): vale a do core.
 VERSAO = json.loads((ROOT / "core" / "cd2-super" / "plugin.core.json").read_text(encoding="utf-8"))["version"]
 PLACEHOLDER = "{{" + "UTM_SOURCE" + "}}"
@@ -82,6 +83,33 @@ def run_simples(scripts: Path, workdir: Path) -> dict:
     saida["html"] = (workdir / "conta.html").read_text(encoding="utf-8")
     for formato in ("markdown", "whatsapp"):
         saida[formato] = run_py(scripts / "render.py", workdir, "--input", "entrega.json", "--formato", formato,
+                                "--plataforma", "ChatGPT")
+    return saida
+
+
+# Operação em português do exemplo do README e do site: chocolate e arroz, NFC-e em São Paulo, 01/01/2027.
+OPERACAO_RR = {
+    "documento": "NFC-e", "uf": "SP", "municipio": 3550308, "data": "2027-01-01",
+    "itens": [
+        {"descricao": "Chocolate", "ncm": "18063110", "cst": "000", "classificacao": "000001", "valor": "1000.00"},
+        {"descricao": "Arroz 5 kg", "ncm": "10063021", "cst": "200", "classificacao": "200003", "valor": "100.00"},
+    ],
+}
+
+
+def run_rr(scripts: Path, workdir: Path) -> dict:
+    """Roda a skill cbs-ibs-regime-regular a partir de `scripts`: conta no cenário padrão, sugestão e entregas."""
+    (workdir / "operacao.json").write_text(json.dumps(OPERACAO_RR, ensure_ascii=False), encoding="utf-8")
+    calculo = json.loads(run_py(scripts / "calc.py", workdir, "operacao.json"))
+    saida = {"calculo": calculo}
+    saida["sugestao"] = json.loads(run_py(scripts / "sugestao.py", workdir, "--ncm", "1006.30.21",
+                                          "--tp-doc", "65", "--data", "2027-01-01"))
+    entrega = {"operacao": OPERACAO_RR, "calculo": calculo, "sugestoes": None, "exemplo": False}
+    (workdir / "entrega.json").write_text(json.dumps(entrega, ensure_ascii=False), encoding="utf-8")
+    run_py(scripts / "render.py", workdir, "entrega.json", "--formato", "html", "--out", "conta.html")
+    saida["html"] = (workdir / "conta.html").read_text(encoding="utf-8")
+    for formato in ("texto", "whatsapp"):
+        saida[formato] = run_py(scripts / "render.py", workdir, "entrega.json", "--formato", formato,
                                 "--plataforma", "ChatGPT")
     return saida
 
@@ -182,6 +210,8 @@ class SyncTest(unittest.TestCase):
             "custo-vrva": ("references/legal-params.json",),
             SIMPLES: ("references/base-receita.db", "scripts/simples_motor.py", "scripts/simples_base.py",
                       "scripts/numeros.py", "scripts/sugestao.py"),
+            RR: ("references/base-receita.db", "references/aliquotas.json", "scripts/rr_pacote.py",
+                 "scripts/numeros.py", "scripts/sugestao.py"),
         }
         self.assertEqual(set(proprios), set(GPT_SKILLS))
         for skill in GPT_SKILLS:
@@ -196,7 +226,7 @@ class SyncTest(unittest.TestCase):
             self.assertFalse((knowledge / "SKILL.md").exists())
             files = [p for p in knowledge.rglob("*") if p.is_file()]
             self.assertLessEqual(len(files), 20, f"{skill}: GPT aceita no máximo 20 arquivos")
-            if skill == SIMPLES:
+            if skill in (SIMPLES, RR):
                 self.assertLessEqual(len(files), 19, f"{skill}: o plano reserva no máximo 19 arquivos")
             names = [p.name for p in files]
             self.assertEqual(len(names), len(set(names)), f"{skill}: nomes repetidos quebram o upload plano")
@@ -211,7 +241,8 @@ class SyncTest(unittest.TestCase):
             self.assertEqual(meta["profile_picture"], "knowledge/assets/brand/simbolo.svg")
             self.assertTrue((base / meta["profile_picture"]).is_file())
         names = {json.loads((self.gpts / s / "gpt.json").read_text(encoding="utf-8"))["name"] for s in GPT_SKILLS}
-        self.assertEqual(names, {"CD2 Escala 6x1", "CD2 VR/VA: quanto custa", "CD2 CBS e IBS no Simples"})
+        self.assertEqual(names, {"CD2 Escala 6x1", "CD2 VR/VA: quanto custa", "CD2 CBS e IBS no Simples",
+                                 "CD2 CBS, IBS e IS no regime regular"})
         for name in ("LICENSE", "NOTICE", "COMMERCIAL.md", "README.md"):
             self.assertTrue((self.gpts / name).is_file(), name)
 
@@ -258,6 +289,88 @@ class SyncTest(unittest.TestCase):
             self.assertIn("Exemplo ilustrativo", saida[formato], formato)
             self.assertNotIn(PLACEHOLDER, saida[formato], formato)
 
+    def test_gpt_rr_motor_num_arquivo_so(self):
+        """No GPT, os rr_*.py viram um rr_pacote.py com as fontes do core, byte a byte; no plugin, ficam soltos."""
+        import ast
+        scripts = self.gpts / RR / "knowledge" / "scripts"
+        core = ROOT / "core" / PLUGIN / "skills" / RR / "scripts"
+        self.assertEqual(sorted(p.name for p in scripts.glob("rr_*.py")), ["rr_pacote.py"])
+        arvore = ast.parse((scripts / "rr_pacote.py").read_text(encoding="utf-8"))
+        fontes = next(ast.literal_eval(no.value) for no in arvore.body
+                      if isinstance(no, ast.Assign) and getattr(no.targets[0], "id", "") == "FONTES")
+        esperado = {p.stem: p.read_bytes() for p in core.glob("rr_*.py")}
+        self.assertEqual(set(fontes), set(esperado))
+        for nome, fonte in fontes.items():
+            self.assertEqual(fonte.encode("utf-8"), esperado[nome], nome)
+        for arvore_plugin in (self.claude / "skills", self.codex / "skills", self.dsh / "skills"):
+            soltos = sorted(p.name for p in (arvore_plugin / RR / "scripts").glob("rr_*.py"))
+            self.assertEqual(soltos, sorted(f"{n}.py" for n in esperado))
+
+    def test_gpt_rr_cerveja_igual_ao_core(self):
+        """Da pasta plana do GPT, a conta de 2027 com cerveja (IS) e um item comum é a mesma do core."""
+        operacao = {
+            "documento": "NFC-e", "uf": "SP", "municipio": 3550308, "data": "2027-01-01",
+            "itens": [
+                {"descricao": "Cerveja", "ncm": "22030000", "cst": "000", "classificacao": "000001",
+                 "valor": "100.00", "quantidade": 12, "unidade": "LT",
+                 "aliquotas": {"cbs": 11.3, "ibs_estadual": 0.05, "ibs_municipal": 0.05,
+                               "imposto_seletivo": {"ad_valorem": 10}},
+                 "imposto_seletivo": {"cst": "000", "classificacao": "000001", "valor": "100.00"}},
+                {"descricao": "Chocolate", "ncm": "18063110", "cst": "000", "classificacao": "000001",
+                 "valor": "1000.00"},
+            ],
+        }
+        knowledge = self.gpts / RR / "knowledge"
+        core = ROOT / "core" / PLUGIN / "skills" / RR / "scripts"
+        with tempfile.TemporaryDirectory() as flat_dir, tempfile.TemporaryDirectory() as work:
+            flat, workdir = Path(flat_dir), Path(work)
+            for path in knowledge.rglob("*"):
+                if path.is_file():
+                    shutil.copy2(path, flat / path.name)
+            (workdir / "op.json").write_text(json.dumps(operacao), encoding="utf-8")
+            do_gpt = json.loads(run_py(flat / "calc.py", workdir, "op.json"))
+            do_core = json.loads(run_py(core / "calc.py", workdir, "op.json"))
+            entrega = {"operacao": operacao, "calculo": do_gpt, "sugestoes": None, "exemplo": True}
+            (workdir / "entrega.json").write_text(json.dumps(entrega, ensure_ascii=False), encoding="utf-8")
+            texto = run_py(flat / "render.py", workdir, "entrega.json", "--formato", "texto")
+        self.assertEqual(do_gpt["corpo"], do_core["corpo"])
+        self.assertEqual(do_gpt["versao"], do_core["versao"])
+        estados = [o["estadoItem"] for o in do_gpt["corpo"]["objetos"]]
+        self.assertEqual(estados, ["CALCULO_SIMULADO", "CALCULO_SIMULADO"])
+        self.assertEqual(do_gpt["corpo"]["objetos"][0]["tribCalc"]["IS"]["vIS"], "10.00")
+        self.assertIn("10,00", texto)
+        conferencia = json.loads((ROOT / "conferencia" / RR / "meta.json").read_text(encoding="utf-8"))["conferencia"]
+        self.assertIn(f"{conferencia['iguais']:,}".replace(",", "."), texto)
+
+    def test_gpt_knowledge_runs_flat_rr(self):
+        """A skill do regime regular também roda da pasta plana: conta, sugestão e três entregas."""
+        knowledge = self.gpts / RR / "knowledge"
+        with tempfile.TemporaryDirectory() as flat_dir, tempfile.TemporaryDirectory() as work:
+            flat = Path(flat_dir)
+            for path in knowledge.rglob("*"):
+                if path.is_file():
+                    shutil.copy2(path, flat / path.name)
+            saida = run_rr(flat, Path(work))
+        calculo = saida["calculo"]
+        self.assertEqual(calculo["status"], 200)
+        self.assertEqual(calculo["corpo"]["objetos"][0]["estadoItem"], "CALCULO_SIMULADO")
+        self.assertEqual(saida["sugestao"]["ncm"], "10063021")
+        self.assertIn("@font-face", saida["html"])
+        self.assertIn("<svg", saida["html"])
+        self.assertIn("utm_source=gpt-store&", saida["html"])
+        for formato in ("html", "texto", "whatsapp"):
+            self.assertIn("113,00", saida[formato], formato)
+            self.assertIn("Receita Federal", saida[formato], formato)
+            self.assertNotIn(PLACEHOLDER, saida[formato], formato)
+
+    def test_skill_rr_roda_do_pacote_com_brand_e_assets(self):
+        for arvore in (self.claude / "skills", self.codex / "skills", self.dsh / "skills"):
+            skill = arvore / RR
+            for rel in ("scripts/brand.py", "assets/template.html", "assets/fonts/Manrope-Variable.woff2",
+                        "assets/fonts/OFL.txt", "assets/brand/cd2tech-horizontal.svg",
+                        "references/fluxo-conversa.md", "references/marca.md", "references/metodologia.md"):
+                self.assertTrue((skill / rel).is_file(), f"{skill}: {rel}")
+
     def test_gpt_instructions_under_limit(self):
         for skill in GPT_SKILLS:
             text = (self.gpts / skill / "instructions.md").read_text(encoding="utf-8")
@@ -265,9 +378,9 @@ class SyncTest(unittest.TestCase):
 
     def test_gpt_instructions_content(self):
         other = {"fim-escala-6x1": "CD2 VR/VA: quanto custa", "custo-vrva": "CD2 Escala 6x1",
-                 SIMPLES: "relatorio-fiscal"}
+                 SIMPLES: "relatorio-fiscal", RR: "CD2 CBS e IBS no Simples"}
         rules = {"fim-escala-6x1": "Emenda Constitucional 141/2026", "custo-vrva": "Decreto 12.712/2025",
-                 SIMPLES: "Lei Complementar 214/2025"}
+                 SIMPLES: "Lei Complementar 214/2025", RR: "Lei Complementar 214/2025"}
         for skill in GPT_SKILLS:
             text = (self.gpts / skill / "instructions.md").read_text(encoding="utf-8")
             for needle in ("calc.py", "render.py", "archeo.cd2.com.br/?utm_source=gpt-store&",
@@ -285,6 +398,15 @@ class SyncTest(unittest.TestCase):
                        "github.com/ReceitaFederal/calculadora-rtc-simples-nacional", "Exemplo ilustrativo", "PGDAS"):
             self.assertIn(needle, simples, needle)
         self.assertNotIn("github.com/ReceitaFederal/calculadora-rtc-simples-nacional?utm", simples)
+        rr = (self.gpts / RR / "instructions.md").read_text(encoding="utf-8")
+        for needle in ("sugestao.py", "--checar-versao", "--cenario", "reforma-completa", "hipótese da CD2",
+                       "não é um aplicativo da Receita Federal", "simulad", "REG-036", "REG-037", "REG-013",
+                       "github.com/ReceitaFederal/calculadora-rtc-regime-regular",
+                       "calc-imposto.cd2.com.br/?utm_source=gpt-store&utm_medium=skill"
+                       "&utm_campaign=cbs-ibs-regime-regular"):
+            self.assertIn(needle, rr, needle)
+        self.assertNotIn("github.com/ReceitaFederal/calculadora-rtc-regime-regular?utm", rr)
+        self.assertNotIn("PGDAS", rr)
 
     def test_no_junk_in_copies(self):
         for path in self.out.rglob("*"):
@@ -340,7 +462,9 @@ class SyncTest(unittest.TestCase):
             self.assertIn("painel-varejo", meta["description"])
             self.assertIn("ficha-archeo-mcp", meta["description"])
             self.assertIn(SIMPLES, meta["description"])
-            for palavra in ("cbs", "ibs", "simples-nacional", "reforma-tributaria"):
+            self.assertIn(RR, meta["description"])
+            for palavra in ("cbs", "ibs", "simples-nacional", "reforma-tributaria", "regime-regular",
+                            "imposto-seletivo"):
                 self.assertIn(palavra, meta["keywords"])
             self.assertIn("relatorio", meta["keywords"])
             self.assertIn("painel", meta["keywords"])
@@ -372,6 +496,9 @@ class SyncTest(unittest.TestCase):
             self.assertIn("https://github.com/ReceitaFederal/calculadora-rtc-simples-nacional", block, rel)
             self.assertNotIn("calculadora-rtc-simples-nacional?utm", block, rel)
             self.assertNotIn("utm_campaign=cbs-ibs-simples", block, rel)
+            self.assertIn("https://github.com/ReceitaFederal/calculadora-rtc-regime-regular", block, rel)
+            self.assertNotIn("calculadora-rtc-regime-regular?utm", block, rel)
+            self.assertNotIn("utm_campaign=cbs-ibs-regime-regular", block, rel)
         site = (self.out / "docs/index.html").read_text(encoding="utf-8")
         self.assertIn("Ver a calculadora oficial", site)
 
@@ -630,6 +757,27 @@ class KitsTest(unittest.TestCase):
         item = {"name": "x", "tipo": "calculadora", "gpt": True, "departamento": "Fiscal", "fonte_externa": "sim"}
         self.assertTrue(any("fonte_externa" in p for p in self.sync.check_skills_json([item])))
         self.assertEqual(self.sync.check_skills_json([{**item, "fonte_externa": True}]), [])
+
+    def test_gpt_pacote_valida_prefixo_e_gpt(self):
+        item = {"name": "x", "tipo": "calculadora", "gpt": True, "departamento": "Fiscal", "gpt_pacote": "rr_"}
+        self.assertEqual(self.sync.check_skills_json([item]), [])
+        for errado in ("rr", "../", "RR_", 1):
+            self.assertTrue(any("gpt_pacote" in p for p in self.sync.check_skills_json([{**item, "gpt_pacote": errado}])))
+        self.assertTrue(any("gpt_pacote" in p for p in self.sync.check_skills_json([{**item, "gpt": False}])))
+
+    def test_empacotar_modulos_carrega_as_fontes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            scripts = Path(tmp)
+            (scripts / "zz_a.py").write_text('import zz_b\nVALOR = zz_b.VALOR + 1\nPASTA = __file__\n', encoding="utf-8")
+            (scripts / "zz_b.py").write_text("VALOR = 41\n", encoding="utf-8")
+            (scripts / "outro.py").write_text("", encoding="utf-8")
+            self.assertEqual(self.sync.empacotar_modulos(scripts, "zz_", "x"), [])
+            self.assertEqual(sorted(p.name for p in scripts.iterdir()), ["outro.py", "zz_pacote.py"])
+            codigo = ("import sys; sys.path.insert(0, sys.argv[1]); import zz_pacote, zz_a, os; "
+                      "print(zz_a.VALOR, os.path.dirname(zz_a.PASTA) == os.path.realpath(sys.argv[1]))")
+            saida = subprocess.run([sys.executable, "-c", codigo, str(scripts)], capture_output=True, text=True)
+            self.assertEqual(saida.stdout.split(), ["42", "True"], saida.stderr)
+            self.assertTrue(self.sync.empacotar_modulos(scripts, "zz_", "x"))  # o pacote já existe: acusa
 
 
 class PackageTest(unittest.TestCase):

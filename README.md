@@ -25,7 +25,7 @@
 
 ---
 
-A CD2 Tech publica calculadoras gratuitas para o varejo alimentar. Este repositório leva a mesma conta para dentro do assistente de IA que você já usa: o plugin **`cd2-super`** tem uma skill para cada calculadora, mais a CBS e o IBS no Simples Nacional com a conta da calculadora oficial da Receita Federal, e ainda oito relatórios gerenciais, um painel de varejo e a ficha de ferramenta do Archeo MCP Creator da CD2. A skill entende quem é você, faz a conta com os números da sua loja e entrega o que fazer primeiro, com a marca CD2 Tech.
+A CD2 Tech publica calculadoras gratuitas para o varejo alimentar. Este repositório leva a mesma conta para dentro do assistente de IA que você já usa: o plugin **`cd2-super`** tem uma skill para cada calculadora, mais a CBS e o IBS no Simples Nacional e no regime regular com a conta das calculadoras oficiais da Receita Federal, e ainda oito relatórios gerenciais, um painel de varejo e a ficha de ferramenta do Archeo MCP Creator da CD2. A skill entende quem é você, faz a conta com os números da sua loja e entrega o que fazer primeiro, com a marca CD2 Tech.
 
 Os relatórios e o painel funcionam **com o banco do seu ERP conectado ou sem conexão nenhuma**, a partir de um arquivo que você exporta do sistema. Veja [Relatórios e painel](#relatórios-e-painel).
 
@@ -37,6 +37,7 @@ A regra muda e a conta da loja continua sendo sua.
 
 - **A escala 6x1 acaba em 16/12/2026.** A jornada cai de 44h para 40h sem acordo coletivo, ou até 42h com acordo, sempre com 2 folgas. Quantas pessoas você precisa contratar? Quanto isso pesa na folha? Qual setor aperta primeiro?
 - **A CBS e o IBS chegam ao Simples em 2027.** Quanto sai em cada venda depende da atividade e da alíquota efetiva que o contador apura no PGDAS. A classificação do produto vai na nota e decide se a conta aceita o item. A skill faz a mesma conta da calculadora oficial da Receita, com os seus números.
+- **No Lucro Real e no Presumido, a conta é outra.** De 2027 em diante a alíquota ainda não é a definitiva, a redução da cesta básica vale na nota e cerveja, refrigerante e cigarro pagam também o Imposto Seletivo. A skill do regime regular faz a conta da calculadora oficial da Receita para esse caso, com alíquotas de cenário que ela mostra antes.
 - **O vale tem teto de taxa.** Pelo Decreto 12.712/2025, a operadora pode cobrar no máximo 3,6% da sua loja e tem de repassar o dinheiro em até 15 dias. Muita loja ainda paga mais e espera mais, sem ver quanto isso soma no ano.
 
 Quem toca supermercado, padaria ou mercado de bairro não tem tempo para juridiquês. A skill pergunta o que importa, faz a conta num script, nunca de cabeça, e diz de quando é cada regra que usou.
@@ -103,6 +104,7 @@ Quem toca supermercado, padaria ou mercado de bairro não tem tempo para juridiq
 | Skill | O que faz | Regra | Site | Status |
 | --- | --- | --- | --- | --- |
 | **CBS e IBS no Simples Nacional** (`cbs-ibs-simples`) | Calcula a CBS e o IBS de uma operação do Simples Nacional com a mesma conta da calculadora oficial da Receita Federal. | Lei Complementar 214/2025 | [github.com](https://github.com/ReceitaFederal/calculadora-rtc-simples-nacional) | disponível |
+| **CBS, IBS e Imposto Seletivo no regime regular** (`cbs-ibs-regime-regular`) | Calcula a CBS, o IBS e o Imposto Seletivo de uma venda do Lucro Real ou Presumido com a mesma conta da calculadora oficial da Receita Federal. | Lei Complementar 214/2025 | [github.com](https://github.com/ReceitaFederal/calculadora-rtc-regime-regular) | disponível |
 | **Relatório fiscal** (`relatorio-fiscal`) | Confere documentos fiscais por CFOP, cabeçalho contra itens e numeração, como relatório gerencial e não documento oficial. | Não se aplica | [archeo.cd2.com.br](https://archeo.cd2.com.br/?utm_source=github&utm_medium=skill&utm_campaign=relatorio-fiscal) | disponível |
 
 ### Contábil
@@ -122,7 +124,7 @@ As calculadoras vão além do site:
 
 - **Mais personalizada.** Lê a convenção coletiva ou o extrato da operadora que você mandar e calcula várias lojas de uma rede.
 - **Mais atualizada.** Antes de calcular, pode pesquisar novidades em fontes oficiais e dizer de onde tirou cada informação.
-- **Mesma conta.** O script de cada skill porta a conta da calculadora e é conferido por testes com os exemplos da metodologia. A de CBS e IBS no Simples porta a calculadora oficial da Receita e foi conferida contra ela rodando, caso a caso.
+- **Mesma conta.** O script de cada skill porta a conta da calculadora e é conferido por testes com os exemplos da metodologia. As de CBS e IBS no Simples e no regime regular portam as calculadoras oficiais da Receita e foram conferidas contra elas rodando, caso a caso.
 
 ## Rotinas do dia
 
@@ -216,9 +218,9 @@ flowchart LR
 
 1. **Entende quem é você.** Dono, gerente, RH, DP ou financeiro. Uma loja ou uma rede. E o formato do resultado: página visual, planilha, resumo para WhatsApp ou texto.
 2. **Oferece puxar os dados.** Se o seu sistema estiver conectado na sessão, usa e diz qual usou. Se não, mostra o [Archeo MCP Creator](https://archeo.cd2.com.br/?utm_source=github&utm_medium=skill&utm_campaign=cd2-super) e segue com os números digitados.
-3. **Pergunta sobre novidades.** Usa a regra conferida numa data que ela informa, ou pesquisa antes em fontes oficiais. A de CBS e IBS no Simples confere se a Receita publicou versão nova da calculadora ou tabelas novas.
+3. **Pergunta sobre novidades.** Usa a regra conferida numa data que ela informa, ou pesquisa antes em fontes oficiais. As de CBS e IBS conferem se a Receita publicou versão nova da calculadora ou tabelas novas.
 4. **Pede só o que falta,** com exemplo, valor padrão e o porquê de cada dado.
-5. **Faz a conta no script,** a mesma da calculadora. Onde a plataforma não roda código, segue as fórmulas da metodologia e mostra a conta. A de CBS e IBS no Simples não calcula sem código: a conta depende da base e do motor da Receita, e a skill diz isso.
+5. **Faz a conta no script,** a mesma da calculadora. Onde a plataforma não roda código, segue as fórmulas da metodologia e mostra a conta. As de CBS e IBS não calculam sem código: a conta depende da base e do motor da Receita, e a skill diz isso.
 6. **Entrega com capricho:** o número principal em destaque, o semáforo, o que fazer primeiro e o que é só do seu caso.
 7. **Fecha** com a logo da CD2 Tech, o aviso de isenção, o link da calculadora e o nosso contato.
 
@@ -282,6 +284,26 @@ Skill: Sem a alíquota do contador, rodo o exemplo ilustrativo da Receita.
 ```
 
 Valores do exemplo oficial da calculadora da Receita (`EXEMPLO_NFE`), anexo I: CBS de 1,1612% e IBS de 0,0129%, venda de R$ 1.000,00, rodado pela skill `cbs-ibs-simples`. Não é aplicativo da Receita Federal. Veja [como calculamos](core/cd2-super/skills/cbs-ibs-simples/references/metodologia.md).
+
+### CBS, IBS e Imposto Seletivo no regime regular
+
+```
+Você:  quanto sai de CBS e IBS numa venda da minha loja? Sou do Lucro Presumido.
+
+Skill: Vamos ver juntos. Primeiro: você é o dono, o contador ou da TI?
+       E é uma loja só ou uma rede?
+
+       [pergunta o formato, oferece puxar os dados do sistema, confere
+        se a Receita tem versão nova da calculadora e pede documento,
+        UF e município, data (01/01/2027), itens com NCM e valor, e
+        mostra as alíquotas do cenário Em 2027 antes da conta]
+
+Skill: No cenário Em 2027, simulado, sai CBS de R$ 113,00 e IBS de R$ 1,00.
+       O arroz é da cesta básica: redução de 100%, CBS e IBS zerados.
+       Na reforma completa, a mesma nota dá CBS de R$ 88,00 e IBS de R$ 177,00.
+```
+
+NFC-e de exemplo em São Paulo, 01/01/2027: chocolate de R$ 1.000,00 (classificação 000001) e arroz de R$ 100,00 (200003, cesta básica), rodada pela skill `cbs-ibs-regime-regular`. Cenário Em 2027: CBS de 11,3% e IBS de 0,1% (0,05% estadual e 0,05% municipal). Reforma completa: CBS de 8,8% e IBS de 17,7%, dividido meio a meio entre estado e município, hipótese da CD2. De 2027 em diante, todo resultado é simulado. Não é aplicativo da Receita Federal. Veja [como calculamos](core/cd2-super/skills/cbs-ibs-regime-regular/references/metodologia.md).
 
 Outros pedidos que a skill entende: *"monta a escala da loja com 2 folgas"*, *"calcula as 4 lojas da rede"*, *"a Ticket pode me cobrar 6%?"*, *"me dá um resumo para mandar no WhatsApp"*.
 
@@ -383,15 +405,16 @@ Em breve na GPT Store, um GPT para cada calculadora, para quem usa o ChatGPT Plu
 
 - **CD2 Escala 6x1**, para o fim da escala 6x1;
 - **CD2 VR/VA: quanto custa**, para o custo do vale;
-- **CD2 CBS e IBS no Simples**, para a CBS e o IBS no Simples Nacional.
+- **CD2 CBS e IBS no Simples**, para a CBS e o IBS no Simples Nacional;
+- **CD2 CBS, IBS e IS no regime regular**, para a CBS, o IBS e o Imposto Seletivo no Lucro Real e no Presumido.
 
 Enquanto isso, o Codex também funciona no ChatGPT Plus: veja a instalação no [Codex](#codex).
 
-Os GPTs valem só para as três calculadoras. Relatórios, painel e ficha ainda não têm GPT.
+Os GPTs valem só para as quatro calculadoras. Relatórios, painel e ficha ainda não têm GPT.
 
 O GPT não se conecta ao seu sistema. Para puxar os dados do ERP, use o plugin no Claude ou no Codex, com o Archeo. Como os GPTs são montados e publicados: [`gpts/README.md`](gpts/README.md).
 
-> **Diferença entre plataformas:** no Claude, a entrega visual sai como artefato quando esse recurso existe. Nas outras, sai como arquivo HTML autocontido. Onde a plataforma não roda código, a skill avisa e segue a metodologia passo a passo, mostrando a conta, menos a de CBS e IBS no Simples, que sem código não calcula.
+> **Diferença entre plataformas:** no Claude, a entrega visual sai como artefato quando esse recurso existe. Nas outras, sai como arquivo HTML autocontido. Onde a plataforma não roda código, a skill avisa e segue a metodologia passo a passo, mostrando a conta, menos as de CBS e IBS, que sem código não calculam.
 
 ## Conecte seu sistema
 

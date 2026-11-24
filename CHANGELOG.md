@@ -2,6 +2,19 @@
 
 As notas de cada versão entram na release do GitHub. Use um título `## <versão>` por versão, da mais recente para a mais antiga.
 
+## 0.7.0
+
+Calculadora nova: `cbs-ibs-regime-regular`, a CBS, o IBS e o Imposto Seletivo no regime regular (Lucro Real e Lucro Presumido), com a mesma conta da calculadora oficial da Receita Federal.
+
+- **Fiscal:** `cbs-ibs-regime-regular` calcula a CBS, o IBS estadual, o IBS municipal e o Imposto Seletivo de uma venda de mercadoria em NF-e ou NFC-e, item a item, com a memória de cálculo. Lucro Real e Lucro Presumido têm a mesma conta, e a skill não pergunta qual é.
+- A conta é um port para Python da calculadora oficial do regime regular, versão 1.7.2, com a base V0073 montada das migrações oficiais. Na conferência de 24/11/2026, 1.368 casos deram o mesmo JSON da calculadora oficial rodando, em 1.368, inclusive nos erros.
+- De 2027 em diante a base da Receita não traz alíquota, e todo resultado é simulado. Sem alíquota informada, a skill usa um de dois cenários, mostrados antes da conta: Em 2027 (o padrão, CBS 11,3% e IBS 0,1%) e Reforma completa (CBS 8,8% e IBS 17,7%). A divisão do IBS da reforma completa entre estado e município é hipótese da CD2. O Imposto Seletivo não tem cenário: a alíquota vem da pessoa ou de um exemplo marcado.
+- Duas portas: quem testa o ERP cola o JSON da calculadora oficial e recebe a resposta oficial intocada; quem toca a loja conversa em português. NFS-e, NBS, outros documentos e compra governamental são recusados com mensagem própria.
+- Sugere a classificação tributária pelo NCM, como leitura da CD2, fora do selo de conferência. No regime regular a redução vale na conta.
+- A skill não é um aplicativo da Receita Federal. O `NOTICE` passa a citar o motor dela.
+- Tem GPT, o CD2 CBS, IBS e IS no regime regular.
+- O site e o README deixam de dizer "Ainda não" para o Lucro Real e o Presumido. A `cbs-ibs-simples` passa a indicar a skill nova para o regime regular; a conta dela e as de `fim-escala-6x1` e `custo-vrva` não mudaram.
+
 ## 0.6.0
 
 Calculadora nova: `cbs-ibs-simples`, a CBS e o IBS no Simples Nacional, com a mesma conta da calculadora oficial da Receita Federal.

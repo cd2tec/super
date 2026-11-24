@@ -22,7 +22,23 @@ if str(SCRIPTS) not in sys.path:
     sys.path.append(str(SCRIPTS))
 
 import simples_base  # noqa: E402
-import sugestao  # noqa: E402
+
+
+def _carregar_sugestao():
+    # a pasta de scripts do regime regular também tem um sugestao.py: carrega este por caminho, com nome só dele
+    if "sugestao_simples" not in sys.modules:
+        spec = importlib.util.spec_from_file_location("sugestao_simples", SCRIPTS / "sugestao.py")
+        modulo = importlib.util.module_from_spec(spec)
+        sys.modules["sugestao_simples"] = modulo
+        try:
+            spec.loader.exec_module(modulo)
+        except BaseException:
+            sys.modules.pop("sugestao_simples", None)
+            raise
+    return sys.modules["sugestao_simples"]
+
+
+sugestao = _carregar_sugestao()
 
 
 def _carregar_calc():
