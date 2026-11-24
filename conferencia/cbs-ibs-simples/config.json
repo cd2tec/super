@@ -1,5 +1,7 @@
 {
   "skill": "cbs-ibs-simples",
+  "nome_humano": "calculadora oficial do Simples Nacional",
+  "arquivos_motor": ["simples_motor.py", "simples_base.py", "numeros.py"],
   "calculadora": {
     "repo": "ReceitaFederal/calculadora-rtc-simples-nacional",
     "caminho_codigo": "src/main"
@@ -55,7 +57,9 @@
   "oficial": {
     "porta": 8082,
     "contexto": "/api",
-    "jar": "target/api-simples-nacional.jar"
+    "jar": "target/api-simples-nacional.jar",
+    "flyway_conf": "./flyway/flyway-pro.conf",
+    "arquivo_db": "calculadora-pro.db"
   },
   "hash_ignorar_colunas": {
     "VERSAO_BASE_DADO": ["VRBD_DATA"]

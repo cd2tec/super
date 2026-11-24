@@ -59,6 +59,50 @@ def upstream(versao=None, commit_calc=None, commit_migr=None):
     }
 
 
+CONFIG_TESTE = {**CONFIG, "nome_humano": "calculadora de teste", "arquivos_motor": ["motor_x.py"]}
+CONFIG_MESMO_REPO = {**CONFIG_TESTE, "calculadora": {**CONFIG["calculadora"], "repo": "Org/um-so"},
+                     "migracoes": {**CONFIG["migracoes"], "repo": "Org/um-so"}}
+
+
+class ConfigCampoTest(unittest.TestCase):
+    def raiz_com(self, config):
+        pasta = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, pasta, True)
+        (pasta / "conferencia" / SKILL).mkdir(parents=True)
+        (pasta / "conferencia" / SKILL / "config.json").write_text(json.dumps(config), encoding="utf-8")
+        return pasta
+
+    def campo(self, raiz, campo):
+        return rodar_cli(["--raiz", str(raiz), "config", "--skill", SKILL, "--campo", campo])
+
+    def test_le_porta_e_jar(self):
+        self.assertEqual(self.campo(ROOT, "oficial.porta")[:2], (0, "8082\n"))
+        self.assertEqual(self.campo(ROOT, "oficial.jar")[:2], (0, "target/api-simples-nacional.jar\n"))
+        self.assertEqual(self.campo(ROOT, "oficial.flyway_conf")[1], "./flyway/flyway-pro.conf\n")
+        self.assertEqual(self.campo(ROOT, "oficial.arquivo_db")[1], "calculadora-pro.db\n")
+
+    def test_recusa_jar_fora_de_target(self):
+        raiz = self.raiz_com({"oficial": {"jar": "../x.jar"}})
+        codigo, saida, erro = self.campo(raiz, "oficial.jar")
+        self.assertEqual(codigo, 2)
+        self.assertEqual(saida, "")
+        self.assertTrue(erro.strip())
+
+    def test_recusa_valor_fora_do_padrao_e_campo_ausente(self):
+        raiz = self.raiz_com({"oficial": {"porta": 80, "contexto": "api", "flyway_conf": "/etc/x.conf",
+                                          "arquivo_db": "a/b.db"}})
+        for campo in ("oficial.porta", "oficial.contexto", "oficial.flyway_conf", "oficial.arquivo_db",
+                      "oficial.jar", "nao.existe"):
+            self.assertEqual(self.campo(raiz, campo)[0], 2, campo)
+
+    def test_recusa_quebra_de_linha(self):
+        raiz = self.raiz_com({"oficial": {"contexto": "/a\n/b"}})
+        self.assertEqual(self.campo(raiz, "oficial.contexto")[0], 2)
+
+    def test_outro_campo_imprime_como_esta(self):
+        self.assertEqual(self.campo(ROOT, "nome_humano")[1], "calculadora oficial do Simples Nacional\n")
+
+
 class ClassificarTest(unittest.TestCase):
     def test_nada_quando_nada_mudou(self):
         self.assertEqual(robo.classificar(META, upstream(), [], CONFIG), "nada")
@@ -118,6 +162,13 @@ class ClassificarTest(unittest.TestCase):
         self.assertEqual(robo.partes_da_versao("1.0.3-rc1"), (1, 0, 3))
         self.assertIsNone(robo.partes_da_versao("abc"))
         self.assertLess(robo.partes_da_versao("1.0.9"), robo.partes_da_versao("1.0.10"))
+
+    def test_mesmo_repositorio_nos_dois_papeis(self):
+        meta = {"calculadora": {"versao": "1.7.2", "commit": "A" * 40}, "migracoes": {"commit": "B" * 40}}
+        up = {"calculadora": {"versao": "1.7.2", "commit": "A" * 40}, "migracoes": {"commit": "C" * 40}}
+        self.assertEqual(robo.classificar(meta, up, ["flyway/sql/manutencao/V1__x.sql"], CONFIG_MESMO_REPO), "tabelas")
+        up = {"calculadora": {"versao": "1.7.3", "commit": "D" * 40}, "migracoes": {"commit": "C" * 40}}
+        self.assertEqual(robo.classificar(meta, up, ["src/main/java/X.java"], CONFIG_MESMO_REPO), "regra")
 
 
 class DecidirTest(unittest.TestCase):
@@ -471,6 +522,42 @@ class TextosTest(unittest.TestCase):
         marca = robo.marca("issue-falha", self.UP, "2026-12-02")
         self.assertFalse(robo.deve_comentar([marca], "issue-falha", self.UP, "2026-12-02"))
         self.assertTrue(robo.deve_comentar([marca], "issue-falha", self.UP, "2026-12-03"))
+
+    def test_textos_usam_nome_humano(self):
+        pr = robo.texto_pr_regra(META, self.UP, MENOS, "", config=CONFIG_TESTE)
+        pr_sem = robo.texto_pr_regra(META, self.UP, MENOS, "", classe="release-sem-codigo", config=CONFIG_TESTE)
+        log = robo.texto_changelog(META, META, "release-sem-codigo", "0.6.1", config=CONFIG_TESTE)
+        for texto in (pr, pr_sem, log):
+            self.assertIn("calculadora de teste", texto)
+            self.assertNotIn("Simples", texto)
+        for texto in (pr, pr_sem):
+            self.assertIn("motor_x.py", texto)
+            self.assertNotIn("simples_motor.py", texto)
+        self.assertIn("src/main", log)
+
+    def test_nome_humano_escapado(self):
+        config = {**CONFIG_TESTE, "nome_humano": "@alguem [x](y)"}
+        resumo = "\n".join(robo._resumo_upstream(META, self.UP, config))
+        for texto in (robo.texto_pr_regra(META, self.UP, MENOS, "", config=config),
+                      robo.texto_changelog(META, META, "release-sem-codigo", "0.6.1", config=config), resumo):
+            self.assertNotIn("@alguem", texto)
+            self.assertNotIn("[x](y)", texto)
+
+
+class ResumoUpstreamTest(unittest.TestCase):
+    def test_um_repositorio_uma_linha(self):
+        up = {"calculadora": {"versao": "1.7.3", "commit": "d" * 40}, "migracoes": {"commit": "c" * 40}}
+        meta = {**META, "calculadora": {**META["calculadora"], "versao": "1.7.2", "commit": "a" * 40},
+                "migracoes": {**META["migracoes"], "commit": "b" * 40}}
+        linhas = robo._resumo_upstream(meta, up, CONFIG_MESMO_REPO)
+        repo = [l for l in linhas if "Repositório" in l]
+        self.assertEqual(len(repo), 1)
+        self.assertIn(f"Org/um-so/compare/{'a' * 40}...{'d' * 40}", repo[0])
+        self.assertIn(f"Org/um-so/compare/{'b' * 40}...{'c' * 40}", repo[0])
+        self.assertFalse([l for l in linhas if l.startswith("- Migrações")])
+        # dois repositórios seguem em duas linhas
+        dois = robo._resumo_upstream(meta, up, CONFIG)
+        self.assertFalse([l for l in dois if "Repositório" in l])
 
 
 class CompararBasesTest(unittest.TestCase):

@@ -218,7 +218,22 @@ def _base_mudou(meta_antiga: dict, meta_nova: dict) -> bool:
             or meta_antiga["base"]["hash"] != meta_nova["base"]["hash"])
 
 
-def texto_changelog(meta_antiga: dict, meta_nova: dict, classe: str, versao: str) -> str:
+def _config_da(meta: dict, config: dict | None) -> dict:
+    """Config da skill: o que o chamador passou ou, sem nada, o `config.json` da pasta da skill."""
+    if config is not None:
+        return config
+    return json.loads((ROOT / "conferencia" / meta["skill"] / "config.json").read_text(encoding="utf-8"))
+
+
+def _lista_de_arquivos(arquivos: list[str]) -> str:
+    itens = [f"`{a}`" for a in arquivos]
+    return itens[0] if len(itens) == 1 else ", ".join(itens[:-1]) + " ou " + itens[-1]
+
+
+def texto_changelog(meta_antiga: dict, meta_nova: dict, classe: str, versao: str, config: dict | None = None) -> str:
+    config = _config_da(meta_nova, config)
+    nome = texto_seguro(config["nome_humano"])
+    codigo = config["calculadora"]["caminho_codigo"]
     skill = meta_nova["skill"]
     conf = meta_nova["conferencia"]
     calc = meta_nova["calculadora"]["versao"]
@@ -231,8 +246,8 @@ def texto_changelog(meta_antiga: dict, meta_nova: dict, classe: str, versao: str
     if classe == "tabelas":
         linhas = [f"Tabelas novas da Receita Federal na `{skill}`. {efeito}"]
     elif classe == "release-sem-codigo":
-        linhas = [f"A Receita publicou a versão {calc} da calculadora oficial do Simples Nacional, sem mudança "
-                  f"no código de cálculo (`src/main`). A versão espelhada era a "
+        linhas = [f"A Receita publicou a versão {calc} da {nome}, sem mudança "
+                  f"no código de cálculo (`{codigo}`). A versão espelhada era a "
                   f"{meta_antiga['calculadora']['versao']}. {efeito}"]
     else:
         raise ValueError(f"o robô só publica tabelas ou release sem código, não {classe}")
@@ -294,7 +309,8 @@ def aplicar_publicacao(raiz: Path, meta_nova: dict, classe: str, meta_antiga: di
         raise RuntimeError(f"o CHANGELOG.md já tem a versão {nova}")
     if meta_antiga is None:
         meta_antiga = json.loads((raiz / "conferencia" / meta_nova["skill"] / "meta.json").read_text(encoding="utf-8"))
-    entrada = texto_changelog(meta_antiga, meta_nova, classe, nova)
+    config = json.loads((raiz / "conferencia" / meta_nova["skill"] / "config.json").read_text(encoding="utf-8"))
+    entrada = texto_changelog(meta_antiga, meta_nova, classe, nova, config)
     corte = changelog.find("\n## ")
     if corte < 0:
         raise RuntimeError("o CHANGELOG.md não tem nenhuma entrada ## <versão>")
@@ -661,23 +677,40 @@ def _url_compare(repo: str, de: str, para: str) -> str:
     return f"https://github.com/{repo}/compare/{de}...{para}"
 
 
-def _resumo_upstream(meta: dict, upstream: dict) -> list[str]:
-    calc_repo = meta["calculadora"]["repo"]
-    migr_repo = meta["migracoes"]["repo"]
+def _resumo_upstream(meta: dict, upstream: dict, config: dict | None = None) -> list[str]:
+    config = _config_da(meta, config)
+    calc_repo = config["calculadora"]["repo"]
+    migr_repo = config["migracoes"]["repo"]
     linhas = []
     de_c, para_c = meta["calculadora"], upstream["calculadora"]
-    if para_c["versao"] != de_c["versao"]:
-        linhas.append(f"- Calculadora do Simples: da {de_c['versao']} (commit `{de_c['commit'][:7]}`) para a "
-                      f"{para_c['versao']} (commit `{para_c['commit'][:7]}`). Diferença: "
-                      f"{_url_compare(calc_repo, de_c['commit'], para_c['commit'])}")
-    else:
-        linhas.append(f"- Calculadora do Simples: segue na {de_c['versao']}.")
     de_m, para_m = meta["migracoes"]["commit"], upstream["migracoes"]["commit"]
-    if para_m != de_m:
-        linhas.append(f"- Migrações: do commit `{de_m[:7]}` para o `{para_m[:7]}`. Diferença: "
+    if calc_repo == migr_repo:
+        if para_c["versao"] != de_c["versao"]:
+            texto = (f"- Repositório: da {de_c['versao']} (commit `{de_c['commit'][:7]}`) para a "
+                     f"{para_c['versao']} (commit `{para_c['commit'][:7]}`).")
+        else:
+            texto = f"- Repositório: calculadora segue na {de_c['versao']}."
+        if para_c["commit"] != de_c["commit"]:
+            texto += f" Diferença do código: {_url_compare(calc_repo, de_c['commit'], para_c['commit'])}."
+        if para_m != de_m:
+            texto += (f" Tabelas: do commit `{de_m[:7]}` para o `{para_m[:7]}`. Diferença das tabelas: "
                       f"{_url_compare(migr_repo, de_m, para_m)}")
+        else:
+            texto += f" Tabelas: seguem no commit `{de_m[:7]}`."
+        linhas.append(texto)
     else:
-        linhas.append(f"- Migrações: seguem no commit `{de_m[:7]}`.")
+        nome = texto_seguro(config["nome_humano"])
+        if para_c["versao"] != de_c["versao"]:
+            linhas.append(f"- Calculadora ({nome}): da {de_c['versao']} (commit `{de_c['commit'][:7]}`) para a "
+                          f"{para_c['versao']} (commit `{para_c['commit'][:7]}`). Diferença: "
+                          f"{_url_compare(calc_repo, de_c['commit'], para_c['commit'])}")
+        else:
+            linhas.append(f"- Calculadora ({nome}): segue na {de_c['versao']}.")
+        if para_m != de_m:
+            linhas.append(f"- Migrações: do commit `{de_m[:7]}` para o `{para_m[:7]}`. Diferença: "
+                          f"{_url_compare(migr_repo, de_m, para_m)}")
+        else:
+            linhas.append(f"- Migrações: seguem no commit `{de_m[:7]}`.")
     base = upstream.get("base")
     if base and base.get("versao"):
         if base["versao"] != meta["base"]["versao"]:
@@ -708,17 +741,21 @@ def _cerca(texto: str) -> str:
 
 
 def texto_pr_regra(meta: dict, upstream: dict, paridade: dict | None, diff_java: str, classe: str = "regra",
-                   hoje: str | None = None) -> str:
+                   hoje: str | None = None, config: dict | None = None) -> str:
+    config = _config_da(meta, config)
+    nome = texto_seguro(config["nome_humano"])
+    codigo = config["calculadora"]["caminho_codigo"]
+    motores = _lista_de_arquivos(config["arquivos_motor"])
     skill = meta["skill"]
-    calc_repo = meta["calculadora"]["repo"]
+    calc_repo = config["calculadora"]["repo"]
     de, para = meta["calculadora"]["commit"], upstream["calculadora"]["commit"]
     if classe == "release-sem-codigo":
-        motivo = ("A Receita publicou uma release nova da calculadora oficial do Simples sem mudança no código de "
-                  "cálculo (`src/main`), mas a conferência com a base e a release novas não fechou 100%. "
+        motivo = (f"A Receita publicou uma release nova da {nome} sem mudança no código de "
+                  f"cálculo (`{codigo}`), mas a conferência com a base e a release novas não fechou 100%. "
                   "Este PR traz a base e a meta novas; a conta da skill ainda é a da versão espelhada. "
                   "O robô não publica: alguém precisa achar o que diverge e pedir o merge.")
     else:
-        motivo = ("A Receita mudou o código de cálculo (`src/main`) da calculadora oficial do Simples. "
+        motivo = (f"A Receita mudou o código de cálculo (`{codigo}`) da {nome}. "
                   "Este PR traz a base e a meta novas, mas a conta da skill ainda é a da versão espelhada. "
                   "O robô não publica: alguém precisa portar a mudança e pedir o merge.")
     topo = [
@@ -730,7 +767,7 @@ def texto_pr_regra(meta: dict, upstream: dict, paridade: dict | None, diff_java:
         "",
         "## O que mudou na Receita",
         "",
-        *_resumo_upstream(meta, upstream),
+        *_resumo_upstream(meta, upstream, config),
         "",
         "## Conferência",
         "",
@@ -743,7 +780,7 @@ def texto_pr_regra(meta: dict, upstream: dict, paridade: dict | None, diff_java:
         "",
         "Siga \"Portar uma mudança de regra\" no `AGENTS.md`.",
         "",
-        "- [ ] Ler o diff do Java acima e achar o método correspondente em `simples_motor.py`, `simples_base.py` ou `numeros.py`.",
+        f"- [ ] Ler o diff do Java acima e achar o método correspondente em {motores}.",
         "- [ ] Portar método a método: o Python faz o que o Java faz, inclusive nos erros.",
         "- [ ] Portar os testes novos da Receita: os que passam por HTTP para `casos-escritos.json`, os outros para os testes em Python.",
         "- [ ] Rodar a conferência completa até 100% e regravar as esperadas (`receita_paridade.py --gravar-esperadas --amostra 400`).",
@@ -753,14 +790,14 @@ def texto_pr_regra(meta: dict, upstream: dict, paridade: dict | None, diff_java:
         "",
         "Depois do merge, a release sai pelo fluxo normal e o robô volta a publicar tabelas sozinho.",
     ]
-    cabeca = ["## Diff do Java em `src/main`", "", f"Da {meta['calculadora']['versao']} para a {upstream['calculadora']['versao']}."]
+    cabeca = [f"## Diff do Java em `{codigo}`", "", f"Da {meta['calculadora']['versao']} para a {upstream['calculadora']['versao']}."]
     link = _url_compare(calc_repo, de, para)
     fixo = "\n".join(topo + cabeca + fim)
     folga = LIMITE_CORPO - len(fixo) - 400
     diff = diff_java or ""
     nota = ""
     if not diff.strip():
-        nota = "O diff de `src/main` veio vazio. Confira na página de comparação: " + link
+        nota = f"O diff de `{codigo}` veio vazio. Confira na página de comparação: " + link
         diff = ""
     elif len(diff) > folga:
         corte = diff.rfind("\n", 0, max(folga, 0))
@@ -779,7 +816,8 @@ def texto_pr_regra(meta: dict, upstream: dict, paridade: dict | None, diff_java:
 
 def texto_issue(tipo: str, skill: str, meta: dict, upstream: dict | None = None, paridade: dict | None = None,
                 motivo: str | None = None, execucao: str | None = None, hoje: str | None = None,
-                versao_no_ar: str | None = None, versao_nova: str | None = None) -> str:
+                versao_no_ar: str | None = None, versao_nova: str | None = None,
+                config: dict | None = None) -> str:
     hoje = hoje or _dt.date.today().isoformat()
     rodape = [f"Execução: {execucao}"] if execucao else []
     if tipo == "issue-divergencia":
@@ -787,7 +825,7 @@ def texto_issue(tipo: str, skill: str, meta: dict, upstream: dict | None = None,
             f"A Receita mudou as tabelas e a conferência da `{skill}` com a base nova não fechou 100%. "
             "O robô não publicou nada: a skill segue com a base anterior.",
             "",
-            "## O que mudou na Receita", "", *_resumo_upstream(meta, upstream),
+            "## O que mudou na Receita", "", *_resumo_upstream(meta, upstream, config),
             "", "## Conferência", "", *_resumo_paridade(paridade, upstream["calculadora"]["versao"]),
             "", "## O que fazer", "",
             "Uma tabela nova que muda a conta, ou uma migração que muda a estrutura de uma tabela, pede port "
@@ -808,7 +846,7 @@ def texto_issue(tipo: str, skill: str, meta: dict, upstream: dict | None = None,
             "enquanto falhar. Feche a issue quando uma execução terminar bem.",
         ]
         if upstream:
-            linhas += ["", "## Estado da Receita nesta execução", "", *_resumo_upstream(meta, upstream)]
+            linhas += ["", "## Estado da Receita nesta execução", "", *_resumo_upstream(meta, upstream, config)]
     elif tipo == "issue-gpt":
         linhas = [
             f"Saiu a versão {versao_nova} do plugin, com a `{skill}` na base {meta['base']['versao']} e a "
@@ -823,14 +861,14 @@ def texto_issue(tipo: str, skill: str, meta: dict, upstream: dict | None = None,
     elif tipo == "congelado":
         linhas = [
             f"Hoje ({_data_br(hoje)}) a Receita está assim. As tabelas da `{skill}` seguem paradas até este PR ser resolvido.",
-            "", *_resumo_upstream(meta, upstream),
+            "", *_resumo_upstream(meta, upstream, config),
             "", *_resumo_paridade(paridade, upstream["calculadora"]["versao"], "A conferência não rodou nesta execução."),
             "", marca(tipo, upstream, hoje),
         ]
     elif tipo == "regra-atualizada":
         linhas = [
             f"A Receita mudou de novo ({_data_br(hoje)}). O corpo do PR foi atualizado com o estado de hoje.",
-            "", *_resumo_upstream(meta, upstream),
+            "", *_resumo_upstream(meta, upstream, config),
             "", *_resumo_paridade(paridade, upstream["calculadora"]["versao"]),
             "", "O ramo deste PR não foi mexido: a base de hoje está no artefato da execução.",
             "", marca(tipo, upstream, hoje),
@@ -1067,6 +1105,7 @@ def _cmd_texto(args) -> int:
         raise ValueError(f"nome de skill fora do padrão: {skill!r}")
     raiz = Path(args.raiz)
     meta = _ler(_pasta(raiz, skill) / "meta.json") if skill else {}
+    config = _ler(_pasta(raiz, skill) / "config.json") if skill else None
     upstream = estado.get("upstream") if isinstance(estado, dict) else None
     # O estado pode vir de um artefato que não passou na validação (é por isso que a issue de falha
     # existe): valor fora do padrão não entra em texto nenhum.
@@ -1088,7 +1127,7 @@ def _cmd_texto(args) -> int:
         motivo = Path(args.motivo_arquivo).read_text(encoding="utf-8", errors="replace")
     if args.tipo == "pr-regra":
         diff = Path(args.diff).read_text(encoding="utf-8", errors="replace") if args.diff and Path(args.diff).is_file() else ""
-        texto = texto_pr_regra(meta, upstream, paridade, diff, estado.get("classe", "regra"), hoje)
+        texto = texto_pr_regra(meta, upstream, paridade, diff, estado.get("classe", "regra"), hoje, config)
     elif args.tipo == "issue-gpt":
         meta_atual = _ler(_pasta(raiz, skill) / "meta.json")
         no_ar = None
@@ -1110,11 +1149,55 @@ def _cmd_texto(args) -> int:
                                  upstream or {"calculadora": {"versao": "-"}, "migracoes": {"commit": "-"}}, hoje):
                 return 0
         texto = texto_issue(args.tipo, skill, meta, upstream=upstream, paridade=paridade, motivo=motivo,
-                            execucao=args.execucao, hoje=hoje)
+                            execucao=args.execucao, hoje=hoje, config=config)
     if args.saida:
         Path(args.saida).write_text(texto, encoding="utf-8")
     else:
         sys.stdout.write(texto)
+    return 0
+
+
+_PADROES_CONFIG = {
+    "oficial.contexto": re.compile(r"/[a-z0-9/-]*"),
+    "oficial.jar": re.compile(r"target/[A-Za-z0-9._-]+\.jar"),
+    "oficial.flyway_conf": re.compile(r"\./flyway/[A-Za-z0-9._-]+\.conf"),
+    "oficial.arquivo_db": re.compile(r"[A-Za-z0-9._-]+\.db"),
+}
+
+
+def valor_do_config(config: dict, campo: str) -> str:
+    """Um valor do config.json pelo caminho pontuado, validado por padrão fixo quando o campo é
+    um dos que o workflow usa em comando. Levanta ValueError se faltar ou estiver fora do padrão."""
+    valor = config
+    for parte in campo.split("."):
+        if not isinstance(valor, dict) or parte not in valor:
+            raise ValueError(f"o config não tem o campo {campo}")
+        valor = valor[parte]
+    if isinstance(valor, (dict, list)) or valor is None or isinstance(valor, bool):
+        raise ValueError(f"o campo {campo} não é um texto nem um número")
+    if campo == "oficial.porta":
+        if not isinstance(valor, int) or not 1024 <= valor <= 65535:
+            raise ValueError(f"oficial.porta fora de 1024 a 65535: {valor!r}")
+        return str(valor)
+    texto = str(valor)
+    if any(c in texto for c in ("\r", "\n", "\0")):
+        raise ValueError(f"o campo {campo} tem quebra de linha ou NUL")
+    padrao = _PADROES_CONFIG.get(campo)
+    if padrao is not None and not padrao.fullmatch(texto):
+        raise ValueError(f"{campo} fora do padrão: {texto[:60]!r}")
+    return texto
+
+
+def _cmd_config(args) -> int:
+    if not re.fullmatch(r"[a-z0-9-]+", args.skill):
+        print(f"erro: nome de skill fora do padrão: {args.skill!r}", file=sys.stderr)
+        return 2
+    try:
+        config = _ler(_pasta(Path(args.raiz), args.skill) / "config.json")
+        print(valor_do_config(config, args.campo))
+    except (ValueError, OSError) as erro:
+        print(f"erro: {erro}", file=sys.stderr)
+        return 2
     return 0
 
 
@@ -1199,6 +1282,11 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--releases", required=True, help="JSON do gh release list --json tagName")
     p.add_argument("--execucoes", required=True, help="JSON do gh run list --workflow release.yml --json status")
     p.set_defaults(func=_cmd_release)
+
+    p = sub.add_parser("config")
+    p.add_argument("--skill", required=True)
+    p.add_argument("--campo", required=True, help="caminho pontuado, por exemplo oficial.porta")
+    p.set_defaults(func=_cmd_config)
 
     p = sub.add_parser("texto")
     p.add_argument("--tipo", required=True,
