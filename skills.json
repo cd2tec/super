@@ -43,7 +43,8 @@
     "tipo": "calculadora",
     "gpt": true,
     "departamento": "Fiscal",
-    "fonte_externa": true
+    "fonte_externa": true,
+    "gpt_pacote": "rr_"
   },
   {
     "name": "briefing-do-dia",

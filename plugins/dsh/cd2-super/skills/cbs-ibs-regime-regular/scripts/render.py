@@ -281,6 +281,11 @@ def _endereco_seguro(url) -> str:
 def _conferencia_da_base() -> dict:
     """{casos, iguais} do meta da base local, ou {} se a base não estiver à mão."""
     try:
+        try:  # no GPT, os rr_*.py vêm juntos no rr_pacote.py (gerado pelo sync)
+            import rr_pacote  # noqa: F401
+        except ModuleNotFoundError as erro:
+            if erro.name != "rr_pacote":
+                raise
         import rr_base  # noqa: WPS433  (só aqui: o render não depende da base para formatar)
         with rr_base.Base() as base:
             conferencia = _dict(base.meta()).get("conferencia")

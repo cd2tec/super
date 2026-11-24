@@ -210,8 +210,8 @@ class SyncTest(unittest.TestCase):
             "custo-vrva": ("references/legal-params.json",),
             SIMPLES: ("references/base-receita.db", "scripts/simples_motor.py", "scripts/simples_base.py",
                       "scripts/numeros.py", "scripts/sugestao.py"),
-            RR: ("references/base-receita.db", "references/aliquotas.json", "scripts/rr_motor.py",
-                 "scripts/rr_base.py", "scripts/numeros.py", "scripts/sugestao.py"),
+            RR: ("references/base-receita.db", "references/aliquotas.json", "scripts/rr_pacote.py",
+                 "scripts/numeros.py", "scripts/sugestao.py"),
         }
         self.assertEqual(set(proprios), set(GPT_SKILLS))
         for skill in GPT_SKILLS:
@@ -226,7 +226,7 @@ class SyncTest(unittest.TestCase):
             self.assertFalse((knowledge / "SKILL.md").exists())
             files = [p for p in knowledge.rglob("*") if p.is_file()]
             self.assertLessEqual(len(files), 20, f"{skill}: GPT aceita no máximo 20 arquivos")
-            if skill == SIMPLES:
+            if skill in (SIMPLES, RR):
                 self.assertLessEqual(len(files), 19, f"{skill}: o plano reserva no máximo 19 arquivos")
             names = [p.name for p in files]
             self.assertEqual(len(names), len(set(names)), f"{skill}: nomes repetidos quebram o upload plano")
@@ -288,6 +288,59 @@ class SyncTest(unittest.TestCase):
             self.assertIn("não é um aplicativo da Receita Federal", saida[formato], formato)
             self.assertIn("Exemplo ilustrativo", saida[formato], formato)
             self.assertNotIn(PLACEHOLDER, saida[formato], formato)
+
+    def test_gpt_rr_motor_num_arquivo_so(self):
+        """No GPT, os rr_*.py viram um rr_pacote.py com as fontes do core, byte a byte; no plugin, ficam soltos."""
+        import ast
+        scripts = self.gpts / RR / "knowledge" / "scripts"
+        core = ROOT / "core" / PLUGIN / "skills" / RR / "scripts"
+        self.assertEqual(sorted(p.name for p in scripts.glob("rr_*.py")), ["rr_pacote.py"])
+        arvore = ast.parse((scripts / "rr_pacote.py").read_text(encoding="utf-8"))
+        fontes = next(ast.literal_eval(no.value) for no in arvore.body
+                      if isinstance(no, ast.Assign) and getattr(no.targets[0], "id", "") == "FONTES")
+        esperado = {p.stem: p.read_bytes() for p in core.glob("rr_*.py")}
+        self.assertEqual(set(fontes), set(esperado))
+        for nome, fonte in fontes.items():
+            self.assertEqual(fonte.encode("utf-8"), esperado[nome], nome)
+        for arvore_plugin in (self.claude / "skills", self.codex / "skills", self.dsh / "skills"):
+            soltos = sorted(p.name for p in (arvore_plugin / RR / "scripts").glob("rr_*.py"))
+            self.assertEqual(soltos, sorted(f"{n}.py" for n in esperado))
+
+    def test_gpt_rr_cerveja_igual_ao_core(self):
+        """Da pasta plana do GPT, a conta de 2027 com cerveja (IS) e um item comum é a mesma do core."""
+        operacao = {
+            "documento": "NFC-e", "uf": "SP", "municipio": 3550308, "data": "2027-01-01",
+            "itens": [
+                {"descricao": "Cerveja", "ncm": "22030000", "cst": "000", "classificacao": "000001",
+                 "valor": "100.00", "quantidade": 12, "unidade": "LT",
+                 "aliquotas": {"cbs": 11.3, "ibs_estadual": 0.05, "ibs_municipal": 0.05,
+                               "imposto_seletivo": {"ad_valorem": 10}},
+                 "imposto_seletivo": {"cst": "000", "classificacao": "000001", "valor": "100.00"}},
+                {"descricao": "Chocolate", "ncm": "18063110", "cst": "000", "classificacao": "000001",
+                 "valor": "1000.00"},
+            ],
+        }
+        knowledge = self.gpts / RR / "knowledge"
+        core = ROOT / "core" / PLUGIN / "skills" / RR / "scripts"
+        with tempfile.TemporaryDirectory() as flat_dir, tempfile.TemporaryDirectory() as work:
+            flat, workdir = Path(flat_dir), Path(work)
+            for path in knowledge.rglob("*"):
+                if path.is_file():
+                    shutil.copy2(path, flat / path.name)
+            (workdir / "op.json").write_text(json.dumps(operacao), encoding="utf-8")
+            do_gpt = json.loads(run_py(flat / "calc.py", workdir, "op.json"))
+            do_core = json.loads(run_py(core / "calc.py", workdir, "op.json"))
+            entrega = {"operacao": operacao, "calculo": do_gpt, "sugestoes": None, "exemplo": True}
+            (workdir / "entrega.json").write_text(json.dumps(entrega, ensure_ascii=False), encoding="utf-8")
+            texto = run_py(flat / "render.py", workdir, "entrega.json", "--formato", "texto")
+        self.assertEqual(do_gpt["corpo"], do_core["corpo"])
+        self.assertEqual(do_gpt["versao"], do_core["versao"])
+        estados = [o["estadoItem"] for o in do_gpt["corpo"]["objetos"]]
+        self.assertEqual(estados, ["CALCULO_SIMULADO", "CALCULO_SIMULADO"])
+        self.assertEqual(do_gpt["corpo"]["objetos"][0]["tribCalc"]["IS"]["vIS"], "10.00")
+        self.assertIn("10,00", texto)
+        conferencia = json.loads((ROOT / "conferencia" / RR / "meta.json").read_text(encoding="utf-8"))["conferencia"]
+        self.assertIn(f"{conferencia['iguais']:,}".replace(",", "."), texto)
 
     def test_gpt_knowledge_runs_flat_rr(self):
         """A skill do regime regular também roda da pasta plana: conta, sugestão e três entregas."""
@@ -704,6 +757,27 @@ class KitsTest(unittest.TestCase):
         item = {"name": "x", "tipo": "calculadora", "gpt": True, "departamento": "Fiscal", "fonte_externa": "sim"}
         self.assertTrue(any("fonte_externa" in p for p in self.sync.check_skills_json([item])))
         self.assertEqual(self.sync.check_skills_json([{**item, "fonte_externa": True}]), [])
+
+    def test_gpt_pacote_valida_prefixo_e_gpt(self):
+        item = {"name": "x", "tipo": "calculadora", "gpt": True, "departamento": "Fiscal", "gpt_pacote": "rr_"}
+        self.assertEqual(self.sync.check_skills_json([item]), [])
+        for errado in ("rr", "../", "RR_", 1):
+            self.assertTrue(any("gpt_pacote" in p for p in self.sync.check_skills_json([{**item, "gpt_pacote": errado}])))
+        self.assertTrue(any("gpt_pacote" in p for p in self.sync.check_skills_json([{**item, "gpt": False}])))
+
+    def test_empacotar_modulos_carrega_as_fontes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            scripts = Path(tmp)
+            (scripts / "zz_a.py").write_text('import zz_b\nVALOR = zz_b.VALOR + 1\nPASTA = __file__\n', encoding="utf-8")
+            (scripts / "zz_b.py").write_text("VALOR = 41\n", encoding="utf-8")
+            (scripts / "outro.py").write_text("", encoding="utf-8")
+            self.assertEqual(self.sync.empacotar_modulos(scripts, "zz_", "x"), [])
+            self.assertEqual(sorted(p.name for p in scripts.iterdir()), ["outro.py", "zz_pacote.py"])
+            codigo = ("import sys; sys.path.insert(0, sys.argv[1]); import zz_pacote, zz_a, os; "
+                      "print(zz_a.VALOR, os.path.dirname(zz_a.PASTA) == os.path.realpath(sys.argv[1]))")
+            saida = subprocess.run([sys.executable, "-c", codigo, str(scripts)], capture_output=True, text=True)
+            self.assertEqual(saida.stdout.split(), ["42", "True"], saida.stderr)
+            self.assertTrue(self.sync.empacotar_modulos(scripts, "zz_", "x"))  # o pacote já existe: acusa
 
 
 class PackageTest(unittest.TestCase):

@@ -21,7 +21,11 @@ Layouts (campo "layout" em harnesses.json, padrão "plugin"):
   cada skill solta, sem raiz de plugin.
 - "gpt" (GPT Store): gpts/<skill>/instructions.md (preâmbulo mais as instruções
   do GPT da skill), gpts/<skill>/gpt.json e gpts/<skill>/knowledge/ com a skill
-  autocontida, menos o SKILL.md.
+  autocontida, menos o SKILL.md. Uma skill com "gpt_pacote" no skills.json (um
+  prefixo, como "rr_") leva no GPT, no lugar dos scripts/<prefixo>*.py, um só
+  scripts/<prefixo>pacote.py com as fontes deles byte a byte e um importador
+  que as entrega a `import <módulo>`. O GPT aceita no máximo 20 arquivos no
+  conhecimento; os pacotes de plugin seguem com os arquivos soltos.
 
 Kits: shared/ vai para todas as skills (a marca). Os kits em kits/<kit>/ vão só
 para as skills do tipo que os usa. O campo "tipo" de cada item do skills.json
@@ -80,6 +84,7 @@ JUNK_FILES = {".DS_Store"}
 IGNORED = shutil.ignore_patterns("__pycache__", "*.pyc", ".DS_Store")
 # Caracteres que não podem abrir um valor de YAML sem aspas.
 YAML_INDICATORS = "!&*[]{}#|>%@`,'\""
+GPT_PACOTE = re.compile(r"[a-z][a-z0-9]*_")
 # Caminho relativo entre crases apontando para um arquivo da skill.
 REF_PATTERN = re.compile(r"`((?:\.\./|references/|assets/|scripts/)[^`\s]+\.(?:md|py|html|json))`")
 LAYOUTS = ("plugin", "flat-skills", "gpt")
@@ -231,6 +236,68 @@ def build_skills(core: Path, spec: dict, skills: list[dict], work: Path) -> list
     return problems
 
 
+PACOTE_MODELO = '''"""Módulos {prefixo}*.py da skill {skill}, num arquivo só (gerado por scripts/sync_plugins.py).
+
+O GPT aceita no máximo 20 arquivos no conhecimento. Este arquivo leva as fontes dos módulos
+{prefixo}*.py da skill byte a byte e, ao ser importado, ensina o Python a achá-las: `import {exemplo}`
+roda a mesma fonte que roda no plugin, com `__file__` na pasta deste arquivo. Não edite: a fonte
+única é core/cd2-super/skills/{skill}/scripts/. Os módulos que portam código de terceiros trazem
+no topo, dentro da fonte, o aviso de copyright e a licença deles.
+"""
+import importlib.abc
+import importlib.util
+import sys
+from pathlib import Path
+
+_PASTA = Path(__file__).resolve().parent
+
+FONTES = {fontes}
+
+
+class _Importador(importlib.abc.MetaPathFinder, importlib.abc.Loader):
+    def find_spec(self, nome, caminho=None, alvo=None):
+        if nome not in FONTES:
+            return None
+        return importlib.util.spec_from_loader(nome, self, origin=str(_PASTA / (nome + ".py")))
+
+    def create_module(self, spec):
+        return None
+
+    def exec_module(self, modulo):
+        arquivo = str(_PASTA / (modulo.__name__ + ".py"))
+        modulo.__file__ = arquivo
+        exec(compile(FONTES[modulo.__name__], arquivo, "exec", dont_inherit=True), modulo.__dict__)
+
+    def get_source(self, nome):
+        return FONTES.get(nome)
+
+
+sys.meta_path.insert(0, _Importador())
+'''
+
+
+def empacotar_modulos(scripts: Path, prefixo: str, skill: str) -> list[str]:
+    """Troca os scripts/<prefixo>*.py do pacote do GPT por um scripts/<prefixo>pacote.py."""
+    destino = scripts / f"{prefixo}pacote.py"
+    if destino.exists():
+        return [f"skills/{skill}: scripts/{destino.name} é o nome do pacote gerado; renomeie o arquivo da skill"]
+    modulos = sorted(p for p in scripts.glob(f"{prefixo}*.py") if p.is_file())
+    if not modulos:
+        return [f"skills/{skill}: 'gpt_pacote' {prefixo!r} sem nenhum scripts/{prefixo}*.py"]
+    fontes = {}
+    for modulo in modulos:
+        try:
+            fontes[modulo.stem] = modulo.read_bytes().decode("utf-8")
+        except UnicodeDecodeError:
+            return [f"skills/{skill}: scripts/{modulo.name} não está em UTF-8"]
+    corpo = "{\n" + "".join(f"    {nome!r}: {fonte!r},\n" for nome, fonte in fontes.items()) + "}"
+    texto = PACOTE_MODELO.format(prefixo=prefixo, skill=skill, exemplo=modulos[0].stem, fontes=corpo)
+    destino.write_text(texto, encoding="utf-8", newline="\n")
+    for modulo in modulos:
+        modulo.unlink()
+    return []
+
+
 def build_gpts(core: Path, spec: dict, skills: list[dict], work: Path) -> list[str]:
     problems: list[str] = []
     gpt_src = core / "gpts"
@@ -254,6 +321,9 @@ def build_gpts(core: Path, spec: dict, skills: list[dict], work: Path) -> list[s
         knowledge = base / "knowledge"
         problems += assemble_skill(skill, fontes, knowledge)
         (knowledge / "SKILL.md").unlink()
+        prefixo = next((s.get("gpt_pacote") for s in skills if s.get("name") == skill.name), None)
+        if isinstance(prefixo, str) and GPT_PACOTE.fullmatch(prefixo):
+            problems += empacotar_modulos(knowledge / "scripts", prefixo, skill.name)
         body = (src / "instructions.md").read_text(encoding="utf-8").strip()
         text = preamble.replace(SKILL_PLACEHOLDER, skill.name) + "\n\n" + body + "\n"
         (base / "instructions.md").write_text(text, encoding="utf-8")
@@ -355,6 +425,12 @@ def check_skills_json(skills: list[dict]) -> list[str]:
             problems.append(f"skills.json: '{s.get('name')}' sem 'gpt' true ou false")
         if "fonte_externa" in s and not isinstance(s["fonte_externa"], bool):
             problems.append(f"skills.json: '{s.get('name')}' com 'fonte_externa' que não é true ou false")
+        if "gpt_pacote" in s:
+            prefixo = s["gpt_pacote"]
+            if not isinstance(prefixo, str) or not GPT_PACOTE.fullmatch(prefixo):
+                problems.append(f"skills.json: '{s.get('name')}' com 'gpt_pacote' inválido (use um prefixo como \"rr_\")")
+            elif s.get("gpt") is not True:
+                problems.append(f"skills.json: '{s.get('name')}' com 'gpt_pacote' sem \"gpt\": true")
     return problems
 
 

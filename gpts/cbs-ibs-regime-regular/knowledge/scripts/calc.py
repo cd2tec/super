@@ -64,6 +64,11 @@ _AQUI = Path(__file__).resolve().parent
 if str(_AQUI) not in sys.path:
     sys.path.append(str(_AQUI))
 
+try:  # no GPT, os rr_*.py vêm juntos no rr_pacote.py (gerado pelo sync); no plugin, ficam soltos
+    import rr_pacote  # noqa: F401,E402
+except ModuleNotFoundError as erro:
+    if erro.name != "rr_pacote":
+        raise
 import rr_base  # noqa: E402  (precisa do caminho acima)
 import rr_erros  # noqa: E402
 import rr_motor  # noqa: E402
