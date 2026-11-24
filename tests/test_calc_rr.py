@@ -18,11 +18,14 @@ assim; desde a Task 8 nenhum grupo está nessa lista, e todo grupo ligado é cob
 As partes comparadas usam `receita_paridade.comparar` (Decimal pela forma escrita) com a lista `ignorar`
 do config.json, como a conferência com a calculadora oficial.
 """
+import contextlib
 import copy
 import importlib.util
+import io
 import json
 import sys
 import unittest
+import urllib.error
 from unittest import mock
 from datetime import date
 from decimal import Decimal
@@ -62,6 +65,7 @@ rr_entrada = load_module("rr_entrada", SKILL / "scripts" / "rr_entrada.py")
 # O calc.py faz `import rr_motor`: carregado aqui com o mesmo nome, o módulo é o mesmo objeto.
 rr_motor = load_module("rr_motor", SKILL / "scripts" / "rr_motor.py")
 rr_base = load_module("rr_base", SKILL / "scripts" / "rr_base.py")
+rr_calc = load_module("rr_calc", SKILL / "scripts" / "calc.py")
 
 ESPERADAS = receita_paridade.ler_json((PASTA / "esperadas.json").read_text(encoding="utf-8"))
 CONFIG = json.loads((PASTA / "config.json").read_text(encoding="utf-8"))
@@ -490,6 +494,244 @@ class EntradaTest(unittest.TestCase):
         self.assertEqual([(e.codigo, e.ponteiro) for e in erros],
                          [("VAL-009", "itens[0].cst"), ("VAL-004", "itens[0].cst")])
         self.assertEqual(erros[0].detalhe, "Campo 'itens[0].cst' Informar somente dígitos, recebido: '0a'")
+
+
+class CalcCLITest(unittest.TestCase):
+    """calc.py: a porta em português, os cenários de alíquota, as recusas de escopo e a linha de comando."""
+
+    def operacao(self, **mudancas):
+        op = {"id": "t1", "documento": "NF-e", "uf": "SP", "municipio": 3550308, "data": "2027-03-15",
+              "itens": [{"descricao": "notebook", "ncm": "84713012", "cst": "000", "classificacao": "000001",
+                         "valor": Decimal("100.00")}]}
+        op.update(mudancas)
+        return op
+
+    def aliquotas(self, op):
+        return [i.get("aliquotasNominais") for i in op["itens"]]
+
+    def test_cenario_padrao_em_2027(self):
+        op = rr_calc.normalizar(self.operacao(), "em-2027")
+        self.assertEqual(op["versao"], "1.0.0")
+        self.assertEqual(op["tpDoc"], 55)
+        self.assertEqual(op["dhFatoGerador"], "2027-03-15T12:00:00-03:00")
+        self.assertEqual(op["itens"][0]["baseCalculo"], Decimal("100.00"))
+        self.assertEqual(op["itens"][0]["cClassTrib"], "000001")
+        self.assertEqual(op["itens"][0]["numero"], 1)
+        a = self.aliquotas(op)[0]
+        self.assertEqual((str(a["cbs"]), str(a["ibsEstadual"]), str(a["ibsMunicipal"])), ("11.3", "0.05", "0.05"))
+
+    def test_data_padrao_2027_01_01(self):
+        op = self.operacao()
+        del op["data"]
+        r = rr_calc.normalizar(op, "em-2027")
+        self.assertTrue(r["dhFatoGerador"].startswith("2027-01-01T"))
+        self.assertIsNotNone(r["itens"][0]["aliquotasNominais"])
+
+    def test_reforma_completa(self):
+        a = self.aliquotas(rr_calc.normalizar(self.operacao(), "reforma-completa"))[0]
+        self.assertEqual((str(a["cbs"]), str(a["ibsEstadual"]), str(a["ibsMunicipal"])), ("8.8", "8.85", "8.85"))
+
+    def test_aliquota_informada_vence_o_cenario(self):
+        op = self.operacao()
+        op["itens"][0]["aliquotas"] = {"cbs": Decimal("1.5"), "ibsEstadual": Decimal("2"), "ibsMunicipal": 0}
+        op["itens"].append(dict(op["itens"][0], numero=2))
+        del op["itens"][1]["aliquotas"]
+        r = rr_calc.normalizar(op, "reforma-completa")
+        self.assertEqual(r["itens"][0]["aliquotasNominais"]["cbs"], Decimal("1.5"))
+        self.assertEqual(str(r["itens"][1]["aliquotasNominais"]["cbs"]), "8.8")
+
+    def test_antes_de_2027_nao_leva_aliquota(self):
+        for data in ("2026-12-31", "31/12/2026", "2025-06-01"):
+            with self.subTest(data):
+                op = rr_calc.normalizar(self.operacao(data=data), "em-2027")
+                self.assertNotIn("aliquotasNominais", op["itens"][0])
+
+    def test_cenario_inexistente_recusado(self):
+        with self.assertRaises(rr_calc.Recusa):
+            rr_calc.normalizar(self.operacao(), "nenhum")
+
+    def test_recusa_nbs_e_nfse(self):
+        op = self.operacao()
+        op["itens"][0]["nbs"] = "1.0101.10.00"
+        with self.assertRaises(rr_calc.Recusa) as ctx:
+            rr_calc.normalizar(op, "em-2027")
+        self.assertIn("NBS", str(ctx.exception))
+        with self.assertRaises(rr_calc.Recusa) as ctx:
+            rr_calc.normalizar(self.operacao(documento="NFS-e"), "em-2027")
+        self.assertIn("NFS-e", str(ctx.exception))
+        for documento in (57, "CT-e", 99):
+            with self.subTest(documento):
+                with self.assertRaises(rr_calc.Recusa) as ctx:
+                    rr_calc.normalizar(self.operacao(documento=documento), "em-2027")
+                self.assertIn("55", str(ctx.exception))
+        # na porta técnica: tpDoc 57 e NBS também ficam de fora
+        for bruto in ({"tpDoc": 57, "itens": []}, {"tpDoc": 55, "itens": [{"nbs": "1.0101.10.00"}]}):
+            with self.subTest(bruto):
+                with self.assertRaises(rr_calc.Recusa):
+                    rr_calc.verificar_escopo(bruto)
+
+    def test_nbs_nulo_vale_como_ausente_e_tpdoc_ausente_passa(self):
+        op = self.operacao()
+        del op["documento"]
+        op["itens"][0]["nbs"] = None
+        r = rr_calc.normalizar(op, "em-2027")
+        self.assertNotIn("tpDoc", r)
+        rr_calc.verificar_escopo({"tpDoc": 65, "itens": [{"nbs": None}], "gCompraGov": None})
+
+    def test_recusa_compra_gov(self):
+        op = self.operacao(gCompraGov={"tpEnteGov": 1, "pRedutor": 5})
+        with self.assertRaises(rr_calc.Recusa) as ctx:
+            rr_calc.normalizar(op, "em-2027")
+        self.assertIn("gCompraGov", str(ctx.exception))
+        with self.assertRaises(rr_calc.Recusa):
+            rr_calc.verificar_escopo({"tpDoc": 55, "gCompraGov": {"tpEnteGov": 1}})
+
+    def test_ncm_7_digitos_repassado_como_veio(self):
+        op = self.operacao()
+        op["itens"][0]["ncm"] = "8471301"
+        self.assertEqual(rr_calc.normalizar(op, "em-2027")["itens"][0]["ncm"], "8471301")
+
+    def test_recusa_sai_antes_do_motor(self):
+        with rr_base.Base() as base, mock.patch.object(rr_motor, "observabilidade") as motor:
+            with self.assertRaises(rr_calc.Recusa):
+                rr_calc.executar_operacao(self.operacao(documento="NFS-e"), base)
+        motor.assert_not_called()
+
+    def test_conta_de_ponta_a_ponta_em_2027_e_simulada(self):
+        with rr_base.Base() as base:
+            saida = rr_calc.executar_operacao(self.operacao(), base)
+        self.assertEqual(saida["status"], 200)
+        self.assertTrue(saida["simulado"])
+        self.assertIn("simulado", saida["aviso"])
+        self.assertEqual(saida["cenario"]["cenario"], "em-2027")
+        self.assertEqual(saida["versao"]["calculadora"], "1.7.2")
+        self.assertEqual(saida["corpo"]["objetos"][0]["estadoItem"], "CALCULO_SIMULADO")
+
+    def test_conta_em_2026_sem_cenario_e_sem_aviso_de_simulado(self):
+        with rr_base.Base() as base:
+            saida = rr_calc.executar_operacao(self.operacao(data="2026-06-01"), base)
+        self.assertEqual(saida["status"], 200)
+        self.assertFalse(saida["simulado"])
+        self.assertNotIn("cenario", saida)
+
+    def test_porta_tecnica_roda_como_veio(self):
+        bruto = {"id": "x", "versao": "1.0.0", "dhFatoGerador": "2027-03-15T10:00:00-03:00", "municipio": 3550308,
+                 "uf": "SP", "tpDoc": 55,
+                 "itens": [{"numero": 1, "cst": "000", "cClassTrib": "000001", "baseCalculo": Decimal("12.0"),
+                            "ncm": "84713012"}]}
+        copia = copy.deepcopy(bruto)
+        with rr_base.Base() as base:
+            saida = rr_calc.executar_operacao(bruto, base, porta="tecnica")
+        self.assertEqual(bruto, copia)
+        self.assertNotIn("cenario", saida)
+        self.assertTrue(saida["simulado"])
+
+    def test_executar_mantem_o_contrato_da_bateria(self):
+        requisicao = {"metodo": "POST", "caminho": "/calculadora/observabilidade/regime-geral",
+                      "corpo": rr_calc.normalizar(self.operacao(), "em-2027")}
+        resposta = rr_calc.executar(requisicao)
+        self.assertEqual(set(resposta), {"status", "corpo"})
+        status, _corpo, cabecalhos = rr_calc.executar_completo(requisicao)
+        self.assertEqual(status, resposta["status"])
+        self.assertEqual(cabecalhos["x-warning-dados-simulados"], "6")
+
+    def test_aliquotas_json(self):
+        dados = rr_calc.ler_aliquotas()
+        self.assertEqual((dados["version"], dados["checked_at"]), ("2026-11-22", "2026-11-22"))
+        em = dados["cenarios"]["em-2027"]
+        self.assertEqual((str(em["cbs"]), str(em["ibs_estadual"]), str(em["ibs_municipal"])), ("11.3", "0.05", "0.05"))
+        rc = dados["cenarios"]["reforma-completa"]
+        self.assertEqual((str(rc["cbs"]), str(rc["ibs_estadual"]), str(rc["ibs_municipal"])), ("8.8", "8.85", "8.85"))
+        self.assertTrue(rc["hipotese_cd2"])
+        self.assertEqual(len(dados["fontes"]), 3)
+        self.assertEqual(dados["lei"], "Lei Complementar 214/2025")
+        texto = rr_calc.ARQUIVO_ALIQUOTAS.read_text(encoding="utf-8")
+        self.assertNotIn("\u2014", texto)
+        self.assertNotIn("\u2013", texto)
+
+    def chamar(self, argv):
+        saida = io.StringIO()
+        with contextlib.redirect_stdout(saida):
+            codigo = rr_calc.main(argv)
+        return codigo, json.loads(saida.getvalue())
+
+    def test_cli_cenarios_versao_erro(self):
+        codigo, dados = self.chamar(["--cenarios"])
+        self.assertEqual((codigo, dados["padrao"]), (0, "em-2027"))
+        codigo, dados = self.chamar(["--versao"])
+        self.assertEqual((codigo, dados["corpo"]["versaoApp"]), (0, "1.7.2"))
+        codigo, dados = self.chamar(["--erro", "REG-001"])
+        self.assertEqual((codigo, dados["status"], dados["corpo"]["codigo"]), (0, 200, "REG-001"))
+        codigo, dados = self.chamar(["--erro", "XXX-999"])
+        self.assertEqual((codigo, dados["status"]), (0, 404))
+
+    def test_cli_recusa_sai_com_2(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as pasta:
+            arquivo = Path(pasta) / "op.json"
+            arquivo.write_text(json.dumps(self.operacao(documento="NFS-e"), default=str), encoding="utf-8")
+            codigo, dados = self.chamar([str(arquivo)])
+            self.assertEqual(codigo, 2)
+            self.assertIn("NFS-e", dados["errors"][0])
+            arquivo.write_text(json.dumps(self.operacao(), default=str), encoding="utf-8")
+            codigo, dados = self.chamar([str(arquivo), "--cenario", "reforma-completa"])
+            self.assertEqual((codigo, dados["status"]), (0, 200))
+            self.assertEqual(dados["cenario"]["cenario"], "reforma-completa")
+            self.assertTrue(dados["cenario"]["hipotese_cd2"])
+
+    def test_checar_versao_sem_internet_sai_0(self):
+        original = rr_calc._abrir
+        self.addCleanup(setattr, rr_calc, "_abrir", original)
+
+        def sem_rede(pedido, timeout=None):
+            raise urllib.error.URLError("sem rede")
+        rr_calc._abrir = sem_rede
+        codigo, dados = self.chamar(["--checar-versao"])
+        self.assertEqual(codigo, 0)
+        self.assertEqual(set(dados), {"consultado", "ha_versao_nova", "ha_tabela_nova", "calculadora", "mensagem"})
+        self.assertFalse(dados["consultado"])
+        self.assertTrue(dados["mensagem"])
+
+    def test_checar_versao_usa_o_repositorio_do_regime_regular(self):
+        pedidos = []
+
+        def falso(pedido, timeout=None):
+            pedidos.append(pedido.full_url)
+            raise urllib.error.URLError("sem rede")
+        original = rr_calc._abrir
+        self.addCleanup(setattr, rr_calc, "_abrir", original)
+        rr_calc._abrir = falso
+        rr_calc.checar_versao({})
+        self.assertEqual(pedidos, ["https://api.github.com/repos/ReceitaFederal/calculadora-rtc-regime-regular/"
+                                   "releases/latest"])
+        self.assertIn("calculadora-rtc-regime-regular/commits?path=flyway/sql", rr_calc.URL_TABELAS)
+
+    def test_checar_versao_compara_tag_e_tabelas(self):
+        meta = {"calculadora": {"versao": "1.7.2"}, "migracoes": {"commit": "a" * 40},
+                "base": {"versao": "V0073", "data": "2026-11-09"}, "conferencia": {"data": "2026-11-24"}}
+
+        class Resp:
+            def __init__(self, texto):
+                self.texto = texto
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                return False
+
+            def read(self, limite=-1):
+                return self.texto.encode()[:limite]
+
+        def falso(pedido, timeout=None):
+            if pedido.full_url == rr_calc.URL_VERSAO:
+                return Resp(json.dumps({"tag_name": "1.8.0"}))
+            return Resp(json.dumps([{"sha": "b" * 40, "commit": {"committer": {"date": "2026-12-01T10:00:00Z"}}}]))
+        original = rr_calc._abrir
+        self.addCleanup(setattr, rr_calc, "_abrir", original)
+        rr_calc._abrir = falso
+        r = rr_calc.checar_versao(meta)
+        self.assertEqual((r["consultado"], r["ha_versao_nova"], r["ha_tabela_nova"]), (True, True, True))
 
 
 if __name__ == "__main__":
