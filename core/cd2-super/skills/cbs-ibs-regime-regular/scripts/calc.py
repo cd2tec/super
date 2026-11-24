@@ -25,9 +25,12 @@ Porta em português (padrão). A operação é:
                 "valor": 100.00,            base de cálculo
                 "quantidade": 1, "unidade": "UN",   (o item com IS ad rem usa)
                 "aliquotas": {"cbs": 8.8, "ibs_estadual": 8.85, "ibs_municipal": 8.85,
-                              "imposto_seletivo": {"adValorem": 0, "adRem": 0}}}]}   opcional
+                              "imposto_seletivo": {"ad_valorem": 0, "ad_rem": 0}}}]}   opcional
+                (o nome da Receita também vale: ibsEstadual, ibsMunicipal, impostoSeletivo, adValorem, adRem)
 Sem `aliquotas`, de 2027 em diante o item leva as do cenário (`--cenario`, padrão em-2027); antes de 2027
 nunca leva (a calculadora recusa alíquota nominal em 2026, REG-036). Alíquota informada vence o cenário.
+`aliquotas` parcial (só `cbs`, por exemplo) vai como veio, sem completar com o cenário: a calculadora pode
+responder com o erro oficial (REG-037).
 Campos com o nome da Receita (baseCalculo, cClassTrib, aliquotasNominais, impostoSeletivo, ...) passam como
 vieram. Não há alíquota padrão de Imposto Seletivo.
 
@@ -37,7 +40,7 @@ como veio (sem alíquota do cenário), depois da checagem de escopo.
 Fora do escopo, recusado aqui antes da conta: tpDoc que não seja 55 nem 65 (NFS-e e outros), item com NBS
 e gCompraGov.
 
-So biblioteca padrao (Python 3.10+).
+Só biblioteca padrão (Python 3.10+).
 """
 from __future__ import annotations
 
@@ -68,8 +71,10 @@ ARQUIVO_ALIQUOTAS = _AQUI.parent / "references" / "aliquotas.json"
 DATA_PADRAO = "2027-01-01"
 CENARIO_PADRAO = "em-2027"
 VERSAO_OPERACAO = "1.0.0"
+AVISO_ORIGEM = ("Esta skill não é um aplicativo da Receita Federal: usa a conta da calculadora oficial dela. "
+                "Resultado gerencial, confira com o contador.")
 
-# Entra so no campo `type` dos corpos de erro: aponta para a documentacao da Receita, nunca para um endereco local.
+# Entra só no campo `type` dos corpos de erro: aponta para a documentação da Receita, nunca para um endereço local.
 BASE_URL_CLI = "https://github.com/ReceitaFederal/calculadora-rtc-regime-regular"
 
 URL_VERSAO = "https://api.github.com/repos/ReceitaFederal/calculadora-rtc-regime-regular/releases/latest"
@@ -78,7 +83,7 @@ URL_TABELAS = ("https://api.github.com/repos/ReceitaFederal/calculadora-rtc-regi
 USER_AGENT = "cd2-super-skill"
 _LIMITE_RESPOSTA = 1_000_000
 
-# Troca de teste: os testes substituem esta funcao e nunca tocam a rede.
+# Troca de teste: os testes substituem esta função e nunca tocam a rede.
 _abrir = urllib.request.urlopen
 
 _BASE = None
@@ -128,6 +133,24 @@ _NFSE = ("nfse", "nfs-e")
 _ITEM_ALIAS = {"valor": "baseCalculo", "classificacao": "cClassTrib", "aliquotas": "aliquotasNominais",
                "imposto_seletivo": "impostoSeletivo"}
 _ITEM_SO_PARA_A_PESSOA = ("descricao",)
+_ALIQUOTAS_ALIAS = {"ibs_estadual": "ibsEstadual", "ibs_municipal": "ibsMunicipal",
+                    "imposto_seletivo": "impostoSeletivo"}
+_ALIQUOTAS_IS_ALIAS = {"ad_valorem": "adValorem", "ad_rem": "adRem"}
+_IS_ITEM_ALIAS = {"valor": "baseCalculo", "classificacao": "cClassTrib", "imposto_informado": "impostoInformado"}
+
+
+def _renomear(bloco, alias):
+    """O bloco com as chaves em português trocadas pelas da Receita; o que já vem com o nome dela passa."""
+    if not isinstance(bloco, dict):
+        return bloco
+    return {alias.get(chave, chave): valor for chave, valor in bloco.items()}
+
+
+def _aliquotas_receita(bloco):
+    novo = _renomear(bloco, _ALIQUOTAS_ALIAS)
+    if isinstance(novo, dict) and "impostoSeletivo" in novo:
+        novo["impostoSeletivo"] = _renomear(novo["impostoSeletivo"], _ALIQUOTAS_IS_ALIAS)
+    return novo
 _TPDOC_ACEITOS = (55, 65)
 
 
@@ -206,6 +229,10 @@ def _item_receita(item, posicao: int):
         if chave in _ITEM_SO_PARA_A_PESSOA:
             continue
         saida[_ITEM_ALIAS.get(chave, chave)] = valor
+    if "aliquotasNominais" in saida:
+        saida["aliquotasNominais"] = _aliquotas_receita(saida["aliquotasNominais"])
+    if "impostoSeletivo" in saida:
+        saida["impostoSeletivo"] = _renomear(saida["impostoSeletivo"], _IS_ITEM_ALIAS)
     saida.setdefault("numero", posicao)
     if "ncm" in saida and isinstance(saida["ncm"], (int, Decimal)) and not isinstance(saida["ncm"], bool):
         saida["ncm"] = str(saida["ncm"])
@@ -277,7 +304,8 @@ def calcular(operacao: dict, base, base_url: str = BASE_URL_CLI, agora=None) -> 
         {"metodo": "POST", "caminho": ROTA_OBSERVABILIDADE[1], "corpo": operacao}, base, base_url, agora)
     ano = _ano(operacao.get("dhFatoGerador")) if isinstance(operacao, dict) else None
     simulado = ("x-warning-dados-simulados" in cabecalhos) or (ano is not None and ano >= 2027)
-    saida = {"status": status, "corpo": corpo, "versao": _versao_resumida(base), "simulado": simulado}
+    saida = {"status": status, "corpo": corpo, "versao": _versao_resumida(base), "simulado": simulado,
+             "aviso_origem": AVISO_ORIGEM}
     if simulado:
         saida["aviso"] = ("Resultado simulado: as alíquotas de 2027 em diante são cenário ou informadas, "
                           "não as definitivas. Confira com o contador.")
@@ -500,7 +528,7 @@ def main(argv=None) -> int:
             try:
                 with rr_base.Base() as base:
                     meta = base.meta()
-            except Exception:  # esta consulta nunca derruba: sem meta, so informa a ultima versao
+            except Exception:  # esta consulta nunca derruba: sem meta, só informa a última versão
                 meta = {}
             _imprimir(checar_versao(meta))
             return 0
@@ -522,7 +550,7 @@ def main(argv=None) -> int:
         texto = json.dumps(saida, ensure_ascii=False, indent=2, default=str)
     except rr_base.BaseIndisponivel as exc:
         return _fail([f"A base da Receita não está disponível: {exc}"])
-    except Exception as exc:  # rede de seguranca: o motor responde com status, nao levanta
+    except Exception as exc:  # rede de segurança: o motor responde com status, não levanta
         return _fail([f"Erro inesperado ao calcular: {type(exc).__name__}."])
     print(texto)
     return 0

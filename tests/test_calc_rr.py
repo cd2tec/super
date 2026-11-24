@@ -531,6 +531,50 @@ class CalcCLITest(unittest.TestCase):
         a = self.aliquotas(rr_calc.normalizar(self.operacao(), "reforma-completa"))[0]
         self.assertEqual((str(a["cbs"]), str(a["ibsEstadual"]), str(a["ibsMunicipal"])), ("8.8", "8.85", "8.85"))
 
+    def test_aliquotas_em_portugues_chegam_ao_motor(self):
+        """A forma documentada, de ponta a ponta: a alíquota informada (snake_case) vence o cenário e chega à conta."""
+        op = self.operacao()
+        op["itens"][0]["aliquotas"] = {"cbs": Decimal("1.5"), "ibs_estadual": Decimal("2"),
+                                       "ibs_municipal": Decimal("0.5")}
+        receita = rr_calc.normalizar(op, "em-2027")
+        self.assertEqual(receita["itens"][0]["aliquotasNominais"],
+                         {"cbs": Decimal("1.5"), "ibsEstadual": Decimal("2"), "ibsMunicipal": Decimal("0.5")})
+        with rr_base.Base() as base:
+            saida = rr_calc.executar_operacao(op, base)
+        self.assertNotIn("cenario", saida)
+        item = saida["corpo"]["objetos"][0]
+        self.assertEqual(item["estadoItem"], "CALCULO_SIMULADO", item)
+        self.assertEqual(Decimal(str(item["tribCalc"]["IBSCBS"]["gIBSCBS"]["gCBS"]["pCBS"])), Decimal("1.5"))
+        self.assertEqual(Decimal(str(item["tribCalc"]["IBSCBS"]["gIBSCBS"]["gIBSUF"]["pIBSUF"])), Decimal("2"))
+
+    def test_imposto_seletivo_em_portugues_chega_ao_motor(self):
+        op = self.operacao()
+        op["itens"][0]["aliquotas"] = {
+            "cbs": Decimal("8.8"), "ibs_estadual": Decimal("8.85"), "ibs_municipal": Decimal("8.85"),
+            "imposto_seletivo": {"ad_valorem": Decimal("10"), "ad_rem": Decimal("0")}}
+        receita = rr_calc.normalizar(op, "em-2027")
+        self.assertEqual(receita["itens"][0]["aliquotasNominais"]["impostoSeletivo"],
+                         {"adValorem": Decimal("10"), "adRem": Decimal("0")})
+        op["itens"][0]["aliquotas"] = {"cbs": 1, "ibsEstadual": 2, "ibsMunicipal": 3,
+                                       "impostoSeletivo": {"adValorem": 4, "adRem": 5}}
+        with rr_base.Base() as base, mock.patch.object(
+                rr_motor, "observabilidade", wraps=rr_motor.observabilidade) as motor:
+            ROTAS = {**rr_calc.ROTAS, rr_calc.ROTA_OBSERVABILIDADE: motor}
+            with mock.patch.object(rr_calc, "ROTAS", ROTAS):
+                rr_calc.executar_operacao(op, base)
+        enviado = motor.call_args[0][0]["itens"][0]["aliquotasNominais"]
+        self.assertEqual(enviado["impostoSeletivo"], {"adValorem": 4, "adRem": 5})
+        self.assertEqual(enviado["ibsEstadual"], 2)
+
+    def test_todo_resultado_diz_que_nao_e_aplicativo_da_receita(self):
+        bruto = {"id": "x", "versao": "1.0.0", "dhFatoGerador": "2026-03-15T10:00:00-03:00", "municipio": 3550308,
+                 "uf": "SP", "tpDoc": 55,
+                 "itens": [{"numero": 1, "cst": "000", "cClassTrib": "000001", "baseCalculo": 12, "ncm": "84713012"}]}
+        with rr_base.Base() as base:
+            for saida in (rr_calc.executar_operacao(self.operacao(), base),
+                          rr_calc.executar_operacao(bruto, base, porta="tecnica")):
+                self.assertIn("não é um aplicativo da Receita Federal", saida["aviso_origem"])
+
     def test_aliquota_informada_vence_o_cenario(self):
         op = self.operacao()
         op["itens"][0]["aliquotas"] = {"cbs": Decimal("1.5"), "ibsEstadual": Decimal("2"), "ibsMunicipal": 0}
