@@ -40,7 +40,8 @@ impostoSeletivoCalculado das expressões de CalculoCbsIbsService (ver rr_calculo
 Estrutura devolvida: o ImpostoSeletivoDomain como dict com as chaves e a ordem do @JsonPropertyOrder
 (CSTIS, cClassTribIS, vBCIS, pIS, pISEspec, adRemIS, uTrib, qTrib, vIS), valores Decimal (o número como o
 Java o guarda, antes do serializer) e campo nulo fora do dict (@JsonInclude NON_NULL). A memoriaCalculo
-(MemoriaCalculoService.gerarMemoriaCalculoImpostoSeletivo) é da Task 10; rr_calculo.para_json escreve o
+(MemoriaCalculoService.gerarMemoriaCalculoImpostoSeletivo, rr_memoria.memoria_is) é somada por
+rr_calculo.calcular_tributos; rr_calculo.para_json escreve o
 JSON. O tributo calculado (antes da expressão de devido) não sai no domínio, como no Java.
 """
 from __future__ import annotations

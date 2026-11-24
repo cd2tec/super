@@ -36,7 +36,7 @@ Port (calculadora-rtc-regime-regular, tag 1.7.2) de:
   ClassificacaoTributariaService.buscarClassificacaoTributariaCalculo);
 - api/model/roc/Monofasia*Domain.create e api/model/output/Grupo*MonofasiaOutput.merge.
 
-Estrutura devolvida (para a Task 10 serializar e totalizar). `calcular_tributos` devolve o TributosDomain
+Estrutura devolvida (o rr_motor totaliza com rr_saida e serializa no fim). `calcular_tributos` devolve o TributosDomain
 como dicts com as chaves e a ordem do @JsonPropertyOrder de cada classe e valores Decimal (o número
 como o Java o guarda, antes do serializer); campo nulo não entra no dict (@JsonInclude NON_NULL).
 `para_json` faz o papel dos serializers (BigDecimalTDec1302, TDec0302_04 e TDec1104OpRTC): valor com 2
@@ -60,6 +60,7 @@ if str(_AQUI) not in sys.path:
 import numeros  # noqa: E402  (precisa do caminho acima)
 import rr_base  # noqa: E402
 import rr_expressao  # noqa: E402
+import rr_memoria  # noqa: E402
 from rr_erros import ErroRR  # noqa: E402
 
 ZERO = Decimal(0)
@@ -512,7 +513,8 @@ def calcular_tributos(proc, base) -> dict:
 
     IS primeiro, depois CBS, IBS da UF e IBS do município. O Java calcula os três em paralelo e, se mais de
     um falha, o allOf().join() relança o primeiro da árvore (CBS, depois UF, depois município): aqui é a
-    ordem sequencial. A memória de cálculo é da Task 10.
+    ordem sequencial. A memória de cálculo (rr_memoria) sai depois do IS e depois dos três tributos, antes
+    do getIBSCBS, como no Java.
     """
     item = proc.item
     import rr_calculo_is  # aqui, porque o rr_calculo_is usa os utilitários deste módulo
@@ -520,7 +522,10 @@ def calcular_tributos(proc, base) -> dict:
     imposto_seletivo = None
     if proc.tratamento_is is not None:
         imposto_seletivo = rr_calculo_is.calcular_is(proc, base)
-    cbs = ibs_uf = ibs_mun = None
+        grupo_is = item.imposto_seletivo
+        imposto_seletivo["memoriaCalculo"] = rr_memoria.memoria_is(
+            proc.tratamento_is, imposto_seletivo, grupo_is.quantidade, grupo_is.unidade, proc.data, base)
+    cbs = ibs_uf = ibs_mun = memoria = None
     if proc.tratamento_cbs_ibs is not None:
         # getValorImpostoSeletivo: o vIS publicado, ou zero; entra na base da CBS e do IBS pelas expressões
         is_calculado = rr_calculo_is.valor_imposto_seletivo(imposto_seletivo)
@@ -531,8 +536,28 @@ def calcular_tributos(proc, base) -> dict:
                         or _possui_aliquota_ibs_informada(item, IBS_MUNICIPAL))
         ibs_uf = calcular_cbs_ibs(proc, IBS_ESTADUAL, base, is_calculado) if calcular_uf else None
         ibs_mun = calcular_cbs_ibs(proc, IBS_MUNICIPAL, base, is_calculado) if calcular_mun else None
+        memoria = _memoria(proc, cbs, ibs_uf if calcular_uf else _NAO_CALCULADO,
+                           ibs_mun if calcular_mun else _NAO_CALCULADO, base)
     ibs_cbs = _ibs_cbs(proc, cbs, ibs_uf, ibs_mun, base)
+    if memoria is not None:
+        ibs_cbs["memoriaCalculo"] = memoria  # o último do @JsonPropertyOrder do IBSCBSDomain
     return _sem_nulos((("IS", imposto_seletivo), ("IBSCBS", ibs_cbs)))
+
+
+_NAO_CALCULADO = object()  # o tributo que calcularIBSEstadual/Municipal deixou de fora: sem memória
+
+
+def _memoria(proc, cbs, ibs_uf, ibs_mun, base) -> dict:
+    """MemoriaCalculoDomain {cbs, ibsUF, ibsMun}: a memória de cada tributo calculado, com o tratamento
+    efetivo (o da desoneração, quando há) e a base, a quantidade e a unidade do item."""
+    item = proc.item
+
+    def gerar(tributo):
+        if tributo is _NAO_CALCULADO:
+            return None
+        return rr_memoria.memoria_cbs_ibs(proc.tratamento_efetivo, tributo, item.base_calculo, item.quantidade,
+                                          item.unidade, proc.data, base)
+    return _sem_nulos((("cbs", gerar(cbs)), ("ibsUF", gerar(ibs_uf)), ("ibsMun", gerar(ibs_mun))))
 
 
 def _ibs_cbs(proc, cbs, ibs_uf, ibs_mun, base) -> dict:
@@ -674,13 +699,17 @@ class EscritaFalhou(ValueError):
     "Failed to write request" (HttpMessageNotWritableException), nos dois endpoints."""
 
 
-# Os serializers de texto do ImpostoSeletivoDomain: StringTCSTSerializer, StringTcClassTribSerializer e
-# StringUTribSerializer (String.length() em unidades UTF-16)
+# Os serializers de texto: StringTCSTSerializer (CST do IBSCBSDomain, CSTReg do TributacaoRegularDomain e
+# CSTIS do ImpostoSeletivoDomain), StringTcClassTribSerializer (cClassTrib, cClassTribReg e cClassTribIS) e
+# StringUTribSerializer (uTrib, String.length() em unidades UTF-16). O \d do Java, sem UNICODE_CHARACTER_CLASS,
+# é só [0-9].
+_TCST = (lambda t: re.fullmatch(r"[0-9]{3}", t) is not None,
+         "TCST deve ser uma string de exatamente 3 dígitos numéricos")
+_TC_CLASS_TRIB = (lambda t: re.fullmatch(r"[0-9]{6}", t) is not None,
+                  "TcClassTrib deve ser uma string de exatamente 6 dígitos numéricos")
 _TEXTOS = {
-    "CSTIS": (lambda t: re.fullmatch(r"[0-9]{3}", t) is not None,
-              "TCST deve ser uma string de exatamente 3 dígitos numéricos"),
-    "cClassTribIS": (lambda t: re.fullmatch(r"[0-9]{6}", t) is not None,
-                     "TcClassTrib deve ser uma string de exatamente 6 dígitos numéricos"),
+    "CST": _TCST, "CSTReg": _TCST, "CSTIS": _TCST,
+    "cClassTrib": _TC_CLASS_TRIB, "cClassTribReg": _TC_CLASS_TRIB, "cClassTribIS": _TC_CLASS_TRIB,
     "uTrib": (lambda t: 1 <= len(t.encode("utf-16-le")) // 2 <= 6, "uTrib deve ter entre 1 e 6 caracteres"),
 }
 

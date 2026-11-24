@@ -4,12 +4,10 @@ A paridade vai grupo a grupo: `paridade_do_grupo(grupo)` roda `bateria.responder
 `rr_calc.executar`) sobre os casos do grupo no esperadas.json e devolve os ids que divergem. Cada task do
 plano liga os seus grupos em `GRUPOS_LIGADOS`.
 
-Projeção. Até a Task 10, a comparação usa uma projeção das respostas (`PROJECAO = True`): o status HTTP,
-o corpo inteiro das respostas de erro (status diferente de 200: título, tipo, detalhe, códigos e
-ponteiros) e, nas respostas 200, tudo menos o `total` da operação e as `memoriaCalculo` (a memória de
-cálculo e os totais só nascem na Task 10). Ficam então o `nObj`, o `estadoItem`, os `erros` de cada item
-(código, título, tipo, ponteiro e detalhe) e os campos numéricos dos tributos. A Task 10 troca
-`PROJECAO` para False, e a comparação passa a ser a do robô, inteira.
+Projeção. Até a Task 9, a comparação usou uma projeção das respostas (`PROJECAO = True`): o status HTTP,
+o corpo inteiro das respostas de erro e, nas respostas 200, tudo menos o `total` da operação e as
+`memoriaCalculo`. Desde a Task 10 (`PROJECAO = False`) a comparação é a do robô, inteira: memória de
+cálculo e totais incluídos. `projetar` fica para conferir uma divergência por partes.
 
 Parte de erro. Um grupo em `GRUPOS_SO_ERROS` é cobrado só no que não é sucesso (`divergencias_de_erro`):
 as respostas de erro e os itens cujo `estadoItem` esperado não é CALCULADO nem CALCULO_SIMULADO têm de
@@ -34,9 +32,10 @@ ROOT = Path(__file__).resolve().parent.parent
 SKILL = ROOT / "core" / "cd2-super" / "skills" / "cbs-ibs-regime-regular"
 PASTA = ROOT / "conferencia" / "cbs-ibs-regime-regular"
 
-# A Task 10 troca para False: daí em diante a comparação é inteira, sem projeção.
-PROJECAO = True
-GRUPOS_LIGADOS = ["entrada", "nomenclatura", "cbs-ibs", "reducao", "diferimento", "tributacao-regular", "is"]
+# Desde a Task 10 a comparação é inteira, sem projeção.
+PROJECAO = False
+GRUPOS_LIGADOS = ["entrada", "nomenclatura", "cbs-ibs", "reducao", "diferimento", "tributacao-regular", "is",
+                  "memoria", "totais", "regime-geral"]
 # Grupos ligados cobrados só na parte de erro (ver a docstring).
 GRUPOS_SO_ERROS = set()
 SUCESSO = ("CALCULADO", "CALCULO_SIMULADO")
@@ -198,6 +197,128 @@ class ParidadeTest(unittest.TestCase):
 
     def test_grupo_is(self):
         self._conferir_grupo("is")
+
+    def test_grupo_memoria(self):
+        self._conferir_grupo("memoria")
+
+    def test_grupo_totais(self):
+        self._conferir_grupo("totais")
+
+    def test_grupo_regime_geral(self):
+        self._conferir_grupo("regime-geral")
+
+    def test_todos_os_grupos_ligados(self):
+        self.assertEqual(sorted({c["grupo"] for c in ESPERADAS["casos"]}), sorted(GRUPOS_LIGADOS))
+
+
+OBSERVABILIDADE = "/calculadora/observabilidade/regime-geral"
+REGIME_GERAL = "/calculadora/regime-geral"
+
+
+def _operacao(itens, dh="2026-10-20T10:00:00-03:00"):
+    operacao = {"id": "t10", "versao": "0.0.1", "dhFatoGerador": dh, "municipio": 3550308, "uf": "SP",
+                "itens": itens}
+    if dh < "2027":
+        operacao["tpDoc"] = 55
+    return operacao
+
+
+NOMINAIS = {"cbs": Decimal("8.8"), "ibsEstadual": Decimal("8.85"), "ibsMunicipal": Decimal("8.85")}
+
+
+ITEM_OK = {"cst": "000", "cClassTrib": "000001", "baseCalculo": Decimal("25.0"), "ncm": "84713012"}
+ITEM_INVALIDO = {"cst": "000", "cClassTrib": "999999", "baseCalculo": Decimal("40"), "ncm": "84713012"}
+
+
+class TotaisTest(unittest.TestCase):
+    """ObservabilidadeService: o total soma só os itens CALCULADO e CALCULO_SIMULADO, e some sem nenhum."""
+
+    def _observabilidade(self, itens):
+        resposta = bateria.responder({"metodo": "POST", "caminho": OBSERVABILIDADE, "corpo": _operacao(itens)})
+        self.assertEqual(resposta["status"], 200)
+        return resposta["corpo"]
+
+    def test_totais_so_dos_calculados(self):
+        corpo = self._observabilidade([dict(ITEM_OK, numero=1), dict(ITEM_INVALIDO, numero=2),
+                                       dict(ITEM_OK, numero=3, baseCalculo=Decimal("10"))])
+        estados = [o["estadoItem"] for o in corpo["objetos"]]
+        self.assertEqual(estados[0], "CALCULADO")
+        self.assertNotIn(estados[1], SUCESSO)
+        self.assertEqual(corpo["total"]["tribCalc"]["IBSCBSTot"]["vBCIBSCBS"], "35.00")
+        so_calculados = self._observabilidade([dict(ITEM_OK, numero=1),
+                                               dict(ITEM_OK, numero=3, baseCalculo=Decimal("10"))])
+        self.assertEqual(corpo["total"], so_calculados["total"])
+
+    def test_sem_calculados_total_some(self):
+        corpo = self._observabilidade([dict(ITEM_INVALIDO, numero=1), dict(ITEM_INVALIDO, numero=2)])
+        self.assertEqual(len(corpo["objetos"]), 2)
+        self.assertNotIn("total", corpo)
+
+    def test_regime_geral_totaliza_todos(self):
+        resposta = bateria.responder({"metodo": "POST", "caminho": REGIME_GERAL, "corpo": _operacao(
+            [dict(ITEM_OK, numero=2), dict(ITEM_OK, numero=1, baseCalculo=Decimal("10"))])})
+        self.assertEqual(resposta["status"], 200)
+        corpo = resposta["corpo"]
+        self.assertEqual(list(corpo), ["objetos", "total"])
+        self.assertEqual([o["nObj"] for o in corpo["objetos"]], [1, 2])
+        total = corpo["total"]["tribCalc"]["IBSCBSTot"]
+        self.assertNotIn("ISTot", corpo["total"]["tribCalc"])
+        self.assertEqual(list(total), ["vBCIBSCBS", "gIBS", "gCBS", "gMono"])
+        self.assertEqual(total["vBCIBSCBS"], "35.00")
+        self.assertEqual(total["gMono"], dict.fromkeys(
+            ("vIBSMono", "vCBSMono", "vIBSMonoReten", "vCBSMonoReten", "vIBSMonoRet", "vCBSMonoRet"), "0.00"))
+
+
+class CabecalhosTest(unittest.TestCase):
+    """Os cabeçalhos dos controllers: versão da calculadora e da base, e x-warning-dados-simulados."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.base = rr_base.Base()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.base.fechar()
+
+    def _cabecalhos(self, funcao, corpo):
+        status, _corpo, cabecalhos = funcao(corpo, self.base)
+        return status, cabecalhos
+
+    def test_versao_e_aviso_6_a_partir_de_2027(self):
+        status, cabecalhos = self._cabecalhos(rr_motor.regime_geral, _operacao(
+            [dict(ITEM_OK, numero=1, aliquotasNominais=NOMINAIS)], dh="2027-01-01T10:00:00-03:00"))
+        self.assertEqual(status, 200)
+        self.assertEqual(cabecalhos["X-CALC-APP-VERSION"], self.base.meta()["calculadora"]["versao"])
+        self.assertEqual(cabecalhos["X-CALC-DB-VERSION"], self.base.versao_base()["versao"])
+        self.assertEqual(cabecalhos["x-warning-dados-simulados"], "6")
+
+    def test_2026_sem_aviso_e_com_cst_010_aviso_5(self):
+        status, cabecalhos = self._cabecalhos(rr_motor.observabilidade, _operacao([dict(ITEM_OK, numero=1)]))
+        self.assertEqual(status, 200)
+        self.assertNotIn("x-warning-dados-simulados", cabecalhos)
+        self.assertIn("X-CALC-APP-VERSION", cabecalhos)
+        for cst in ("010", "220", "221"):
+            status, cabecalhos = self._cabecalhos(rr_motor.observabilidade, _operacao(
+                [dict(ITEM_OK, numero=1), dict(ITEM_OK, numero=2, cst=cst)]))
+            self.assertEqual((status, cabecalhos.get("x-warning-dados-simulados")), (200, "5"), cst)
+
+    def test_erro_sem_cabecalhos(self):
+        corpo = _operacao([dict(ITEM_INVALIDO, numero=1)])
+        status, cabecalhos = self._cabecalhos(rr_motor.regime_geral, corpo)
+        self.assertNotEqual(status, 200)
+        self.assertEqual(cabecalhos, {})
+
+    def test_falha_de_escrita_leva_os_cabecalhos(self):
+        """A oficial respondeu o 500 "Failed to write request" com os cabeçalhos de versão e o aviso 6."""
+        item = dict(ITEM_OK, numero=1, ncm="22030000", baseCalculo=Decimal("100"), quantidade=1, unidade="UN",
+                    impostoSeletivo={"cst": "000", "cClassTrib": "000001", "baseCalculo": Decimal("100"),
+                                     "quantidade": 1, "unidade": "GARRAFA"},
+                    aliquotasNominais=dict(NOMINAIS, impostoSeletivo={"adValorem": 10}))
+        for funcao in (rr_motor.regime_geral, rr_motor.observabilidade):
+            status, cabecalhos = self._cabecalhos(funcao, _operacao([item], dh="2027-01-01T10:00:00-03:00"))
+            self.assertEqual(status, 500)
+            self.assertEqual(cabecalhos["x-warning-dados-simulados"], "6")
+            self.assertIn("X-CALC-DB-VERSION", cabecalhos)
 
 
 class ImpostoSeletivoTest(unittest.TestCase):

@@ -35,10 +35,23 @@ Port (calculadora-rtc-regime-regular, tag 1.7.2) de:
 Ordem da operação, nos dois: o JSON (400 se ilegível), o Bean Validation, a UF (tirada do município
 quando ausente), o município, a data do fato gerador e o tpDoc. Depois, os itens.
 
-Estado: esta versão responde a entrada (erros de JSON, Bean Validation e da operação), os erros do
-processamento do item (rr_item.processar_item) e o cálculo do Imposto Seletivo, da CBS e do IBS
-(rr_calculo.calcular_tributos, CalculoTributoService.calcular, com rr_calculo_is.calcular_is). A memória
-de cálculo, os totais e os cabeçalhos de aviso chegam na Task 10.
+Resposta 200: os objetos (com a memória de cálculo de rr_memoria, que rr_calculo.calcular_tributos soma) e o
+`total` de rr_saida.totais (ValoresTotaisDomain.create): no /regime-geral, de todos os itens; no
+/observabilidade, só dos CALCULADO e CALCULO_SIMULADO, e sem nenhum o `total` some. Os cabeçalhos são os do
+controller: X-CALC-APP-VERSION e X-CALC-DB-VERSION (VersaoAplicacaoService.getHeaders) e, quando há aviso,
+x-warning-dados-simulados (AvisoDadosSimuladosService.getWarningDadosSimulados, `aviso_dados_simulados`).
+O Spring copia os cabeçalhos do ResponseEntity antes de escrever o corpo, então o 500 "Failed to write
+request" (um serializer recusou um valor) leva os mesmos cabeçalhos; as respostas de erro dos handlers
+não levam nenhum.
+
+Erros: o `type` dos erros globais (ApiExceptionHandler) não tem o /api (HttpUtils.getBaseURL é esquema e
+host), e o dos erros de item (ItemCollector, /observabilidade) tem, porque o caminho começa no contexto;
+o erro da operação no /observabilidade aponta para #/itens/-1; o `nObj` de cada objeto do
+/observabilidade é o `numero` do item ou, sem ele, o índice mais 1.
+
+/regime-geral com vários itens inválidos: o Java processa os itens com parallelStream, e o erro que sobe
+é o do primeiro que falhar no tempo; aqui é o primeiro pela ordem dos itens (a bateria só tem casos com
+um item inválido nesse endpoint).
 
 Exceção sem código. Como no Java, no /observabilidade qualquer exceção do processamento de um item
 (ItemCollector.addErro, ProblemType ERRO_SISTEMA) vira CAL-999 nesse item, com o texto da exceção; no
@@ -49,6 +62,7 @@ sobe, para não virar resposta que a oficial não daria.
 from __future__ import annotations
 
 import sys
+from datetime import date
 from pathlib import Path
 
 _AQUI = Path(__file__).resolve().parent
@@ -59,6 +73,7 @@ import rr_entrada  # noqa: E402  (precisa do caminho acima)
 import rr_calculo  # noqa: E402
 import rr_erros  # noqa: E402
 import rr_item  # noqa: E402
+import rr_saida  # noqa: E402
 from rr_erros import ErroRR  # noqa: E402
 
 BASE_URL_PADRAO = "http://127.0.0.1"  # HttpUtils.getBaseURL da oficial rodando na máquina (esquema://host)
@@ -142,15 +157,49 @@ def _calcular_item(proc, base):
 _FALHA_DE_ESCRITA = "Failed to write request"
 
 
-def _escrever(status, corpo, cabecalhos, instancia):
-    """O Jackson escrevendo a resposta 200: o tribCalc de cada objeto vira o JSON dos serializers."""
+# AvisoDadosSimuladosService: os CST cujas alíquotas são fictícias em 2026 (TipoWarningDadosSimulados)
+_CST_ALIQUOTAS_FICTICIAS = ("010", "220", "221")
+CASO_GERAL, CASO_IMPOSTO_SELETIVO, CASO_ALIQUOTAS_FICTICIAS, CASO_CALCULOS_SIMULADOS = 1, 3, 5, 6
+
+
+def aviso_dados_simulados(op) -> int | None:
+    """AvisoDadosSimuladosService.getWarningDadosSimulados: o valor de x-warning-dados-simulados, ou None.
+
+    Compra governamental fica sempre falsa, como no Java (TODO dele), então os casos 2 e 4 não saem."""
+    data = op.fato_gerador_aplicavel()
+    if data > date(2026, 12, 31):
+        return CASO_CALCULOS_SIMULADOS
+    ficticias = any(item.cst in _CST_ALIQUOTAS_FICTICIAS for item in op.itens)
+    imposto_seletivo = any(item.imposto_seletivo is not None for item in op.itens)
+    if ficticias and data > date(2025, 12, 31):
+        return CASO_ALIQUOTAS_FICTICIAS
+    if data < date(2027, 1, 1):
+        return None
+    return CASO_IMPOSTO_SELETIVO if imposto_seletivo else CASO_GERAL  # inalcançável: data > 2026 já saiu
+
+
+def _cabecalhos(op, base) -> dict:
+    """Os cabeçalhos do ResponseEntity.ok() dos dois controllers."""
+    cabecalhos = dict(base.cabecalhos_versao())
+    aviso = aviso_dados_simulados(op)
+    if aviso is not None:
+        cabecalhos["x-warning-dados-simulados"] = str(aviso)
+    return cabecalhos
+
+
+def _escrever(corpo, cabecalhos, instancia):
+    """O Jackson escrevendo a resposta 200 ({objetos, total}): o tribCalc de cada objeto e o total viram o
+    JSON dos serializers (rr_saida.serializar), na ordem do @JsonPropertyOrder({oper, objetos, total})."""
     try:
-        objetos = [dict(o, tribCalc=rr_calculo.para_json(o["tribCalc"])) if "tribCalc" in o else o
+        objetos = [dict(o, tribCalc=rr_saida.serializar(o["tribCalc"])) if "tribCalc" in o else o
                    for o in corpo["objetos"]]
+        saida = {"objetos": objetos}
+        if corpo.get("total") is not None:
+            saida["total"] = rr_saida.serializar(corpo["total"])
     except rr_calculo.EscritaFalhou:
         return 500, {"detail": _FALHA_DE_ESCRITA, "instance": instancia, "status": 500,
-                     "title": "Internal Server Error"}, {}
-    return status, dict(corpo, objetos=objetos), cabecalhos
+                     "title": "Internal Server Error"}, cabecalhos
+    return 200, saida, cabecalhos
 
 
 def _erro_de_sistema(erro: Exception) -> ErroRR:
@@ -195,8 +244,9 @@ def regime_geral(corpo: object, base, base_url: str = BASE_URL_PADRAO, agora=Non
     except Exception as erro:  # ApiExceptionHandler.handleGenericException
         return (*rr_erros.corpo_de_erro(_erro_de_sistema(erro), base_url, instancia, agora), {})
     objetos.sort(key=lambda objeto: (objeto["nObj"] is not None, objeto["nObj"] or 0))  # nullsFirst
-    # ROCDomain {oper, objetos, total}: oper só com gCompraGov (fora do escopo); o total é da Task 10
-    return _escrever(200, {"objetos": objetos}, base.cabecalhos_versao(), instancia)
+    # ROCDomain {oper, objetos, total}: oper só com gCompraGov (fora do escopo); total de todos os itens
+    total = rr_saida.totais([objeto["tribCalc"] for objeto in objetos])
+    return _escrever({"objetos": objetos, "total": total}, _cabecalhos(op, base), instancia)
 
 
 def observabilidade(corpo: object, base, base_url: str = BASE_URL_PADRAO, agora=None) -> tuple:
@@ -238,4 +288,7 @@ def observabilidade(corpo: object, base, base_url: str = BASE_URL_PADRAO, agora=
         estado = rr_erros.CALCULADO if item.aliquotas_nominais is None else rr_erros.CALCULO_SIMULADO
         objetos.append({"nObj": n_obj, "estadoItem": estado, "tribCalc": trib_calc})
     objetos.sort(key=lambda objeto: objeto["nObj"])  # Stream.sorted: estável
-    return _escrever(200, {"objetos": objetos}, base.cabecalhos_versao(), instancia)
+    # ObservabilidadeROCDomain {oper, objetos, total}: o total só dos itens calculados (simulados incluídos)
+    total = rr_saida.totais([objeto["tribCalc"] for objeto in objetos
+                             if objeto["estadoItem"] in (rr_erros.CALCULADO, rr_erros.CALCULO_SIMULADO)])
+    return _escrever({"objetos": objetos, "total": total}, _cabecalhos(op, base), instancia)
