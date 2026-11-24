@@ -16,7 +16,13 @@ SCRIPTS_RR = ROOT / "core" / "cd2-super" / "skills" / "cbs-ibs-regime-regular" /
 COPIAS_IGUAIS = [("numeros.py", "numeros.py")]
 
 # (arquivo no Simples, arquivo no RR, motivo): divergência intencional
-COPIAS_DIVERGENTES = []
+COPIAS_DIVERGENTES = [
+    ("sugestao.py", "sugestao.py",
+     "A sugestão do RR lê a base pelo rr_base.py (buscar_classificacao_tributaria, buscar_percentual_reducao, "
+     "alíquotas de IS do motor) em vez do simples_base.py, e perde o que é só do Simples (_efeito, _tp_rbsn, "
+     "efeito_no_simples, efeito_texto e a frase de que a redução não tem efeito): no regime regular a redução "
+     "sugerida vale na conta."),
+]
 
 
 def _sha256(caminho):
