@@ -26,6 +26,7 @@ import json
 import sys
 import unittest
 from unittest import mock
+from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
@@ -35,7 +36,7 @@ PASTA = ROOT / "conferencia" / "cbs-ibs-regime-regular"
 
 # A Task 10 troca para False: daí em diante a comparação é inteira, sem projeção.
 PROJECAO = True
-GRUPOS_LIGADOS = ["entrada", "nomenclatura", "cbs-ibs", "reducao", "diferimento", "tributacao-regular"]
+GRUPOS_LIGADOS = ["entrada", "nomenclatura", "cbs-ibs", "reducao", "diferimento", "tributacao-regular", "is"]
 # Grupos ligados cobrados só na parte de erro (ver a docstring).
 GRUPOS_SO_ERROS = set()
 SUCESSO = ("CALCULADO", "CALCULO_SIMULADO")
@@ -61,6 +62,7 @@ rr_erros = load_module("rr_erros", SKILL / "scripts" / "rr_erros.py")
 rr_entrada = load_module("rr_entrada", SKILL / "scripts" / "rr_entrada.py")
 # O calc.py faz `import rr_motor`: carregado aqui com o mesmo nome, o módulo é o mesmo objeto.
 rr_motor = load_module("rr_motor", SKILL / "scripts" / "rr_motor.py")
+rr_base = load_module("rr_base", SKILL / "scripts" / "rr_base.py")
 
 ESPERADAS = receita_paridade.ler_json((PASTA / "esperadas.json").read_text(encoding="utf-8"))
 CONFIG = json.loads((PASTA / "config.json").read_text(encoding="utf-8"))
@@ -193,6 +195,66 @@ class ParidadeTest(unittest.TestCase):
 
     def test_grupo_tributacao_regular(self):
         self._conferir_grupo("tributacao-regular")
+
+    def test_grupo_is(self):
+        self._conferir_grupo("is")
+
+
+class ImpostoSeletivoTest(unittest.TestCase):
+    """O grupo impostoSeletivo é obrigatório quando o NCM tem incidência do IS na data."""
+
+    DATA = date(2027, 1, 1)
+
+    @staticmethod
+    def _ncm_da_cerveja(base) -> str:
+        """O primeiro NCM de oito dígitos da posição 2203 (cerveja) com alíquota do IS na data."""
+        linhas = base._con.execute(
+            "SELECT NCM_CD FROM NCM WHERE NCM_CD LIKE '2203%' AND LENGTH(NCM_CD) = 8 ORDER BY NCM_CD").fetchall()
+        for (ncm,) in linhas:
+            if (base.existe_ncm_ad_valorem(ncm, rr_base.TRIBUTO_IS, ImpostoSeletivoTest.DATA)
+                    or base.buscar_aliquota_ad_rem(ncm, rr_base.TRIBUTO_IS, ImpostoSeletivoTest.DATA) is not None):
+                return ncm
+        raise AssertionError("a base não tem NCM de cerveja com Imposto Seletivo em 2027-01-01")
+
+    def test_is_sem_grupo_em_2027_da_erro_oficial(self):
+        with rr_base.Base() as base:
+            ncm = self._ncm_da_cerveja(base)
+        esperado = next(c for c in ESPERADAS["casos"] if c["id"].startswith("is-sem-grupo-2203")
+                        and c["id"].endswith("-obs"))
+        erro_esperado = esperado["resposta"]["corpo"]["objetos"][0]["erros"][0]
+        resposta = bateria.responder({"metodo": "POST", "caminho": "/calculadora/observabilidade/regime-geral",
+                                      "corpo": {
+            "id": "is", "versao": "0.0.1", "dhFatoGerador": "2027-01-01T10:00:00-03:00", "municipio": 4314902,
+            "uf": "RS", "itens": [{"numero": 1, "ncm": ncm, "cst": "000", "cClassTrib": "000001",
+                                   "baseCalculo": Decimal("100"), "quantidade": 1, "unidade": "UN",
+                                   "aliquotasNominais": {"cbs": Decimal("8.8"), "ibsEstadual": Decimal("8.85"),
+                                                         "ibsMunicipal": Decimal("8.85")}}]}})
+        self.assertEqual(resposta["status"], 200)
+        objeto = resposta["corpo"]["objetos"][0]
+        self.assertEqual(objeto["estadoItem"], "INCONSISTENCIA_ENTRADA")
+        erro = objeto["erros"][0]
+        self.assertEqual(erro["code"], erro_esperado["code"])
+        self.assertEqual(erro["pointer"], erro_esperado["pointer"])
+        self.assertEqual(erro["detail"], f"Dados do Imposto Seletivo devem ser informados para NCM {ncm} e data "
+                                         "2027-01-01")
+
+
+    def test_utrib_que_o_serializer_recusa_derruba_a_resposta(self):
+        """StringUTribSerializer: uTrib com mais de 6 caracteres impede a escrita da resposta inteira (500 do
+        Spring), nos dois endpoints, como a oficial respondeu na conferência da Task 9."""
+        item = {"numero": 1, "ncm": "22030000", "cst": "000", "cClassTrib": "000001", "baseCalculo": Decimal("100"),
+                "quantidade": 1, "unidade": "UN",
+                "impostoSeletivo": {"cst": "000", "cClassTrib": "000001", "baseCalculo": Decimal("100"),
+                                    "quantidade": 1, "unidade": "GARRAFA"},
+                "aliquotasNominais": {"cbs": Decimal("8.8"), "ibsEstadual": Decimal("8.85"),
+                                      "ibsMunicipal": Decimal("8.85"), "impostoSeletivo": {"adValorem": 10}}}
+        for caminho in ("/calculadora/regime-geral", "/calculadora/observabilidade/regime-geral"):
+            resposta = bateria.responder({"metodo": "POST", "caminho": caminho, "corpo": {
+                "id": "is", "versao": "0.0.1", "dhFatoGerador": "2027-01-01T10:00:00-03:00", "municipio": 3550308,
+                "uf": "SP", "itens": [item]}})
+            self.assertEqual(resposta, {"status": 500, "corpo": {
+                "detail": "Failed to write request", "instance": "/api" + caminho, "status": 500,
+                "title": "Internal Server Error"}}, caminho)
 
 
 class ExcecaoTecnicaTest(unittest.TestCase):

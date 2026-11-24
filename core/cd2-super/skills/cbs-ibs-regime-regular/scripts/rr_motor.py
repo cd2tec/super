@@ -36,9 +36,9 @@ Ordem da operação, nos dois: o JSON (400 se ilegível), o Bean Validation, a U
 quando ausente), o município, a data do fato gerador e o tpDoc. Depois, os itens.
 
 Estado: esta versão responde a entrada (erros de JSON, Bean Validation e da operação), os erros do
-processamento do item (rr_item.processar_item) e o cálculo da CBS e do IBS (rr_calculo.calcular_tributos,
-CalculoTributoService.calcular). O Imposto Seletivo chega na Task 9 (item com tratamento de IS levanta
-rr_calculo.CalculoNaoPortado) e a memória de cálculo, os totais e os cabeçalhos de aviso na Task 10.
+processamento do item (rr_item.processar_item) e o cálculo do Imposto Seletivo, da CBS e do IBS
+(rr_calculo.calcular_tributos, CalculoTributoService.calcular, com rr_calculo_is.calcular_is). A memória
+de cálculo, os totais e os cabeçalhos de aviso chegam na Task 10.
 
 Exceção sem código. Como no Java, no /observabilidade qualquer exceção do processamento de um item
 (ItemCollector.addErro, ProblemType ERRO_SISTEMA) vira CAL-999 nesse item, com o texto da exceção; no
@@ -132,8 +132,25 @@ CalculoNaoPortado = rr_calculo.CalculoNaoPortado
 
 
 def _calcular_item(proc, base):
-    """CalculoTributoService.calcular: o tribCalc do item, já no JSON que o Jackson escreve."""
-    return rr_calculo.para_json(rr_calculo.calcular_tributos(proc, base))
+    """CalculoTributoService.calcular: o tribCalc do item, com os valores Decimal (o TributosDomain antes do
+    serializer). O JSON sai só no fim, em `_escrever`, como no Spring, que escreve a resposta inteira."""
+    return rr_calculo.calcular_tributos(proc, base)
+
+
+# AbstractMessageConverterMethodProcessor: HttpMessageNotWritableException vira o ProblemDetail padrão do
+# Spring (sem type nem timestamp), nos dois endpoints, mesmo que só um item tenha o valor recusado.
+_FALHA_DE_ESCRITA = "Failed to write request"
+
+
+def _escrever(status, corpo, cabecalhos, instancia):
+    """O Jackson escrevendo a resposta 200: o tribCalc de cada objeto vira o JSON dos serializers."""
+    try:
+        objetos = [dict(o, tribCalc=rr_calculo.para_json(o["tribCalc"])) if "tribCalc" in o else o
+                   for o in corpo["objetos"]]
+    except rr_calculo.EscritaFalhou:
+        return 500, {"detail": _FALHA_DE_ESCRITA, "instance": instancia, "status": 500,
+                     "title": "Internal Server Error"}, {}
+    return status, dict(corpo, objetos=objetos), cabecalhos
 
 
 def _erro_de_sistema(erro: Exception) -> ErroRR:
@@ -179,7 +196,7 @@ def regime_geral(corpo: object, base, base_url: str = BASE_URL_PADRAO, agora=Non
         return (*rr_erros.corpo_de_erro(_erro_de_sistema(erro), base_url, instancia, agora), {})
     objetos.sort(key=lambda objeto: (objeto["nObj"] is not None, objeto["nObj"] or 0))  # nullsFirst
     # ROCDomain {oper, objetos, total}: oper só com gCompraGov (fora do escopo); o total é da Task 10
-    return 200, {"objetos": objetos}, base.cabecalhos_versao()
+    return _escrever(200, {"objetos": objetos}, base.cabecalhos_versao(), instancia)
 
 
 def observabilidade(corpo: object, base, base_url: str = BASE_URL_PADRAO, agora=None) -> tuple:
@@ -221,4 +238,4 @@ def observabilidade(corpo: object, base, base_url: str = BASE_URL_PADRAO, agora=
         estado = rr_erros.CALCULADO if item.aliquotas_nominais is None else rr_erros.CALCULO_SIMULADO
         objetos.append({"nObj": n_obj, "estadoItem": estado, "tribCalc": trib_calc})
     objetos.sort(key=lambda objeto: objeto["nObj"])  # Stream.sorted: estável
-    return 200, {"objetos": objetos}, base.cabecalhos_versao()
+    return _escrever(200, {"objetos": objetos}, base.cabecalhos_versao(), instancia)

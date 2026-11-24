@@ -69,8 +69,23 @@ class SerializacaoTest(unittest.TestCase):
             "vBC": "25.00", "gCBS": {"pCBS": "0.90", "gRed": {"pRedAliq": "60.00", "pAliqEfet": "0.36"},
                                      "vCBS": "0.22"}}}})
         self.assertEqual(rr_calculo.para_json({"qBCMono": D("12.50000")}), {"qBCMono": "12.5000"})
-        with self.assertRaises(ValueError):
+        with self.assertRaises(rr_calculo.EscritaFalhou):
             rr_calculo.para_json({"vCBS": D("-0.01")})
+
+    def test_serializers_do_imposto_seletivo(self):
+        dominio = {"CSTIS": "000", "cClassTribIS": "000001", "vBCIS": D("345.67"), "pIS": D("10.00"),
+                   "pISEspec": D("1.2346"), "adRemIS": D("1.2346"), "uTrib": "LT", "qTrib": D("12.5"),
+                   "vIS": D("49.9997")}
+        self.assertEqual(rr_calculo.para_json({"IS": dominio}), {"IS": {
+            "CSTIS": "000", "cClassTribIS": "000001", "vBCIS": "345.67", "pIS": "10.00", "pISEspec": "1.2346",
+            "adRemIS": "1.2346", "uTrib": "LT", "qTrib": "12.5000", "vIS": "50.00"}})
+        for chave, valor, mensagem in (("uTrib", "GARRAFA", "uTrib deve ter entre 1 e 6 caracteres"),
+                                       ("uTrib", "", "uTrib deve ter entre 1 e 6 caracteres"),
+                                       ("CSTIS", "0\u0660\u0660", "TCST deve ser uma string de exatamente 3 dígitos "
+                                                                 "numéricos")):
+            with self.assertRaises(rr_calculo.EscritaFalhou) as ctx:
+                rr_calculo.para_json({"IS": dict(dominio, **{chave: valor})})
+            self.assertEqual(str(ctx.exception), mensagem)
 
     def test_publicar_aliquota(self):
         self.assertEqual(rr_calculo._publicar_aliquota(D("0.0012345")), D("0.001234"))

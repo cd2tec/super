@@ -44,7 +44,7 @@ casas, alíquota com 2 a 4, quantidade inteira ou com 4.
 
 Fora do escopo (a skill recusa antes do motor): compra governamental (tpEnteGov e pRedutor chegam nulo
 e zero, e os ramos de gTribCompraGov não são portados) e NBS informado. O Imposto Seletivo
-(CalculoImpostoSeletivoService) é da Task 9: `calcular_is` ainda levanta CalculoNaoPortado.
+(CalculoImpostoSeletivoService) fica em rr_calculo_is.calcular_is, que `calcular_tributos` chama primeiro.
 """
 from __future__ import annotations
 
@@ -82,7 +82,7 @@ CALCULO_IBS_HABILITADO = True
 
 
 class CalculoNaoPortado(NotImplementedError):
-    """Um ramo do cálculo que ainda não foi portado (o Imposto Seletivo chega na Task 9)."""
+    """Um ramo do cálculo que ainda não foi portado."""
 
 
 # --- utilitários ---------------------------------------------------------------------------------
@@ -502,11 +502,6 @@ def calcular_cbs_ibs(proc, tributo: int, base, imposto_seletivo_calculado: Decim
 
 # --- CalculoTributoService.calcular --------------------------------------------------------------
 
-def calcular_is(proc, base) -> dict:
-    """CalculoImpostoSeletivoService.calcularImpostoSeletivo: chega na Task 9."""
-    raise CalculoNaoPortado("o cálculo do Imposto Seletivo ainda não foi portado (Task 9 do plano)")
-
-
 def _possui_aliquota_ibs_informada(item, tributo) -> bool:
     """CalculoTributoService.possuiAliquotaIbsInformada."""
     return _aliquota_nominal(tributo, item) is not None if tributo in (IBS_ESTADUAL, IBS_MUNICIPAL) else False
@@ -520,12 +515,15 @@ def calcular_tributos(proc, base) -> dict:
     ordem sequencial. A memória de cálculo é da Task 10.
     """
     item = proc.item
+    import rr_calculo_is  # aqui, porque o rr_calculo_is usa os utilitários deste módulo
+
     imposto_seletivo = None
     if proc.tratamento_is is not None:
-        imposto_seletivo = calcular_is(proc, base)
+        imposto_seletivo = rr_calculo_is.calcular_is(proc, base)
     cbs = ibs_uf = ibs_mun = None
     if proc.tratamento_cbs_ibs is not None:
-        is_calculado = ZERO if imposto_seletivo is None else imposto_seletivo["vIS"]
+        # getValorImpostoSeletivo: o vIS publicado, ou zero; entra na base da CBS e do IBS pelas expressões
+        is_calculado = rr_calculo_is.valor_imposto_seletivo(imposto_seletivo)
         cbs = calcular_cbs_ibs(proc, CBS, base, is_calculado)
         calcular_uf = (CALCULO_IBS_HABILITADO or _preenchido(proc.nbs)
                        or _possui_aliquota_ibs_informada(item, IBS_ESTADUAL))
@@ -663,17 +661,40 @@ def _monofasia(cbs, ibs_uf, ibs_mun) -> dict | None:
 
 # --- serialização (os serializers do Java) -------------------------------------------------------
 
-_QUANTIDADES = frozenset({"qBCMono", "qBCMonoReten", "qBCMonoRet"})  # BigDecimalTDec1104OpRTCSerializer
+_QUANTIDADES = frozenset({"qBCMono", "qBCMonoReten", "qBCMonoRet", "qTrib"})  # BigDecimalTDec1104OpRTCSerializer
 _ALIQUOTAS = frozenset({  # BigDecimalTDec0302_04Serializer
     "pIBSUF", "pIBSMun", "pCBS", "pRedAliq", "pAliqEfet", "pDif", "pAliqEfetRegIBSUF", "pAliqEfetRegIBSMun",
     "pAliqEfetRegCBS", "adRemIBS", "adRemCBS", "adRemIBSReten", "adRemCBSReten", "adRemIBSRet", "adRemCBSRet",
-    "pDifIBS", "pDifCBS",
+    "pDifIBS", "pDifCBS", "pIS", "pISEspec", "adRemIS",
 })
+
+
+class EscritaFalhou(ValueError):
+    """Um serializer do Jackson recusou um valor: a resposta inteira não é escrita, e o Spring devolve o 500
+    "Failed to write request" (HttpMessageNotWritableException), nos dois endpoints."""
+
+
+# Os serializers de texto do ImpostoSeletivoDomain: StringTCSTSerializer, StringTcClassTribSerializer e
+# StringUTribSerializer (String.length() em unidades UTF-16)
+_TEXTOS = {
+    "CSTIS": (lambda t: re.fullmatch(r"[0-9]{3}", t) is not None,
+              "TCST deve ser uma string de exatamente 3 dígitos numéricos"),
+    "cClassTribIS": (lambda t: re.fullmatch(r"[0-9]{6}", t) is not None,
+                     "TcClassTrib deve ser uma string de exatamente 6 dígitos numéricos"),
+    "uTrib": (lambda t: 1 <= len(t.encode("utf-16-le")) // 2 <= 6, "uTrib deve ter entre 1 e 6 caracteres"),
+}
+
+
+def _formatar_texto(chave, valor):
+    regra = _TEXTOS.get(chave)
+    if regra is not None and not regra[0](valor):
+        raise EscritaFalhou(regra[1])
+    return valor
 
 
 def _formatar(chave, valor):
     if valor < 0:  # os serializers recusam negativo (IllegalArgumentException)
-        raise ValueError(f"Números negativos não são permitidos ({chave})")
+        raise EscritaFalhou(f"Números negativos não são permitidos ({chave})")
     if chave in _QUANTIDADES:
         return numeros.formatar_quantidade(valor)
     if chave in _ALIQUOTAS:
@@ -682,9 +703,12 @@ def _formatar(chave, valor):
 
 
 def para_json(no):
-    """O JSON que o Jackson escreve da estrutura de `calcular_tributos`: Decimal vira texto formatado."""
+    """O JSON que o Jackson escreve da estrutura de `calcular_tributos`: Decimal vira texto formatado.
+
+    Valor que um serializer recusa levanta EscritaFalhou (o rr_motor responde o 500 do Spring)."""
     if isinstance(no, dict):
-        return {chave: (_formatar(chave, valor) if isinstance(valor, Decimal) else para_json(valor))
+        return {chave: (_formatar(chave, valor) if isinstance(valor, Decimal)
+                        else _formatar_texto(chave, valor) if isinstance(valor, str) else para_json(valor))
                 for chave, valor in no.items()}
     if isinstance(no, list):
         return [para_json(valor) for valor in no]
