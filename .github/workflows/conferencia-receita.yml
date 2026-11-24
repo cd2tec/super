@@ -34,7 +34,7 @@ jobs:
     outputs:
       skills: ${{ steps.listar.outputs.skills }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - id: listar
@@ -76,11 +76,11 @@ jobs:
             echo "RECEITA=$RUNNER_TEMP/receita"
           } >> "$GITHUB_ENV"
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -298,7 +298,7 @@ jobs:
           printf '%s\n' "$STATUS" > "$SAIDA/resultado.txt"
           true
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: conferencia-${{ matrix.skill }}
@@ -335,18 +335,18 @@ jobs:
             echo "ETAPA=$RUNNER_TEMP/etapa.txt"
           } >> "$GITHUB_ENV"
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # A ponta do ramo agora, não a do começo da execução, com o histórico para ler o meta.json do
           # commit que o conferir usou: se a main andou no meio, o robô não age e confere amanhã.
           ref: ${{ github.ref_name }}
           fetch-depth: 0
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         continue-on-error: true
         with:
           name: conferencia-${{ matrix.skill }}
@@ -596,12 +596,12 @@ jobs:
       AGIR: ${{ needs.agir.result }}
       EXECUCAO: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: github.ref == 'refs/heads/main'
         with:
           persist-credentials: false
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         if: github.ref == 'refs/heads/main'
         with:
           python-version: "3.12"

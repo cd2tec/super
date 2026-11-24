@@ -268,7 +268,7 @@ class WorkflowTest(unittest.TestCase):
 
     def test_pages_publishes_docs(self):
         text = wf("pages.yml")
-        for needle in ("path: docs", '"docs/**"', "workflow_dispatch:", "actions/deploy-pages@v4", "actions/upload-pages-artifact@v3", "actions/configure-pages@v5"):
+        for needle in ("path: docs", '"docs/**"', "workflow_dispatch:", "actions/deploy-pages@v5", "actions/upload-pages-artifact@v5", "actions/configure-pages@v6"):
             self.assertIn(needle, text)
 
     def test_release_checks_packages_and_tags(self):
