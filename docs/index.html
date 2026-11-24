@@ -150,10 +150,14 @@
   .top .wrap { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); height: 72px; }
   .top .home { display: flex; align-items: center; gap: var(--space-3); text-decoration: none; color: var(--ink); min-width: 0; }
   .top .product { font: 700 15px/20px var(--font); white-space: nowrap; padding-left: var(--space-3); border-left: 1px solid var(--hairline); }
+  .top .home { flex-shrink: 0; }
   .top nav { display: flex; align-items: center; gap: var(--space-6); }
+  .top nav a { white-space: nowrap; }
   .top nav a.link { color: var(--ink); text-decoration: none; font-weight: 600; font-size: 14px; }
   .top nav a.link:hover { color: var(--link); text-decoration: underline; }
-  @media (max-width: 900px) { .top nav a.link { display: none; } }
+  /* Entre 1000 e 1199 px o menu inteiro não cabe ao lado do nome do produto: some o nome e o espaço entre os links diminui. Abaixo de 1000 px ficam só a marca e o botão. */
+  @media (min-width: 1000px) and (max-width: 1199px) { .top .product { display: none; } .top nav { gap: var(--space-4); } }
+  @media (max-width: 999px) { .top nav a.link { display: none; } }
   @media (max-width: 480px) { .top .product { display: none; } }
 
   /* Botões em pílula */
