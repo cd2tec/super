@@ -157,6 +157,7 @@ A segunda skill desse tipo, a conta do regime regular (Lucro Real e Presumido), 
 - os testes são `tests/test_calc_simples.py` (o motor contra as respostas oficiais gravadas), `tests/test_render_simples.py`, `tests/test_sugestao_simples.py`, `tests/test_simples_base.py` e `tests/test_simples_cobertura.py`;
 - no `skills.json`, o `site_url` é o GitHub da Receita, sem barra no fim, com `"fonte_externa": true`;
 - o fechamento não cita site de calculadora, e a etapa 3 da conversa é o `calc.py --checar-versao`, não a pesquisa de novidades.
+- para o robô cuidar da skill, crie `conferencia/<skill>/config.json` com as chaves de "O `config.json` guia o robô" (abaixo); o workflow e o `receita_robo.py` não levam nome de skill.
 
 **O que é gerado e nunca editado à mão**, tudo a partir das fontes da Receita:
 
@@ -166,7 +167,29 @@ A segunda skill desse tipo, a conta do regime regular (Lucro Real e Presumido), 
 | `conferencia/cbs-ibs-simples/meta.json` | Versão e commit da calculadora espelhada, commit das migrações, versão e hash da base e o resultado da última conferência completa | `scripts/receita_base.py` e a conferência |
 | `conferencia/cbs-ibs-simples/esperadas.json` | As respostas oficiais de uma amostra da bateria, que os testes do dia a dia usam sem a calculadora oficial | `scripts/receita_paridade.py --gravar-esperadas` |
 
-Escritos à mão, na mesma pasta: `config.json` (tabelas, lista `ignorar` e exceções de cobertura, cada uma com o motivo), `bateria.py` (gera os casos da base) e `casos-escritos.json` (os cenários dos testes da Receita). A lista `ignorar` é curta e justificada campo a campo na `metodologia.md` da skill.
+Escritos à mão, na mesma pasta: `config.json` (tabelas, lista `ignorar`, exceções de cobertura, cada uma com o motivo, e as chaves da skill descritas abaixo), `bateria.py` (gera os casos da base) e `casos-escritos.json` (os cenários dos testes da Receita). A lista `ignorar` é curta e justificada campo a campo na `metodologia.md` da skill.
+
+**O `config.json` guia o robô.** Nada de uma skill fica fixo no workflow nem no `receita_robo.py`: tudo vem do `config.json` da pasta. Uma skill nova (a do regime regular, por exemplo) só precisa da pasta `conferencia/<skill>/` com estas chaves:
+
+| Chave | Para que serve |
+|---|---|
+| `skill` | O nome da skill, igual ao da pasta |
+| `tabelas` | As tabelas que entram na base reduzida, comparadas entre o Flyway e o montador e usadas no hash |
+| `tabelas_da_sugestao` | As tabelas de que a `bateria.py` da skill tira os casos da sugestão (só o `bateria.py` lê; o robô não) |
+| `base_destino` | O caminho da base da skill, que o robô troca ao publicar (hoje `core/cd2-super/skills/cbs-ibs-simples/references/base-receita.db`) |
+| `hash_ignorar_colunas` | Colunas por tabela que ficam fora do hash e da comparação das bases (opcional) |
+| `ignorar` | Campos que a conferência com a calculadora oficial não compara (opcional) |
+| `excecoes_cobertura` | Itens que a bateria não cobre, cada um com o motivo (opcional) |
+| `nome_humano` | Como a skill aparece nos textos do PR, do `CHANGELOG.md` e das issues (hoje, "calculadora oficial do Simples Nacional") |
+| `arquivos_motor` | Os nomes (só o nome do arquivo, sem pasta) dos scripts da skill que portam o código de cálculo, citados na lista do que portar do PR de regra |
+| `calculadora.repo` e `calculadora.caminho_codigo` | O repositório da calculadora oficial e a pasta cujo diff é "mudança de regra" (hoje `src/main`) |
+| `migracoes.repo` e `migracoes.caminho` | O repositório das migrações e a pasta das tabelas (hoje `flyway/sql`). Se for o mesmo repositório da calculadora, o resumo do que mudou na Receita traz uma linha "Repositório" só |
+| `oficial.porta` e `oficial.contexto` | Porta publicada em `127.0.0.1` e prefixo da URL da calculadora oficial (`/api`) |
+| `oficial.jar` | O JAR que o build gera, sempre `target/<arquivo>.jar` |
+| `oficial.flyway_conf` | O arquivo de configuração do Flyway oficial, dentro do clone das migrações |
+| `oficial.arquivo_db` | O arquivo de base que o Flyway gera e o JAR usa |
+
+O comando `python3 scripts/receita_robo.py config --skill <skill> --campo <caminho.pontuado>` imprime um desses valores já validado por padrão fixo (o JAR em `target/`, a porta entre 1024 e 65535, nada com quebra de linha) ou sai com código 2. O workflow lê os valores de `oficial` por ele; `calculadora.*` e `migracoes.*` e, no job `agir`, `base_destino` ele lê direto com `jq`. No job `conferir`, o passo "Config da skill" (depois do `setup-python`, antes de "Olhar a Receita") grava `PORTA`, `CONTEXTO`, `JAR_REL`, `FLYWAY_CONF` e `ARQUIVO_DB` no `$GITHUB_ENV`, e os passos seguintes usam essas variáveis. Os clones ficam em `$RECEITA/calc` (a calculadora, na tag da release) e `$RECEITA/migr` (as migrações, na ponta), montados nos contêineres como `/calc` e `/migr`. Se as duas são o mesmo repositório o robô clona duas vezes do mesmo jeito.
 
 **Rodar a conferência local.** Precisa de Docker, de um clone de cada repositório da Receita nas versões do `meta.json` e de alguns minutos.
 
@@ -182,7 +205,7 @@ Escritos à mão, na mesma pasta: `config.json` (tabelas, lista `ignorar` e exce
    docker run -d --name rfb-simples -p 127.0.0.1:8082:8082 -v "$RR:/rr:ro" -v "$SN:/sn:ro" maven:3-eclipse-temurin-25 bash -c "cp -r /rr /app-rr && cd /app-rr && mkdir -p calculadora/db && mvn -B -q flyway:migrate -Dflyway.configFiles=./flyway/flyway-pro.conf && cp -r /sn /app && mkdir -p /app/calculadora/db && cp calculadora/db/calculadora-pro.db /app/calculadora/db/ && cd /app && mvn -B -q clean package -DskipTests && exec java -Dspring.profiles.active=offline -jar target/api-simples-nacional.jar"
    ```
 
-3. Compare a bateria inteira, com a base completa do passo 1 (a mesma em `CD2_BASE_COMPLETA` liga o teste de deriva da base nos testes):
+3. Compare a bateria inteira, com a base completa do passo 1 (a mesma em `CD2_BASE_COMPLETA` liga o teste de deriva da base nos testes, junto de `CD2_BASE_COMPLETA_SKILL=cbs-ibs-simples`):
 
    ```
    python3 scripts/receita_paridade.py --skill cbs-ibs-simples --oficial http://127.0.0.1:8082/api --completa --base-completa <base-completa.db>
@@ -223,7 +246,7 @@ O robô só publica quando tudo isto passa, nesta ordem: as duas bases iguais, a
 **Como o workflow se protege.**
 
 - O código da Receita (Maven e os plugins dele, o Flyway e o JAR) roda só no job `conferir`, que só lê o repositório e não guarda credencial no checkout, e sempre dentro de contêiner, na imagem `maven:3-eclipse-temurin-25` presa pelo digest. O contêiner do build vê só cópias dos clones da Receita, um cache do Maven e uma pasta de produtos, todos em `/tmp/receita-isolada`: nunca o checkout, nunca o `runner.temp` e nunca a pasta dos resultados. O JAR roda noutro contêiner, com só o JAR e a base do Flyway montados como leitura. Os dois são desligados antes de as bases, as respostas oficiais e o relatório da conferência entrarem na pasta dos resultados (antes disso ela só recebe arquivos que o nosso código escreve, e nenhum contêiner a monta). Produto do build só é copiado ou montado se for arquivo comum, sem link simbólico, de dentro da pasta de produtos, e os clones da Receita saem sem links simbólicos (`core.symlinks=false`), para o nosso Python nunca seguir um link para fora deles. O nosso Python (a base, a comparação, a bateria) roda na máquina.
-- Rede: o build precisa da internet para baixar do Maven Central e tem a rede comum do runner. O contêiner do JAR fica numa rede própria em que a máquina bloqueia toda saída (regra `DOCKER-USER` do iptables) e todo acesso à máquina que ele mesmo abra, e sem servidor de DNS; só a porta publicada em `127.0.0.1:8082` responde, porque quem abre a conexão é a máquina. O robô testa o bloqueio antes de subir o JAR e para se um contêiner nessa rede alcançar a internet. Fora o build, o workflow só fala com o GitHub: as actions, os clones da Receita e o `gh`.
+- Rede: o build precisa da internet para baixar do Maven Central e tem a rede comum do runner. O contêiner do JAR fica numa rede própria em que a máquina bloqueia toda saída (regra `DOCKER-USER` do iptables) e todo acesso à máquina que ele mesmo abra, e sem servidor de DNS; só a porta publicada em `127.0.0.1` (a `oficial.porta` do `config.json` da skill, 8082 no Simples) responde, porque quem abre a conexão é a máquina. O robô testa o bloqueio antes de subir o JAR e para se um contêiner nessa rede alcançar a internet. Fora o build, o workflow só fala com o GitHub: as actions, os clones da Receita e o `gh`.
 - Quem escreve é o job `agir`, que não roda código da Receita e recebe o resultado por artefato. Antes de usar qualquer coisa do artefato, ele valida cada valor por um padrão fixo (versões, commits de 40 hexadecimais, base `Vnnnn`, a classe, os números da conferência, os tamanhos dos arquivos), confere que a base do artefato tem o hash do seu `meta.json` e que esse `meta.json` é igual à `CD2_META` de dentro dela (com as funções do `receita_base.py`), e refaz pela API do GitHub o que dá para refazer sem código da Receita: a tag e o commit da última release, o commit das migrações (`git ls-remote`) e a classe, pela lista de arquivos da comparação. Diferença em qualquer um vira issue de falha.
 - Nada que venha de fora vira expressão: no workflow, nenhum `${{ }}` vai dentro de um `run:` (tudo entra por `env:` e entre aspas, e um teste confere), e no `$GITHUB_OUTPUT` só saem valores com padrão fixo (a ação, a classe, números, versões). O motivo de uma falha vai para um arquivo que só o texto da issue lê, e lá entra escapado, numa linha só, sem menção (`@`) nem link automático.
 - Os jobs não se sobrepõem (`concurrency`), e o `agir` confere que o `meta.json` não mudou desde o começo da execução: ele lê o `meta.json` do commit que o `conferir` usou, e se o artefato traz esse meta mas a `main` já tem outro (alguém fez merge no meio), ele não age, não abre issue e deixa para o dia seguinte. Um meta que não é nem o de agora nem o do começo é falha. Se o push na `main` falhar porque alguém subiu um commit no meio, a execução falha e abre a issue de falha; nada é reescrito.
@@ -239,6 +262,8 @@ O robô só publica quando tudo isto passa, nesta ordem: as duas bases iguais, a
 - Se o disparo da release falhar depois do push, o `manter` vê que a versão do `plugin.core.json` não tem a release `cd2-super-v<versão>` (e que nenhuma execução da release está na fila) e dispara de novo; a release que já existe só recebe os arquivos que faltarem.
 
 **Portar a mudança de um PR de regra.** Faça o checkout do ramo do PR e siga [Portar uma mudança de regra](#skills-que-espelham-a-calculadora-da-receita) acima: o diff está no corpo do PR, a base nova já está no ramo, e o `meta.json` só precisa da versão e do commit da calculadora nova e da conferência quando ela fechar 100%. Depois de mudar o `meta.json` à mão, rode `python3 scripts/receita_robo.py meta --skill <skill>` para levar a mesma meta à base e às esperadas. O merge sobe a versão (minor) e a release sai pelo fluxo normal; no dia seguinte o robô volta a publicar tabelas sozinho.
+
+**Base completa por skill.** O robô exporta `CD2_BASE_COMPLETA` sempre junto de `CD2_BASE_COMPLETA_SKILL`, com o nome da skill dona da base. Os testes leem as duas por `base_completa_da_skill(skill)`, de `tests/versao_da_base.py`, e um teste de outra skill pula, para a base completa de uma nunca ser lida pelo teste de outra. Nenhum teste lê `CD2_BASE_COMPLETA` direto; teste novo de skill nova usa a função.
 
 **Testes que dependem da versão da base.** Os testes da skill tiram as amostras da própria base (o primeiro NCM de uma lista, por exemplo), para continuar valendo quando o robô trocar as tabelas. Os poucos cujo sentido é o conteúdo de uma versão levam `@ancorado_na("V0073")`, de `tests/versao_da_base.py`, e são pulados com o motivo em outra base. Ao portar uma mudança de regra, reancore na base nova o que fizer sentido. Os testes de consistência (a base igual ao `meta.json`, as classificações do perfil da sugestão existindo na base) não pulam nunca: eles barram o robô de propósito.
 

@@ -10,6 +10,7 @@ existem) não usam esta âncora: eles falham de propósito quando o dado não fe
 """
 import functools
 import importlib.util
+import os
 import sys
 from pathlib import Path
 
@@ -28,6 +29,18 @@ def _simples_base():
             sys.modules.pop("simples_base", None)
             raise
     return sys.modules["simples_base"]
+
+
+def base_completa_da_skill(skill: str):
+    """A base completa montada das migrações, só quando ela é da `skill`; senão None (o teste pula).
+
+    O robô exporta `CD2_BASE_COMPLETA` junto de `CD2_BASE_COMPLETA_SKILL`: com mais de uma skill, a base
+    completa de uma não pode ser lida pelo teste de outra. Nenhum teste lê `CD2_BASE_COMPLETA` direto.
+    """
+    caminho = os.environ.get("CD2_BASE_COMPLETA")
+    if not caminho or os.environ.get("CD2_BASE_COMPLETA_SKILL") != skill:
+        return None
+    return Path(caminho)
 
 
 @functools.lru_cache(maxsize=None)
