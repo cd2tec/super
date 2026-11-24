@@ -173,8 +173,15 @@ Escritos à mão, na mesma pasta: `config.json` (tabelas, lista `ignorar`, exce�
 
 | Chave | Para que serve |
 |---|---|
+| `skill` | O nome da skill, igual ao da pasta |
+| `tabelas` | As tabelas que entram na base reduzida, comparadas entre o Flyway e o montador e usadas no hash |
+| `tabelas_da_sugestao` | As tabelas de que a `bateria.py` da skill tira os casos da sugestão (só o `bateria.py` lê; o robô não) |
+| `base_destino` | O caminho da base da skill, que o robô troca ao publicar (hoje `core/cd2-super/skills/cbs-ibs-simples/references/base-receita.db`) |
+| `hash_ignorar_colunas` | Colunas por tabela que ficam fora do hash e da comparação das bases (opcional) |
+| `ignorar` | Campos que a conferência com a calculadora oficial não compara (opcional) |
+| `excecoes_cobertura` | Itens que a bateria não cobre, cada um com o motivo (opcional) |
 | `nome_humano` | Como a skill aparece nos textos do PR, do `CHANGELOG.md` e das issues (hoje, "calculadora oficial do Simples Nacional") |
-| `arquivos_motor` | Os arquivos `scripts/*.py` da skill que portam o código de cálculo, citados na lista do que portar do PR de regra |
+| `arquivos_motor` | Os nomes (só o nome do arquivo, sem pasta) dos scripts da skill que portam o código de cálculo, citados na lista do que portar do PR de regra |
 | `calculadora.repo` e `calculadora.caminho_codigo` | O repositório da calculadora oficial e a pasta cujo diff é "mudança de regra" (hoje `src/main`) |
 | `migracoes.repo` e `migracoes.caminho` | O repositório das migrações e a pasta das tabelas (hoje `flyway/sql`). Se for o mesmo repositório da calculadora, o resumo do que mudou na Receita traz uma linha "Repositório" só |
 | `oficial.porta` e `oficial.contexto` | Porta publicada em `127.0.0.1` e prefixo da URL da calculadora oficial (`/api`) |
@@ -182,7 +189,7 @@ Escritos à mão, na mesma pasta: `config.json` (tabelas, lista `ignorar`, exce�
 | `oficial.flyway_conf` | O arquivo de configuração do Flyway oficial, dentro do clone das migrações |
 | `oficial.arquivo_db` | O arquivo de base que o Flyway gera e o JAR usa |
 
-O comando `python3 scripts/receita_robo.py config --skill <skill> --campo <caminho.pontuado>` imprime um desses valores já validado por padrão fixo (o JAR em `target/`, a porta entre 1024 e 65535, nada com quebra de linha) ou sai com código 2. O workflow só lê o `config.json` por ele. No job `conferir`, o passo "Config da skill" (depois do `setup-python`, antes de "Olhar a Receita") grava `PORTA`, `CONTEXTO`, `JAR_REL`, `FLYWAY_CONF` e `ARQUIVO_DB` no `$GITHUB_ENV`, e os passos seguintes usam essas variáveis. Os clones ficam em `$RECEITA/calc` (a calculadora, na tag da release) e `$RECEITA/migr` (as migrações, na ponta), montados nos contêineres como `/calc` e `/migr`. Se as duas são o mesmo repositório o robô clona duas vezes do mesmo jeito.
+O comando `python3 scripts/receita_robo.py config --skill <skill> --campo <caminho.pontuado>` imprime um desses valores já validado por padrão fixo (o JAR em `target/`, a porta entre 1024 e 65535, nada com quebra de linha) ou sai com código 2. O workflow lê os valores de `oficial` por ele; `calculadora.*` e `migracoes.*` e, no job `agir`, `base_destino` ele lê direto com `jq`. No job `conferir`, o passo "Config da skill" (depois do `setup-python`, antes de "Olhar a Receita") grava `PORTA`, `CONTEXTO`, `JAR_REL`, `FLYWAY_CONF` e `ARQUIVO_DB` no `$GITHUB_ENV`, e os passos seguintes usam essas variáveis. Os clones ficam em `$RECEITA/calc` (a calculadora, na tag da release) e `$RECEITA/migr` (as migrações, na ponta), montados nos contêineres como `/calc` e `/migr`. Se as duas são o mesmo repositório o robô clona duas vezes do mesmo jeito.
 
 **Rodar a conferência local.** Precisa de Docker, de um clone de cada repositório da Receita nas versões do `meta.json` e de alguns minutos.
 
