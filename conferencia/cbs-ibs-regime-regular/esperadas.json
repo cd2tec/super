@@ -18,9 +18,9 @@
       "hash": "sha256:3ffe701a6ac42b917f9d01ca62fd7aa96e9cdc10e548a2ecec4dfd117b47cffa"
     },
     "conferencia": {
-      "data": "",
-      "casos": 0,
-      "iguais": 0
+      "data": "2026-11-24",
+      "casos": 1368,
+      "iguais": 1368
     }
   },
   "casos": [
@@ -60,7 +60,7 @@
           "status": 404,
           "title": "NCM não encontrada",
           "type": "http://127.0.0.1/errors/ncm-nao-encontrada",
-          "timestamp": "2026-11-24T18:39:47.867844301Z"
+          "timestamp": "2026-11-24T20:15:01.817929Z"
         }
       }
     },
@@ -149,7 +149,7 @@
           "status": 404,
           "title": "NCM não encontrada",
           "type": "http://127.0.0.1/errors/ncm-nao-encontrada",
-          "timestamp": "2026-11-24T18:39:47.879508259Z"
+          "timestamp": "2026-11-24T20:15:01.825659292Z"
         }
       }
     },
@@ -238,7 +238,7 @@
           "status": 400,
           "title": "Erro de sistema não previsto",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:47.885329259Z"
+          "timestamp": "2026-11-24T20:15:01.828238792Z"
         }
       }
     },
@@ -278,7 +278,7 @@
           "status": 400,
           "title": "Erro de sistema não previsto",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:47.886447884Z"
+          "timestamp": "2026-11-24T20:15:01.829085500Z"
         }
       }
     },
@@ -318,7 +318,7 @@
           "status": 400,
           "title": "Erro de sistema não previsto",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:47.887275343Z"
+          "timestamp": "2026-11-24T20:15:01.829624750Z"
         }
       }
     },
@@ -358,7 +358,7 @@
           "status": 400,
           "title": "Erro de sistema não previsto",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:47.888048926Z"
+          "timestamp": "2026-11-24T20:15:01.830164834Z"
         }
       }
     },
@@ -398,7 +398,7 @@
           "status": 400,
           "title": "Erro de sistema não previsto",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:47.888840384Z"
+          "timestamp": "2026-11-24T20:15:01.830806667Z"
         }
       }
     },
@@ -438,7 +438,7 @@
           "status": 400,
           "title": "Erro de sistema não previsto",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:47.889628551Z"
+          "timestamp": "2026-11-24T20:15:01.831501084Z"
         }
       }
     },
@@ -478,7 +478,7 @@
           "status": 400,
           "title": "Erro de sistema não previsto",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:47.890237176Z"
+          "timestamp": "2026-11-24T20:15:01.832021709Z"
         }
       }
     },
@@ -518,7 +518,7 @@
           "status": 400,
           "title": "Erro de sistema não previsto",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:47.890900551Z"
+          "timestamp": "2026-11-24T20:15:01.832604084Z"
         }
       }
     },
@@ -558,7 +558,7 @@
           "status": 400,
           "title": "Erro de sistema não previsto",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:47.891519051Z"
+          "timestamp": "2026-11-24T20:15:01.833542709Z"
         }
       }
     },
@@ -598,7 +598,7 @@
           "status": 400,
           "title": "Erro de sistema não previsto",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:47.892056093Z"
+          "timestamp": "2026-11-24T20:15:01.834285792Z"
         }
       }
     },
@@ -638,7 +638,7 @@
           "status": 400,
           "title": "Erro de sistema não previsto",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:47.892739759Z"
+          "timestamp": "2026-11-24T20:15:01.835585625Z"
         }
       }
     },
@@ -678,7 +678,7 @@
           "status": 400,
           "title": "Erro de sistema não previsto",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:47.893421259Z"
+          "timestamp": "2026-11-24T20:15:01.836086625Z"
         }
       }
     },
@@ -718,7 +718,7 @@
           "status": 400,
           "title": "Erro de sistema não previsto",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:47.894040759Z"
+          "timestamp": "2026-11-24T20:15:01.836576542Z"
         }
       }
     },
@@ -758,7 +758,7 @@
           "status": 400,
           "title": "Erro de sistema não previsto",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:47.894647509Z"
+          "timestamp": "2026-11-24T20:15:01.837059834Z"
         }
       }
     },
@@ -798,7 +798,7 @@
           "status": 400,
           "title": "Erro de sistema não previsto",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:47.895285843Z"
+          "timestamp": "2026-11-24T20:15:01.837595209Z"
         }
       }
     },
@@ -838,7 +838,7 @@
           "status": 400,
           "title": "Erro de sistema não previsto",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:47.896058093Z"
+          "timestamp": "2026-11-24T20:15:01.838074Z"
         }
       }
     },
@@ -878,7 +878,7 @@
           "status": 400,
           "title": "Erro de sistema não previsto",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:47.896754718Z"
+          "timestamp": "2026-11-24T20:15:01.838567417Z"
         }
       }
     },
@@ -918,7 +918,7 @@
           "status": 400,
           "title": "Erro de sistema não previsto",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:47.897451634Z"
+          "timestamp": "2026-11-24T20:15:01.839109292Z"
         }
       }
     },
@@ -958,7 +958,7 @@
           "status": 400,
           "title": "Erro de sistema não previsto",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:47.898374343Z"
+          "timestamp": "2026-11-24T20:15:01.839625375Z"
         }
       }
     },
@@ -998,7 +998,7 @@
           "status": 400,
           "title": "Erro de sistema não previsto",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:47.903362218Z"
+          "timestamp": "2026-11-24T20:15:01.840085292Z"
         }
       }
     },
@@ -1038,7 +1038,7 @@
           "status": 400,
           "title": "Erro de sistema não previsto",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:47.911355426Z"
+          "timestamp": "2026-11-24T20:15:01.847411709Z"
         }
       }
     },
@@ -1078,7 +1078,7 @@
           "status": 400,
           "title": "Erro de sistema não previsto",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:47.913245718Z"
+          "timestamp": "2026-11-24T20:15:01.850165209Z"
         }
       }
     },
@@ -1118,7 +1118,7 @@
           "status": 400,
           "title": "Erro de sistema não previsto",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:47.914926301Z"
+          "timestamp": "2026-11-24T20:15:01.852510500Z"
         }
       }
     },
@@ -1158,7 +1158,7 @@
           "status": 400,
           "title": "Erro de sistema não previsto",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:47.916336051Z"
+          "timestamp": "2026-11-24T20:15:01.853715709Z"
         }
       }
     },
@@ -1198,7 +1198,7 @@
           "status": 400,
           "title": "Erro de sistema não previsto",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:47.916864009Z"
+          "timestamp": "2026-11-24T20:15:01.854503125Z"
         }
       }
     },
@@ -1238,7 +1238,7 @@
           "status": 400,
           "title": "Erro de sistema não previsto",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:47.917414218Z"
+          "timestamp": "2026-11-24T20:15:01.855167375Z"
         }
       }
     },
@@ -3366,7 +3366,7 @@
           "status": 404,
           "title": "NCM não encontrada",
           "type": "http://127.0.0.1/errors/ncm-nao-encontrada",
-          "timestamp": "2026-11-24T18:39:47.951486093Z"
+          "timestamp": "2026-11-24T20:15:01.889408375Z"
         }
       }
     },
@@ -3455,7 +3455,7 @@
           "status": 404,
           "title": "NCM não encontrada",
           "type": "http://127.0.0.1/errors/ncm-nao-encontrada",
-          "timestamp": "2026-11-24T18:39:47.952933843Z"
+          "timestamp": "2026-11-24T20:15:01.890790292Z"
         }
       }
     },
@@ -3824,7 +3824,7 @@
           "status": 422,
           "title": "Alíquotas nominais não informadas",
           "type": "http://127.0.0.1/errors/aliquotas-nominais-nao-informadas",
-          "timestamp": "2026-11-24T18:39:47.957056843Z"
+          "timestamp": "2026-11-24T20:15:01.895152292Z"
         }
       }
     },
@@ -3936,7 +3936,7 @@
           "status": 422,
           "title": "Alíquotas nominais não informadas",
           "type": "http://127.0.0.1/errors/aliquotas-nominais-nao-informadas",
-          "timestamp": "2026-11-24T18:39:47.958840009Z"
+          "timestamp": "2026-11-24T20:15:01.896740584Z"
         }
       }
     },
@@ -6505,7 +6505,7 @@
           "status": 422,
           "title": "Município não pertencente à UF",
           "type": "http://127.0.0.1/errors/municipio-nao-pertencente-uf",
-          "timestamp": "2026-11-24T18:39:47.985330926Z"
+          "timestamp": "2026-11-24T20:15:01.924674917Z"
         }
       }
     },
@@ -6563,7 +6563,7 @@
           "status": 422,
           "title": "Erros no processamento do cálculo",
           "type": "about:blank",
-          "timestamp": "2026-11-24T18:39:47.987514926Z",
+          "timestamp": "2026-11-24T20:15:01.927189625Z",
           "errors": [
             {
               "type": "http://127.0.0.1/api/calculadora/observabilidade/erros?codigo=REG-018",
@@ -6630,7 +6630,7 @@
           "status": 400,
           "title": "Campos inválidos.",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:47.990652218Z"
+          "timestamp": "2026-11-24T20:15:01.931824042Z"
         }
       }
     },
@@ -6688,7 +6688,7 @@
           "status": 422,
           "title": "Erros no processamento do cálculo",
           "type": "about:blank",
-          "timestamp": "2026-11-24T18:39:47.991443343Z",
+          "timestamp": "2026-11-24T20:15:01.933597459Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/erros?codigo=VAL-006",
@@ -6972,7 +6972,7 @@
           "status": 422,
           "title": "NCM não vinculada",
           "type": "http://127.0.0.1/errors/ncm-nao-vinculada",
-          "timestamp": "2026-11-24T18:39:47.995104801Z"
+          "timestamp": "2026-11-24T20:15:01.939334542Z"
         }
       }
     },
@@ -7062,7 +7062,7 @@
           "status": 422,
           "title": "NCM completo não informado",
           "type": "http://127.0.0.1/errors/ncm-completo-nao-informado",
-          "timestamp": "2026-11-24T18:39:47.996659968Z"
+          "timestamp": "2026-11-24T20:15:01.941900709Z"
         }
       }
     },
@@ -7152,7 +7152,7 @@
           "status": 422,
           "title": "Tipo de documento fiscal não encontrado",
           "type": "http://127.0.0.1/errors/tipo-documento-fiscal-nao-encontrado",
-          "timestamp": "2026-11-24T18:39:47.997979676Z"
+          "timestamp": "2026-11-24T20:15:01.944090584Z"
         }
       }
     },
@@ -7193,7 +7193,7 @@
           "status": 422,
           "title": "Erros no processamento do cálculo",
           "type": "about:blank",
-          "timestamp": "2026-11-24T18:39:47.999256176Z",
+          "timestamp": "2026-11-24T20:15:01.945493500Z",
           "errors": [
             {
               "type": "http://127.0.0.1/api/calculadora/observabilidade/erros?codigo=REG-028",
@@ -7822,7 +7822,7 @@
           "status": 422,
           "title": "Classificação tributária não vinculada ao tipo de documento",
           "type": "http://127.0.0.1/errors/classificacao-tributaria-nao-vinculada-tipo-documento",
-          "timestamp": "2026-11-24T18:39:48.005959843Z"
+          "timestamp": "2026-11-24T20:15:01.953307209Z"
         }
       }
     },
@@ -7921,7 +7921,7 @@
           "status": 422,
           "title": "NCM não vinculada",
           "type": "http://127.0.0.1/errors/ncm-nao-vinculada",
-          "timestamp": "2026-11-24T18:39:48.007475134Z"
+          "timestamp": "2026-11-24T20:15:01.955298250Z"
         }
       }
     },
@@ -8020,7 +8020,7 @@
           "status": 422,
           "title": "Classificação tributária não vinculada ao tipo de documento",
           "type": "http://127.0.0.1/errors/classificacao-tributaria-nao-vinculada-tipo-documento",
-          "timestamp": "2026-11-24T18:39:48.008825593Z"
+          "timestamp": "2026-11-24T20:15:01.958469292Z"
         }
       }
     },
@@ -8935,7 +8935,7 @@
           "status": 422,
           "title": "NCM não vinculada",
           "type": "http://127.0.0.1/errors/ncm-nao-vinculada",
-          "timestamp": "2026-11-24T18:39:48.017780593Z"
+          "timestamp": "2026-11-24T20:15:01.977838875Z"
         }
       }
     },
@@ -9728,7 +9728,7 @@
           "status": 422,
           "title": "NCM não vinculada",
           "type": "http://127.0.0.1/errors/ncm-nao-vinculada",
-          "timestamp": "2026-11-24T18:39:48.025808718Z"
+          "timestamp": "2026-11-24T20:15:01.987628584Z"
         }
       }
     },
@@ -9819,7 +9819,7 @@
           "status": 422,
           "title": "NCM não vinculada",
           "type": "http://127.0.0.1/errors/ncm-nao-vinculada",
-          "timestamp": "2026-11-24T18:39:48.028152509Z"
+          "timestamp": "2026-11-24T20:15:01.989228292Z"
         }
       }
     },
@@ -9910,7 +9910,7 @@
           "status": 422,
           "title": "NCM não vinculada",
           "type": "http://127.0.0.1/errors/ncm-nao-vinculada",
-          "timestamp": "2026-11-24T18:39:48.029983843Z"
+          "timestamp": "2026-11-24T20:15:01.992354959Z"
         }
       }
     },
@@ -10000,7 +10000,7 @@
           "status": 404,
           "title": "NCM não encontrada",
           "type": "http://127.0.0.1/errors/ncm-nao-encontrada",
-          "timestamp": "2026-11-24T18:39:48.031306551Z"
+          "timestamp": "2026-11-24T20:15:01.995767375Z"
         }
       }
     },
@@ -10089,7 +10089,7 @@
           "status": 422,
           "title": "NCM não vinculada",
           "type": "http://127.0.0.1/errors/ncm-nao-vinculada",
-          "timestamp": "2026-11-24T18:39:48.032620426Z"
+          "timestamp": "2026-11-24T20:15:01.997302750Z"
         }
       }
     },
@@ -10384,7 +10384,7 @@
           "status": 404,
           "title": "Classificação tributária não encontrada",
           "type": "http://127.0.0.1/errors/classificacao-tributaria-nao-encontrada",
-          "timestamp": "2026-11-24T18:39:48.035904551Z"
+          "timestamp": "2026-11-24T20:15:02.001339459Z"
         }
       }
     },
@@ -10473,7 +10473,7 @@
           "status": 422,
           "title": "Classificação tributária não vinculada à situação tributária",
           "type": "http://127.0.0.1/errors/classificacao-tributaria-nao-vinculada-situacao-tributaria",
-          "timestamp": "2026-11-24T18:39:48.037221384Z"
+          "timestamp": "2026-11-24T20:15:02.002916042Z"
         }
       }
     },
@@ -10562,7 +10562,7 @@
           "status": 422,
           "title": "Classificação tributária em desenvolvimento",
           "type": "http://127.0.0.1/errors/erro-falta-implementacao",
-          "timestamp": "2026-11-24T18:39:48.038671759Z"
+          "timestamp": "2026-11-24T20:15:02.004934584Z"
         }
       }
     },
@@ -10651,7 +10651,7 @@
           "status": 404,
           "title": "Situação tributária não encontrada",
           "type": "http://127.0.0.1/errors/situacao-tributaria-nao-encontrada",
-          "timestamp": "2026-11-24T18:39:48.040382843Z"
+          "timestamp": "2026-11-24T20:15:02.007199459Z"
         }
       }
     },
@@ -10952,7 +10952,7 @@
           "status": 422,
           "title": "Incompatibilidade com suspensão",
           "type": "http://127.0.0.1/errors/incompatibilidade-suspensao",
-          "timestamp": "2026-11-24T18:39:48.043652634Z"
+          "timestamp": "2026-11-24T20:15:02.011429375Z"
         }
       }
     },
@@ -11045,7 +11045,7 @@
           "status": 422,
           "title": "Grupo de tributação regular não informado",
           "type": "http://127.0.0.1/errors/grupo-tributacao-regular-nao-informado",
-          "timestamp": "2026-11-24T18:39:48.044974843Z"
+          "timestamp": "2026-11-24T20:15:02.012929459Z"
         }
       }
     },
@@ -11355,7 +11355,7 @@
           "status": 422,
           "title": "Dados do Imposto Seletivo não informados",
           "type": "http://127.0.0.1/errors/dados-imposto-seletivo-nao-informados",
-          "timestamp": "2026-11-24T18:39:48.048335968Z"
+          "timestamp": "2026-11-24T20:15:02.016574542Z"
         }
       }
     },
@@ -11457,7 +11457,7 @@
           "status": 404,
           "title": "Situação tributária não encontrada",
           "type": "http://127.0.0.1/errors/situacao-tributaria-nao-encontrada",
-          "timestamp": "2026-11-24T18:39:48.049845676Z"
+          "timestamp": "2026-11-24T20:15:02.018209167Z"
         }
       }
     },
@@ -11554,7 +11554,7 @@
           "status": 404,
           "title": "Município não encontrado",
           "type": "http://127.0.0.1/errors/municipio-nao-encontrado",
-          "timestamp": "2026-11-24T18:39:48.051151051Z"
+          "timestamp": "2026-11-24T20:15:02.019617584Z"
         }
       }
     },
@@ -11594,7 +11594,7 @@
           "status": 422,
           "title": "Erros no processamento do cálculo",
           "type": "about:blank",
-          "timestamp": "2026-11-24T18:39:48.052357301Z",
+          "timestamp": "2026-11-24T20:15:02.020939625Z",
           "errors": [
             {
               "type": "http://127.0.0.1/api/calculadora/observabilidade/erros?codigo=REG-019",
@@ -11643,7 +11643,7 @@
           "status": 404,
           "title": "UF não encontrada",
           "type": "http://127.0.0.1/errors/uf-nao-encontrada",
-          "timestamp": "2026-11-24T18:39:48.053104176Z"
+          "timestamp": "2026-11-24T20:15:02.021622625Z"
         }
       }
     },
@@ -11683,7 +11683,7 @@
           "status": 422,
           "title": "Erros no processamento do cálculo",
           "type": "about:blank",
-          "timestamp": "2026-11-24T18:39:48.054227134Z",
+          "timestamp": "2026-11-24T20:15:02.022743875Z",
           "errors": [
             {
               "type": "http://127.0.0.1/api/calculadora/observabilidade/erros?codigo=REG-020",
@@ -11732,7 +11732,7 @@
           "status": 422,
           "title": "Município não pertencente à UF",
           "type": "http://127.0.0.1/errors/municipio-nao-pertencente-uf",
-          "timestamp": "2026-11-24T18:39:48.054983259Z"
+          "timestamp": "2026-11-24T20:15:02.024242292Z"
         }
       }
     },
@@ -11772,7 +11772,7 @@
           "status": 422,
           "title": "Erros no processamento do cálculo",
           "type": "about:blank",
-          "timestamp": "2026-11-24T18:39:48.056040801Z",
+          "timestamp": "2026-11-24T20:15:02.025600084Z",
           "errors": [
             {
               "type": "http://127.0.0.1/api/calculadora/observabilidade/erros?codigo=REG-018",
@@ -11820,7 +11820,7 @@
           "status": 400,
           "title": "Data do fato gerador não informada",
           "type": "http://127.0.0.1/errors/fato-gerador-nao-informada",
-          "timestamp": "2026-11-24T18:39:48.056742093Z"
+          "timestamp": "2026-11-24T20:15:02.026739542Z"
         }
       }
     },
@@ -11859,7 +11859,7 @@
           "status": 422,
           "title": "Erros no processamento do cálculo",
           "type": "about:blank",
-          "timestamp": "2026-11-24T18:39:48.057972843Z",
+          "timestamp": "2026-11-24T20:15:02.030667959Z",
           "errors": [
             {
               "type": "http://127.0.0.1/api/calculadora/observabilidade/erros?codigo=REG-021",
@@ -11908,7 +11908,7 @@
           "status": 422,
           "title": "Classificação tributária em desenvolvimento",
           "type": "http://127.0.0.1/errors/erro-falta-implementacao",
-          "timestamp": "2026-11-24T18:39:48.061156343Z"
+          "timestamp": "2026-11-24T20:15:02.031953542Z"
         }
       }
     },
@@ -11996,7 +11996,7 @@
           "status": 422,
           "title": "Base de cálculo não informada",
           "type": "http://127.0.0.1/errors/base-calculo-nao-informada",
-          "timestamp": "2026-11-24T18:39:48.063552843Z"
+          "timestamp": "2026-11-24T20:15:02.033795459Z"
         }
       }
     },
@@ -12092,7 +12092,7 @@
           "status": 422,
           "title": "Base de cálculo inconsistente",
           "type": "http://127.0.0.1/errors/base-calculo-inconsistente",
-          "timestamp": "2026-11-24T18:39:48.064912718Z"
+          "timestamp": "2026-11-24T20:15:02.035168250Z"
         }
       }
     },
@@ -12196,7 +12196,7 @@
           "status": 422,
           "title": "Base de cálculo menor que a base de cálculo do Imposto Seletivo",
           "type": "http://127.0.0.1/errors/base-calculo-menor-base-calculo-imposto-seletivo",
-          "timestamp": "2026-11-24T18:39:48.066316509Z"
+          "timestamp": "2026-11-24T20:15:02.036472542Z"
         }
       }
     },
@@ -12301,7 +12301,7 @@
           "status": 400,
           "title": "Campos inválidos.",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.067996343Z"
+          "timestamp": "2026-11-24T20:15:02.038225167Z"
         }
       }
     },
@@ -12623,7 +12623,7 @@
           "status": 400,
           "title": "Campos inválidos.",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.071580218Z"
+          "timestamp": "2026-11-24T20:15:02.043391125Z"
         }
       }
     },
@@ -13149,7 +13149,7 @@
           "status": 422,
           "title": "Alíquotas nominais informadas indevidamente",
           "type": "http://127.0.0.1/errors/aliquotas-nominais-informadas-indevidamente",
-          "timestamp": "2026-11-24T18:39:48.078502843Z"
+          "timestamp": "2026-11-24T20:15:02.049524375Z"
         }
       }
     },
@@ -13248,7 +13248,7 @@
           "status": 422,
           "title": "Alíquotas nominais informadas indevidamente",
           "type": "http://127.0.0.1/errors/aliquotas-nominais-informadas-indevidamente",
-          "timestamp": "2026-11-24T18:39:48.091388968Z"
+          "timestamp": "2026-11-24T20:15:02.051443084Z"
         }
       }
     },
@@ -13557,7 +13557,7 @@
           "status": 404,
           "title": "Situação tributária não encontrada",
           "type": "http://127.0.0.1/errors/situacao-tributaria-nao-encontrada",
-          "timestamp": "2026-11-24T18:39:48.095337176Z"
+          "timestamp": "2026-11-24T20:15:02.057772250Z"
         }
       }
     },
@@ -13653,7 +13653,7 @@
           "status": 422,
           "title": "Alíquotas nominais não informadas",
           "type": "http://127.0.0.1/errors/aliquotas-nominais-nao-informadas",
-          "timestamp": "2026-11-24T18:39:48.096964843Z"
+          "timestamp": "2026-11-24T20:15:02.061450209Z"
         }
       }
     },
@@ -13745,7 +13745,7 @@
           "status": 422,
           "title": "Alíquotas nominais não informadas",
           "type": "http://127.0.0.1/errors/aliquotas-nominais-nao-informadas",
-          "timestamp": "2026-11-24T18:39:48.098572801Z"
+          "timestamp": "2026-11-24T20:15:02.063589209Z"
         }
       }
     },
@@ -13849,7 +13849,7 @@
           "status": 422,
           "title": "Alíquota do Imposto Seletivo não informada",
           "type": "http://127.0.0.1/errors/aliquota-imposto-seletivo-nao-informada",
-          "timestamp": "2026-11-24T18:39:48.100226926Z"
+          "timestamp": "2026-11-24T20:15:02.065723792Z"
         }
       }
     },
@@ -13962,7 +13962,7 @@
           "status": 404,
           "title": "Situação tributária não encontrada",
           "type": "http://127.0.0.1/errors/situacao-tributaria-nao-encontrada",
-          "timestamp": "2026-11-24T18:39:48.101906176Z"
+          "timestamp": "2026-11-24T20:15:02.068089959Z"
         }
       }
     },
@@ -14075,7 +14075,7 @@
           "status": 404,
           "title": "Classificação tributária não encontrada",
           "type": "http://127.0.0.1/errors/classificacao-tributaria-nao-encontrada",
-          "timestamp": "2026-11-24T18:39:48.103550426Z"
+          "timestamp": "2026-11-24T20:15:02.070890125Z"
         }
       }
     },
@@ -14188,7 +14188,7 @@
           "status": 422,
           "title": "Classificação tributária não vinculada à situação tributária",
           "type": "http://127.0.0.1/errors/classificacao-tributaria-nao-vinculada-situacao-tributaria",
-          "timestamp": "2026-11-24T18:39:48.105078926Z"
+          "timestamp": "2026-11-24T20:15:02.073534625Z"
         }
       }
     },
@@ -18655,7 +18655,7 @@
           "status": 404,
           "title": "Classificação tributária não encontrada",
           "type": "http://127.0.0.1/errors/classificacao-tributaria-nao-encontrada",
-          "timestamp": "2026-11-24T18:39:48.150427343Z"
+          "timestamp": "2026-11-24T20:15:02.118059834Z"
         }
       }
     },
@@ -18744,7 +18744,7 @@
           "status": 422,
           "title": "Classificação tributária em desenvolvimento",
           "type": "http://127.0.0.1/errors/erro-falta-implementacao",
-          "timestamp": "2026-11-24T18:39:48.152223801Z"
+          "timestamp": "2026-11-24T20:15:02.120084250Z"
         }
       }
     },
@@ -35483,7 +35483,7 @@
           "status": 422,
           "title": "Erros no processamento do cálculo",
           "type": "about:blank",
-          "timestamp": "2026-11-24T18:39:48.210915634Z",
+          "timestamp": "2026-11-24T20:15:02.186113667Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/erros?codigo=VAL-001",
@@ -35537,7 +35537,7 @@
           "status": 400,
           "title": "Campos inválidos.",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.211666718Z"
+          "timestamp": "2026-11-24T20:15:02.186739959Z"
         }
       }
     },
@@ -35582,7 +35582,7 @@
           "status": 422,
           "title": "Erros no processamento do cálculo",
           "type": "about:blank",
-          "timestamp": "2026-11-24T18:39:48.212252801Z",
+          "timestamp": "2026-11-24T20:15:02.187216084Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/erros?codigo=VAL-001",
@@ -35636,7 +35636,7 @@
           "status": 400,
           "title": "Campos inválidos.",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.212775134Z"
+          "timestamp": "2026-11-24T20:15:02.187697667Z"
         }
       }
     },
@@ -35681,7 +35681,7 @@
           "status": 422,
           "title": "Erros no processamento do cálculo",
           "type": "about:blank",
-          "timestamp": "2026-11-24T18:39:48.213345843Z",
+          "timestamp": "2026-11-24T20:15:02.188137417Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/erros?codigo=VAL-001",
@@ -35735,7 +35735,7 @@
           "status": 400,
           "title": "Campos inválidos.",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.213899634Z"
+          "timestamp": "2026-11-24T20:15:02.188593084Z"
         }
       }
     },
@@ -35781,7 +35781,7 @@
           "status": 422,
           "title": "Erros no processamento do cálculo",
           "type": "about:blank",
-          "timestamp": "2026-11-24T18:39:48.214441718Z",
+          "timestamp": "2026-11-24T20:15:02.189092709Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/erros?codigo=VAL-006",
@@ -35836,7 +35836,7 @@
           "status": 400,
           "title": "Campos inválidos.",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.214982593Z"
+          "timestamp": "2026-11-24T20:15:02.189706250Z"
         }
       }
     },
@@ -35882,7 +35882,7 @@
           "status": 422,
           "title": "Erros no processamento do cálculo",
           "type": "about:blank",
-          "timestamp": "2026-11-24T18:39:48.215559301Z",
+          "timestamp": "2026-11-24T20:15:02.190280209Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/erros?codigo=VAL-005",
@@ -35937,7 +35937,7 @@
           "status": 400,
           "title": "Campos inválidos.",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.216075009Z"
+          "timestamp": "2026-11-24T20:15:02.190820625Z"
         }
       }
     },
@@ -35983,7 +35983,7 @@
           "status": 400,
           "title": "Erro de sistema não previsto",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.216885009Z"
+          "timestamp": "2026-11-24T20:15:02.191687167Z"
         }
       }
     },
@@ -36029,7 +36029,7 @@
           "status": 400,
           "title": "Erro de sistema não previsto",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.217461843Z"
+          "timestamp": "2026-11-24T20:15:02.192231334Z"
         }
       }
     },
@@ -36075,7 +36075,7 @@
           "status": 422,
           "title": "Erros no processamento do cálculo",
           "type": "about:blank",
-          "timestamp": "2026-11-24T18:39:48.218024759Z",
+          "timestamp": "2026-11-24T20:15:02.192806Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/erros?codigo=VAL-004",
@@ -36130,7 +36130,7 @@
           "status": 400,
           "title": "Campos inválidos.",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.218592843Z"
+          "timestamp": "2026-11-24T20:15:02.193390459Z"
         }
       }
     },
@@ -36176,7 +36176,7 @@
           "status": 422,
           "title": "Erros no processamento do cálculo",
           "type": "about:blank",
-          "timestamp": "2026-11-24T18:39:48.219765301Z",
+          "timestamp": "2026-11-24T20:15:02.194431125Z",
           "errors": [
             {
               "type": "http://127.0.0.1/api/calculadora/observabilidade/erros?codigo=REG-020",
@@ -36231,7 +36231,7 @@
           "status": 404,
           "title": "UF não encontrada",
           "type": "http://127.0.0.1/errors/uf-nao-encontrada",
-          "timestamp": "2026-11-24T18:39:48.220380759Z"
+          "timestamp": "2026-11-24T20:15:02.195087125Z"
         }
       }
     },
@@ -36277,7 +36277,7 @@
           "status": 422,
           "title": "Erros no processamento do cálculo",
           "type": "about:blank",
-          "timestamp": "2026-11-24T18:39:48.221479801Z",
+          "timestamp": "2026-11-24T20:15:02.196266709Z",
           "errors": [
             {
               "type": "http://127.0.0.1/api/calculadora/observabilidade/erros?codigo=REG-018",
@@ -36332,7 +36332,7 @@
           "status": 422,
           "title": "Município não pertencente à UF",
           "type": "http://127.0.0.1/errors/municipio-nao-pertencente-uf",
-          "timestamp": "2026-11-24T18:39:48.222215384Z"
+          "timestamp": "2026-11-24T20:15:02.197040334Z"
         }
       }
     },
@@ -36378,7 +36378,7 @@
           "status": 422,
           "title": "Erros no processamento do cálculo",
           "type": "about:blank",
-          "timestamp": "2026-11-24T18:39:48.223346801Z",
+          "timestamp": "2026-11-24T20:15:02.198085292Z",
           "errors": [
             {
               "type": "http://127.0.0.1/api/calculadora/observabilidade/erros?codigo=REG-018",
@@ -36433,7 +36433,7 @@
           "status": 422,
           "title": "Município não pertencente à UF",
           "type": "http://127.0.0.1/errors/municipio-nao-pertencente-uf",
-          "timestamp": "2026-11-24T18:39:48.224162759Z"
+          "timestamp": "2026-11-24T20:15:02.198827334Z"
         }
       }
     },
@@ -36478,7 +36478,7 @@
           "status": 422,
           "title": "Erros no processamento do cálculo",
           "type": "about:blank",
-          "timestamp": "2026-11-24T18:39:48.225275301Z",
+          "timestamp": "2026-11-24T20:15:02.199816334Z",
           "errors": [
             {
               "type": "http://127.0.0.1/api/calculadora/observabilidade/erros?codigo=REG-021",
@@ -36532,7 +36532,7 @@
           "status": 400,
           "title": "Data do fato gerador não informada",
           "type": "http://127.0.0.1/errors/fato-gerador-nao-informada",
-          "timestamp": "2026-11-24T18:39:48.226019218Z"
+          "timestamp": "2026-11-24T20:15:02.200544625Z"
         }
       }
     },
@@ -36578,7 +36578,7 @@
           "status": 400,
           "title": "Erro de sistema não previsto",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.226541176Z"
+          "timestamp": "2026-11-24T20:15:02.201184375Z"
         }
       }
     },
@@ -36624,7 +36624,7 @@
           "status": 400,
           "title": "Erro de sistema não previsto",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.226992801Z"
+          "timestamp": "2026-11-24T20:15:02.201656792Z"
         }
       }
     },
@@ -36670,7 +36670,7 @@
           "status": 400,
           "title": "Erro de sistema não previsto",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.227534301Z"
+          "timestamp": "2026-11-24T20:15:02.202128209Z"
         }
       }
     },
@@ -36716,7 +36716,7 @@
           "status": 400,
           "title": "Erro de sistema não previsto",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.228607176Z"
+          "timestamp": "2026-11-24T20:15:02.202707959Z"
         }
       }
     },
@@ -36746,7 +36746,7 @@
           "status": 422,
           "title": "Erros no processamento do cálculo",
           "type": "about:blank",
-          "timestamp": "2026-11-24T18:39:48.229767468Z",
+          "timestamp": "2026-11-24T20:15:02.203325375Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/erros?codigo=VAL-003",
@@ -36785,7 +36785,7 @@
           "status": 400,
           "title": "Campos inválidos.",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.231175259Z"
+          "timestamp": "2026-11-24T20:15:02.204004875Z"
         }
       }
     },
@@ -36816,7 +36816,7 @@
           "status": 422,
           "title": "Erros no processamento do cálculo",
           "type": "about:blank",
-          "timestamp": "2026-11-24T18:39:48.231760759Z",
+          "timestamp": "2026-11-24T20:15:02.204546209Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/erros?codigo=VAL-003",
@@ -36856,7 +36856,7 @@
           "status": 400,
           "title": "Campos inválidos.",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.232373718Z"
+          "timestamp": "2026-11-24T20:15:02.205014834Z"
         }
       }
     },
@@ -36955,7 +36955,7 @@
           "status": 400,
           "title": "Campos inválidos.",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.233757509Z"
+          "timestamp": "2026-11-24T20:15:02.206508459Z"
         }
       }
     },
@@ -37056,7 +37056,7 @@
           "status": 400,
           "title": "Campos inválidos.",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.235027676Z"
+          "timestamp": "2026-11-24T20:15:02.208146334Z"
         }
       }
     },
@@ -37157,7 +37157,7 @@
           "status": 400,
           "title": "Campos inválidos.",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.236354218Z"
+          "timestamp": "2026-11-24T20:15:02.209580209Z"
         }
       }
     },
@@ -37256,7 +37256,7 @@
           "status": 400,
           "title": "Campos inválidos.",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.237557093Z"
+          "timestamp": "2026-11-24T20:15:02.210846417Z"
         }
       }
     },
@@ -37357,7 +37357,7 @@
           "status": 400,
           "title": "Campos inválidos.",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.238803134Z"
+          "timestamp": "2026-11-24T20:15:02.212200792Z"
         }
       }
     },
@@ -37458,7 +37458,7 @@
           "status": 400,
           "title": "Campos inválidos.",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.240134134Z"
+          "timestamp": "2026-11-24T20:15:02.213536209Z"
         }
       }
     },
@@ -37557,7 +37557,7 @@
           "status": 400,
           "title": "Campos inválidos.",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.241398509Z"
+          "timestamp": "2026-11-24T20:15:02.214799584Z"
         }
       }
     },
@@ -37658,7 +37658,7 @@
           "status": 400,
           "title": "Campos inválidos.",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.242652259Z"
+          "timestamp": "2026-11-24T20:15:02.216078917Z"
         }
       }
     },
@@ -37759,7 +37759,7 @@
           "status": 400,
           "title": "Campos inválidos.",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.243876884Z"
+          "timestamp": "2026-11-24T20:15:02.217313667Z"
         }
       }
     },
@@ -37860,7 +37860,7 @@
           "status": 400,
           "title": "Campos inválidos.",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.245187926Z"
+          "timestamp": "2026-11-24T20:15:02.218611125Z"
         }
       }
     },
@@ -37961,7 +37961,7 @@
           "status": 400,
           "title": "Campos inválidos.",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.246501134Z"
+          "timestamp": "2026-11-24T20:15:02.219891750Z"
         }
       }
     },
@@ -38062,7 +38062,7 @@
           "status": 400,
           "title": "Campos inválidos.",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.247722968Z"
+          "timestamp": "2026-11-24T20:15:02.221133125Z"
         }
       }
     },
@@ -38108,7 +38108,7 @@
           "status": 400,
           "title": "Erro de sistema não previsto",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.248319759Z"
+          "timestamp": "2026-11-24T20:15:02.221749Z"
         }
       }
     },
@@ -38154,7 +38154,7 @@
           "status": 400,
           "title": "Erro de sistema não previsto",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.248818009Z"
+          "timestamp": "2026-11-24T20:15:02.222237459Z"
         }
       }
     },
@@ -38255,7 +38255,7 @@
           "status": 400,
           "title": "Campos inválidos.",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.250029801Z"
+          "timestamp": "2026-11-24T20:15:02.223455584Z"
         }
       }
     },
@@ -38356,7 +38356,7 @@
           "status": 400,
           "title": "Campos inválidos.",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.251281509Z"
+          "timestamp": "2026-11-24T20:15:02.224725167Z"
         }
       }
     },
@@ -38457,7 +38457,7 @@
           "status": 400,
           "title": "Campos inválidos.",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.252655593Z"
+          "timestamp": "2026-11-24T20:15:02.226038375Z"
         }
       }
     },
@@ -38558,7 +38558,7 @@
           "status": 400,
           "title": "Campos inválidos.",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.253975551Z"
+          "timestamp": "2026-11-24T20:15:02.227313250Z"
         }
       }
     },
@@ -38659,7 +38659,7 @@
           "status": 400,
           "title": "Campos inválidos.",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.256028551Z"
+          "timestamp": "2026-11-24T20:15:02.229519584Z"
         }
       }
     },
@@ -38760,7 +38760,7 @@
           "status": 400,
           "title": "Campos inválidos.",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.257250259Z"
+          "timestamp": "2026-11-24T20:15:02.230854209Z"
         }
       }
     },
@@ -38861,7 +38861,7 @@
           "status": 400,
           "title": "Campos inválidos.",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.258603343Z"
+          "timestamp": "2026-11-24T20:15:02.232255875Z"
         }
       }
     },
@@ -38968,7 +38968,7 @@
           "status": 400,
           "title": "Campos inválidos.",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.259878968Z"
+          "timestamp": "2026-11-24T20:15:02.233582750Z"
         }
       }
     },
@@ -39077,7 +39077,7 @@
           "status": 400,
           "title": "Campos inválidos.",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.261083176Z"
+          "timestamp": "2026-11-24T20:15:02.234876959Z"
         }
       }
     },
@@ -39190,7 +39190,7 @@
           "status": 400,
           "title": "Campos inválidos.",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.262358884Z"
+          "timestamp": "2026-11-24T20:15:02.236412625Z"
         }
       }
     },
@@ -39303,7 +39303,7 @@
           "status": 400,
           "title": "Campos inválidos.",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.263578759Z"
+          "timestamp": "2026-11-24T20:15:02.237719584Z"
         }
       }
     },
@@ -39418,7 +39418,7 @@
           "status": 400,
           "title": "Campos inválidos.",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.264827009Z"
+          "timestamp": "2026-11-24T20:15:02.239236584Z"
         }
       }
     },
@@ -39533,7 +39533,7 @@
           "status": 400,
           "title": "Campos inválidos.",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.266142593Z"
+          "timestamp": "2026-11-24T20:15:02.240714042Z"
         }
       }
     },
@@ -39650,7 +39650,7 @@
           "status": 400,
           "title": "Campos inválidos.",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.267453551Z"
+          "timestamp": "2026-11-24T20:15:02.242102959Z"
         }
       }
     },
@@ -39757,7 +39757,7 @@
           "status": 400,
           "title": "Campos inválidos.",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.268688468Z"
+          "timestamp": "2026-11-24T20:15:02.243388042Z"
         }
       }
     },
@@ -39780,7 +39780,7 @@
           "status": 400,
           "title": "Erro de sistema não previsto",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.269353968Z"
+          "timestamp": "2026-11-24T20:15:02.244056292Z"
         }
       }
     },
@@ -39803,7 +39803,7 @@
           "status": 400,
           "title": "Erro de sistema não previsto",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.269820926Z"
+          "timestamp": "2026-11-24T20:15:02.244562709Z"
         }
       }
     },
@@ -39826,7 +39826,7 @@
           "status": 400,
           "title": "Erro de sistema não previsto",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.270311634Z"
+          "timestamp": "2026-11-24T20:15:02.245079459Z"
         }
       }
     },
@@ -39849,7 +39849,7 @@
           "status": 400,
           "title": "Erro de sistema não previsto",
           "type": "http://127.0.0.1/errors/erro-de-sistema-nao-previsto",
-          "timestamp": "2026-11-24T18:39:48.270749551Z"
+          "timestamp": "2026-11-24T20:15:02.245550792Z"
         }
       }
     },
@@ -45263,7 +45263,7 @@
           "status": 404,
           "title": "NCM não encontrada",
           "type": "http://127.0.0.1/errors/ncm-nao-encontrada",
-          "timestamp": "2026-11-24T18:39:48.354185176Z"
+          "timestamp": "2026-11-24T20:15:02.410621709Z"
         }
       }
     },
@@ -45364,7 +45364,7 @@
           "status": 404,
           "title": "NCM não encontrada",
           "type": "http://127.0.0.1/errors/ncm-nao-encontrada",
-          "timestamp": "2026-11-24T18:39:48.355918885Z"
+          "timestamp": "2026-11-24T20:15:02.412005709Z"
         }
       }
     },
@@ -45463,7 +45463,7 @@
           "status": 404,
           "title": "NCM não encontrada",
           "type": "http://127.0.0.1/errors/ncm-nao-encontrada",
-          "timestamp": "2026-11-24T18:39:48.357515426Z"
+          "timestamp": "2026-11-24T20:15:02.413197959Z"
         }
       }
     },
@@ -57247,7 +57247,7 @@
           "status": 422,
           "title": "Dados do Imposto Seletivo não informados",
           "type": "http://127.0.0.1/errors/dados-imposto-seletivo-nao-informados",
-          "timestamp": "2026-11-24T18:39:48.483108218Z"
+          "timestamp": "2026-11-24T20:15:02.532787376Z"
         }
       }
     },
@@ -58883,7 +58883,7 @@
           "status": 404,
           "title": "NCM não encontrada",
           "type": "http://127.0.0.1/errors/ncm-nao-encontrada",
-          "timestamp": "2026-11-24T18:39:48.493479801Z"
+          "timestamp": "2026-11-24T20:15:02.544355334Z"
         }
       }
     },
@@ -59746,7 +59746,7 @@
           "status": 422,
           "title": "Classificação tributária não vinculada à situação tributária",
           "type": "http://127.0.0.1/errors/classificacao-tributaria-nao-vinculada-situacao-tributaria",
-          "timestamp": "2026-11-24T18:39:48.501398218Z"
+          "timestamp": "2026-11-24T20:15:02.554425792Z"
         }
       }
     },
@@ -59888,7 +59888,7 @@
           "status": 404,
           "title": "Situação tributária não encontrada",
           "type": "http://127.0.0.1/errors/situacao-tributaria-nao-encontrada",
-          "timestamp": "2026-11-24T18:39:48.503974760Z"
+          "timestamp": "2026-11-24T20:15:02.557968334Z"
         }
       }
     },
@@ -60201,7 +60201,7 @@
           "status": 404,
           "title": "Classificação tributária não encontrada",
           "type": "http://127.0.0.1/errors/classificacao-tributaria-nao-encontrada",
-          "timestamp": "2026-11-24T18:39:48.508273885Z"
+          "timestamp": "2026-11-24T20:15:02.563037751Z"
         }
       }
     },
@@ -61845,7 +61845,7 @@
           "status": 422,
           "title": "Alíquotas nominais não informadas",
           "type": "http://127.0.0.1/errors/aliquotas-nominais-nao-informadas",
-          "timestamp": "2026-11-24T18:39:48.518953468Z"
+          "timestamp": "2026-11-24T20:15:02.579514667Z"
         }
       }
     },
