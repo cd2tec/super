@@ -108,6 +108,26 @@ class WorkflowTest(unittest.TestCase):
         # O robô não é o Claude: commit do robô sem linha de coautoria.
         self.assertNotIn("Co-Authored-By", text)
 
+    def test_base_completa_sempre_com_a_skill(self):
+        # A base completa só vale para a skill dela: quem define CD2_BASE_COMPLETA define também a skill, no
+        # mesmo comando (ou no mesmo bloco env:), senão o teste de uma skill leria a base de outra.
+        definicoes = 0
+        for path in WF.glob("*.yml"):
+            linhas = path.read_text(encoding="utf-8").splitlines()
+            for i, linha in enumerate(linhas):
+                if not re.search(r"CD2_BASE_COMPLETA(?!_)\s*[=:]", linha):
+                    continue
+                definicoes += 1
+                recuo = len(linha) - len(linha.lstrip())
+                if linha.lstrip().startswith("CD2_BASE_COMPLETA:"):
+                    bloco = [x for x in linhas[max(i - 20, 0):i + 20] if len(x) - len(x.lstrip()) == recuo]
+                    contexto = "\n".join(bloco)
+                else:
+                    contexto = linha
+                self.assertRegex(contexto, r'CD2_BASE_COMPLETA_SKILL[=:]\s*"?(\$SKILL|\$\{\{ matrix\.skill \}\})',
+                                 f"{path.name}:{i + 1}: {linha.strip()}")
+        self.assertGreater(definicoes, 0)
+
     def test_nenhuma_expressao_dentro_de_run(self):
         for path in WF.glob("*.yml"):
             for bloco in run_blocks(path.read_text(encoding="utf-8")):

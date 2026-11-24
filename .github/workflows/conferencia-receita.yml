@@ -435,7 +435,8 @@ jobs:
           python3 scripts/sync_plugins.py --check
           echo "Publicar: testes" > "$ETAPA"
           # Sem o GITHUB_OUTPUT: teste nenhum escreve nas saídas deste passo.
-          env -u GITHUB_OUTPUT CD2_BASE_COMPLETA="$ART/base-completa.db" python3 -m unittest discover -s tests
+          env -u GITHUB_OUTPUT CD2_BASE_COMPLETA="$ART/base-completa.db" CD2_BASE_COMPLETA_SKILL="$SKILL" \
+            python3 -m unittest discover -s tests
           echo "Publicar: commit e push na main" > "$ETAPA"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

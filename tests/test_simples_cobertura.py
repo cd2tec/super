@@ -18,8 +18,12 @@ import tempfile
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parent.parent
+_spec_versao = importlib.util.spec_from_file_location("versao_da_base", ROOT / "tests" / "versao_da_base.py")
+versao_da_base = importlib.util.module_from_spec(_spec_versao)
+_spec_versao.loader.exec_module(versao_da_base)
 SKILL = ROOT / "core" / "cd2-super" / "skills" / "cbs-ibs-simples"
 PASTA_CONFERENCIA = ROOT / "conferencia" / "cbs-ibs-simples"
 BASE_URL_OFICIAL = "http://127.0.0.1"
@@ -220,10 +224,23 @@ class BateriaTest(unittest.TestCase):
 
     def test_lista_igual_com_a_base_completa_das_migracoes(self):
         # a base completa não mora no repositório: aponte CD2_BASE_COMPLETA para uma montada das migrações
-        caminho = os.environ.get("CD2_BASE_COMPLETA")
-        if not caminho or not Path(caminho).is_file():
-            self.skipTest("defina CD2_BASE_COMPLETA com o caminho da base montada das migrações")
-        self.assertEqual(bateria.casos(Path(caminho)), self.casos)
+        # e CD2_BASE_COMPLETA_SKILL para a skill dona dela
+        caminho = versao_da_base.base_completa_da_skill("cbs-ibs-simples")
+        if caminho is None or not caminho.is_file():
+            self.skipTest("defina CD2_BASE_COMPLETA com a base montada das migrações e "
+                          "CD2_BASE_COMPLETA_SKILL=cbs-ibs-simples")
+        self.assertEqual(bateria.casos(caminho), self.casos)
+
+    def test_base_completa_de_outra_skill_pula(self):
+        with tempfile.NamedTemporaryFile(suffix=".db") as arquivo:
+            ambiente = {"CD2_BASE_COMPLETA": arquivo.name, "CD2_BASE_COMPLETA_SKILL": "outra"}
+            with mock.patch.dict(os.environ, ambiente):
+                self.assertIsNone(versao_da_base.base_completa_da_skill("cbs-ibs-simples"))
+            ambiente["CD2_BASE_COMPLETA_SKILL"] = "cbs-ibs-simples"
+            with mock.patch.dict(os.environ, ambiente):
+                self.assertEqual(versao_da_base.base_completa_da_skill("cbs-ibs-simples"), Path(arquivo.name))
+        with mock.patch.dict(os.environ, {"CD2_BASE_COMPLETA": "/x"}, clear=True):
+            self.assertIsNone(versao_da_base.base_completa_da_skill("cbs-ibs-simples"))
 
 
 class AmostraTest(unittest.TestCase):
