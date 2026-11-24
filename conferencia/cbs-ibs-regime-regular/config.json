@@ -1,0 +1,71 @@
+{
+  "skill": "cbs-ibs-regime-regular",
+  "nome_humano": "calculadora oficial do regime regular",
+  "arquivos_motor": [
+    "rr_motor.py",
+    "rr_item.py",
+    "rr_calculo.py",
+    "rr_base.py",
+    "numeros.py"
+  ],
+  "calculadora": {
+    "repo": "ReceitaFederal/calculadora-rtc-regime-regular",
+    "caminho_codigo": "src/main"
+  },
+  "migracoes": {
+    "repo": "ReceitaFederal/calculadora-rtc-regime-regular",
+    "caminho": "flyway/sql"
+  },
+  "tabelas": [
+    "ALIQUOTA_AD_REM",
+    "ALIQUOTA_AD_REM_PRODUTO",
+    "ALIQUOTA_AD_VALOREM",
+    "ALIQUOTA_AD_VALOREM_PRODUTO",
+    "ALIQUOTA_AD_VALOREM_SERVICO",
+    "ALIQUOTA_PADRAO",
+    "ALIQUOTA_REFERENCIA",
+    "ANEXO",
+    "CLASSIFICACAO_TRIBUTARIA",
+    "EXCECAO_AD_REM_PRODUTO",
+    "EXCECAO_AD_VALOREM_PRODUTO",
+    "EXCECAO_AD_VALOREM_SERVICO",
+    "EXCECAO_NBS_APLICAVEL",
+    "EXCECAO_NCM_APLICAVEL",
+    "FUNDAMENTACAO_CLASSIFICACAO",
+    "FUNDAMENTACAO_LEGAL",
+    "MUNICIPIO",
+    "NBS",
+    "NBS_APLICAVEL",
+    "NCM",
+    "NCM_APLICAVEL",
+    "PERCENTUAL_REDUCAO",
+    "SITUACAO_TRIBUTARIA",
+    "TIPO_DFE",
+    "TIPO_DFE_CLASSIFICACAO",
+    "TOMADOR_ESPECIFICO",
+    "TRANSFERENCIA_CBS_ENTE_GOV",
+    "TRATAMENTO_CLASSIFICACAO",
+    "TRATAMENTO_TRIBUTARIO",
+    "TRIBUTO",
+    "TRIBUTO_SITUACAO_TRIBUTARIA",
+    "UF",
+    "UNIDADE_MEDIDA",
+    "VERSAO_BASE_DADO"
+  ],
+  "base_destino": "core/cd2-super/skills/cbs-ibs-regime-regular/references/base-receita.db",
+  "oficial": {
+    "porta": 8080,
+    "contexto": "/api",
+    "jar": "target/api-regime-geral.jar",
+    "flyway_conf": "./flyway/flyway-pro.conf",
+    "arquivo_db": "calculadora-pro.db"
+  },
+  "hash_ignorar_colunas": {
+    "VERSAO_BASE_DADO": [
+      "VRBD_DATA"
+    ]
+  },
+  "ignorar": [
+    "timestamp"
+  ]
+}
