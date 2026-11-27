@@ -10,15 +10,15 @@
     },
     "migracoes": {
       "repo": "ReceitaFederal/calculadora-rtc-regime-regular",
-      "commit": "f1eebd7ce3157423b1a6aaca7dc1d6c3395452c4"
+      "commit": "0d4b073da96db8d015e50736d1552bbc7623224e"
     },
     "base": {
-      "versao": "V0073",
-      "data": "2026-11-09",
-      "hash": "sha256:f510fae4078f5be78ad23583a2b2bc11bc3a28898346cc449b97d6219f9b0840"
+      "versao": "V0074",
+      "data": "2026-11-26",
+      "hash": "sha256:ad787a58bdb2a9ed54b2ebcda215a0ebafdf23dab9360a4bd5b57f2778cfda83"
     },
     "conferencia": {
-      "data": "2026-11-22",
+      "data": "2026-11-27",
       "casos": 12013,
       "iguais": 12013
     }
@@ -635,7 +635,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:29.852199419Z",
+          "timestamp": "2026-11-27T09:24:49.313466306Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-018",
@@ -714,7 +714,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:29.853014127Z",
+          "timestamp": "2026-11-27T09:24:49.315133635Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-018",
@@ -792,7 +792,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:29.853998711Z",
+          "timestamp": "2026-11-27T09:24:49.317023922Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-019",
@@ -871,7 +871,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:29.854947752Z",
+          "timestamp": "2026-11-27T09:24:49.318576958Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-018",
@@ -949,7 +949,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:29.856146044Z",
+          "timestamp": "2026-11-27T09:24:49.320449239Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-019",
@@ -1028,7 +1028,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:29.857020877Z",
+          "timestamp": "2026-11-27T09:24:49.322188880Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-018",
@@ -1107,7 +1107,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:29.857790836Z",
+          "timestamp": "2026-11-27T09:24:49.323698448Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-018",
@@ -1184,7 +1184,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:29.858607086Z",
+          "timestamp": "2026-11-27T09:24:49.325246424Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-016",
@@ -1262,7 +1262,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:29.859396044Z",
+          "timestamp": "2026-11-27T09:24:49.326821010Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-016",
@@ -1341,7 +1341,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:29.860082461Z",
+          "timestamp": "2026-11-27T09:24:49.328445128Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-017",
@@ -1419,7 +1419,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:29.860946419Z",
+          "timestamp": "2026-11-27T09:24:49.330316054Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-019",
@@ -2172,7 +2172,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:29.870887252Z",
+          "timestamp": "2026-11-27T09:24:49.355361724Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-019",
@@ -2251,7 +2251,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:29.871695669Z",
+          "timestamp": "2026-11-27T09:24:49.357185996Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-019",
@@ -2331,7 +2331,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:29.872450794Z",
+          "timestamp": "2026-11-27T09:24:49.358698135Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-031",
@@ -2411,7 +2411,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:29.873207336Z",
+          "timestamp": "2026-11-27T09:24:49.360222097Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-031",
@@ -2491,7 +2491,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:29.873940502Z",
+          "timestamp": "2026-11-27T09:24:49.361735869Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-031",
@@ -2571,7 +2571,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:29.874771877Z",
+          "timestamp": "2026-11-27T09:24:49.363232309Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-031",
@@ -2651,7 +2651,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:29.875489586Z",
+          "timestamp": "2026-11-27T09:24:49.364759166Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-031",
@@ -2732,7 +2732,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:29.876273211Z",
+          "timestamp": "2026-11-27T09:24:49.366187630Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-031",
@@ -2812,7 +2812,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:29.877035836Z",
+          "timestamp": "2026-11-27T09:24:49.367711722Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-032",
@@ -2892,7 +2892,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:29.877799961Z",
+          "timestamp": "2026-11-27T09:24:49.369146657Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-032",
@@ -2972,7 +2972,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:29.878601377Z",
+          "timestamp": "2026-11-27T09:24:49.370590960Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-032",
@@ -3053,7 +3053,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:29.879299294Z",
+          "timestamp": "2026-11-27T09:24:49.372073344Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-032",
@@ -3133,7 +3133,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:29.880091002Z",
+          "timestamp": "2026-11-27T09:24:49.373560848Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-030",
@@ -3214,7 +3214,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:29.880876752Z",
+          "timestamp": "2026-11-27T09:24:49.374994942Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-030",
@@ -3294,7 +3294,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:29.881618919Z",
+          "timestamp": "2026-11-27T09:24:49.376459162Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-033",
@@ -3374,7 +3374,7 @@
           "status": 422,
           "detail": "O cálculo contém 2 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:29.882353877Z",
+          "timestamp": "2026-11-27T09:24:49.377998693Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-033",
@@ -3617,7 +3617,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:29.886712502Z",
+          "timestamp": "2026-11-27T09:24:49.387733366Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-039",
@@ -4030,7 +4030,7 @@
           "status": 422,
           "detail": "O cálculo contém 2 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:29.891489127Z",
+          "timestamp": "2026-11-27T09:24:49.403194755Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-005",
@@ -7763,7 +7763,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:29.930090294Z",
+          "timestamp": "2026-11-27T09:24:49.517338977Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-034",
@@ -10204,7 +10204,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:29.952938127Z",
+          "timestamp": "2026-11-27T09:24:49.586496768Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-015",
@@ -10282,7 +10282,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:29.953633169Z",
+          "timestamp": "2026-11-27T09:24:49.587997977Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-015",
@@ -10360,7 +10360,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:29.954355711Z",
+          "timestamp": "2026-11-27T09:24:49.589299010Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-015",
@@ -10438,7 +10438,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:29.955024711Z",
+          "timestamp": "2026-11-27T09:24:49.590619332Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-015",
@@ -15700,7 +15700,7 @@
           "status": 400,
           "detail": "O parâmetro obrigatório 'data' (LocalDate) não foi informado.",
           "instance": "/api/calculadora/simples-nacional/atividades",
-          "timestamp": "2026-11-23T02:13:29.981618127Z",
+          "timestamp": "2026-11-27T09:24:49.649432804Z",
           "errors": [
             {
               "title": "Parâmetro obrigatório ausente",
@@ -15729,7 +15729,7 @@
           "status": 400,
           "detail": "Parâmetro inválido [data: 01/01/2027] ",
           "instance": "/api/calculadora/simples-nacional/atividades",
-          "timestamp": "2026-11-23T02:13:29.982316002Z",
+          "timestamp": "2026-11-27T09:24:49.652222416Z",
           "errors": [
             {
               "title": "Tipo de argumento inválido",
@@ -15882,7 +15882,7 @@
           "status": 400,
           "detail": "O parâmetro obrigatório 'data' (LocalDate) não foi informado.",
           "instance": "/api/calculadora/simples-nacional/atividades/09",
-          "timestamp": "2026-11-23T02:13:29.986225252Z",
+          "timestamp": "2026-11-27T09:24:49.662460408Z",
           "errors": [
             {
               "title": "Parâmetro obrigatório ausente",
@@ -15907,9 +15907,9 @@
         "tipo": "application/json",
         "corpo": {
           "versaoApp": "1.0.2",
-          "versaoDb": "V0073",
-          "descricaoVersaoDb": "Nova tabela de Classificações Tributárias (IT 2025.002 v.1.71), publicada em 30/10/2026.",
-          "dataVersaoDb": "2026-11-09",
+          "versaoDb": "V0074",
+          "descricaoVersaoDb": "Ajusta as vigências das tabelas CLASSIF_NBS_INDOP_LC e INDICADOR_OPERACAO_IBS_CBS.",
+          "dataVersaoDb": "2026-11-26",
           "arquivoDb": "calculadora-pro.db",
           "ambiente": "offline"
         }
@@ -16403,7 +16403,7 @@
           "status": 400,
           "detail": "JSON parse error: Cannot construct instance of `br.gov.serpro.rtc.api.simplesnacional.model.input.ItemSimplesUnificadoInput` (although at least one Creator exists): no int/Int-argument constructor/factory method to deserialize from Number value (5)",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:29.991272086Z"
+          "timestamp": "2026-11-27T09:24:49.680158849Z"
         }
       }
     },
@@ -16472,7 +16472,7 @@
           "status": 400,
           "detail": "JSON parse error: Cannot construct instance of `br.gov.serpro.rtc.api.simplesnacional.model.input.ItemSimplesUnificadoInput` (although at least one Creator exists): no String-argument constructor/factory method to deserialize from String value ('x')",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:29.992046086Z"
+          "timestamp": "2026-11-27T09:24:49.681407176Z"
         }
       }
     },
@@ -20616,7 +20616,7 @@
           "status": 400,
           "detail": "JSON parse error: Cannot coerce empty String (\"\") to `br.gov.serpro.rtc.api.simplesnacional.model.input.AliquotasEfetivasInput` value (but could if coercion was enabled using `CoercionConfig`)",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.052384419Z"
+          "timestamp": "2026-11-27T09:24:49.819113Z"
         }
       }
     },
@@ -20654,7 +20654,7 @@
           "status": 400,
           "detail": "JSON parse error: Cannot coerce empty String (\"\") to `br.gov.serpro.rtc.api.simplesnacional.model.input.AliquotasEfetivasInput` value (but could if coercion was enabled using `CoercionConfig`)",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.052982502Z"
+          "timestamp": "2026-11-27T09:24:49.820210477Z"
         }
       }
     },
@@ -20692,7 +20692,7 @@
           "status": 400,
           "detail": "JSON parse error: Cannot construct instance of `br.gov.serpro.rtc.api.simplesnacional.model.input.AliquotasEfetivasInput` (although at least one Creator exists): no String-argument constructor/factory method to deserialize from String value ('1')",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.053599461Z"
+          "timestamp": "2026-11-27T09:24:49.821244304Z"
         }
       }
     },
@@ -20730,7 +20730,7 @@
           "status": 400,
           "detail": "JSON parse error: Cannot construct instance of `br.gov.serpro.rtc.api.simplesnacional.model.input.AliquotasEfetivasInput` (although at least one Creator exists): no long/Long-argument constructor/factory method to deserialize from Number value (1099511627776)",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.054206419Z"
+          "timestamp": "2026-11-27T09:24:49.822278322Z"
         }
       }
     },
@@ -20768,7 +20768,7 @@
           "status": 400,
           "detail": "JSON parse error: Cannot construct instance of `br.gov.serpro.rtc.api.simplesnacional.model.input.AliquotasEfetivasInput` (although at least one Creator exists): no long/Long-argument constructor/factory method to deserialize from Number value (-1099511627776)",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.054805252Z"
+          "timestamp": "2026-11-27T09:24:49.823348588Z"
         }
       }
     },
@@ -20806,7 +20806,7 @@
           "status": 400,
           "detail": "JSON parse error: Cannot construct instance of `br.gov.serpro.rtc.api.simplesnacional.model.input.AliquotasEfetivasInput` (although at least one Creator exists): no BigInteger-argument constructor/factory method to deserialize from Number value (1180591620717411303424)",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.055448127Z"
+          "timestamp": "2026-11-27T09:24:49.824449781Z"
         }
       }
     },
@@ -20844,7 +20844,7 @@
           "status": 400,
           "detail": "JSON parse error: Cannot construct instance of `br.gov.serpro.rtc.api.simplesnacional.model.input.AliquotasEfetivasInput` (although at least one Creator exists): no double/Double-argument constructor/factory method to deserialize from Number value (1000.0)",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.056123711Z"
+          "timestamp": "2026-11-27T09:24:49.825522121Z"
         }
       }
     },
@@ -20882,7 +20882,7 @@
           "status": 400,
           "detail": "JSON parse error: Cannot construct instance of `br.gov.serpro.rtc.api.simplesnacional.model.input.AliquotasEfetivasInput` (although at least one Creator exists): no double/Double-argument constructor/factory method to deserialize from Number value (1.0E30)",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.056700419Z"
+          "timestamp": "2026-11-27T09:24:49.826577198Z"
         }
       }
     },
@@ -20920,7 +20920,7 @@
           "status": 400,
           "detail": "JSON parse error: Cannot construct instance of `br.gov.serpro.rtc.api.simplesnacional.model.input.AliquotasEfetivasInput` (although at least one Creator exists): no double/Double-argument constructor/factory method to deserialize from Number value (1.0E-6)",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.057281294Z"
+          "timestamp": "2026-11-27T09:24:49.827620513Z"
         }
       }
     },
@@ -20958,7 +20958,7 @@
           "status": 400,
           "detail": "JSON parse error: Cannot construct instance of `br.gov.serpro.rtc.api.simplesnacional.model.input.AliquotasEfetivasInput` (although at least one Creator exists): no double/Double-argument constructor/factory method to deserialize from Number value (-0.0)",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.057862711Z"
+          "timestamp": "2026-11-27T09:24:49.828650584Z"
         }
       }
     },
@@ -21533,7 +21533,7 @@
           "status": 400,
           "detail": "JSON parse error: Cannot construct instance of `br.gov.serpro.rtc.api.simplesnacional.model.input.ItemSimplesUnificadoInput` (although at least one Creator exists): no String-argument constructor/factory method to deserialize from String value ('x')",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.063067586Z"
+          "timestamp": "2026-11-27T09:24:49.842839741Z"
         }
       }
     },
@@ -21600,7 +21600,7 @@
           "status": 400,
           "detail": "JSON parse error: Cannot coerce empty String (\"\") to `br.gov.serpro.rtc.api.simplesnacional.model.input.ItemSimplesUnificadoInput` value (but could if coercion was enabled using `CoercionConfig`)",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.063676086Z"
+          "timestamp": "2026-11-27T09:24:49.844663892Z"
         }
       }
     },
@@ -21666,7 +21666,7 @@
           "status": 400,
           "detail": "JSON parse error: Cannot construct instance of `br.gov.serpro.rtc.api.simplesnacional.model.input.AliquotasEfetivasInput$AnexoComIssInput` (although at least one Creator exists): no String-argument constructor/factory method to deserialize from String value ('abc')",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.064261086Z"
+          "timestamp": "2026-11-27T09:24:49.845895478Z"
         }
       }
     },
@@ -22576,7 +22576,7 @@
           "status": 400,
           "detail": "O parâmetro obrigatório 'codigo' (String) não foi informado.",
           "instance": "/api/calculadora/observabilidade/simples-nacional/erros",
-          "timestamp": "2026-11-23T02:13:30.067938669Z",
+          "timestamp": "2026-11-27T09:24:49.855891948Z",
           "errors": [
             {
               "title": "Parâmetro obrigatório ausente",
@@ -22910,7 +22910,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.070995461Z",
+          "timestamp": "2026-11-27T09:24:49.866151568Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-015",
@@ -22992,7 +22992,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.071636253Z",
+          "timestamp": "2026-11-27T09:24:49.867607750Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-012",
@@ -23074,7 +23074,7 @@
           "status": 500,
           "detail": "Index -1 out of bounds for length 4",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.072372211Z"
+          "timestamp": "2026-11-27T09:24:49.869226659Z"
         }
       }
     },
@@ -23147,7 +23147,7 @@
           "status": 500,
           "detail": "Index -1 out of bounds for length 4",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.073620169Z"
+          "timestamp": "2026-11-27T09:24:49.871988842Z"
         }
       }
     },
@@ -23220,7 +23220,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.074725878Z",
+          "timestamp": "2026-11-27T09:24:49.874819480Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-015",
@@ -23302,7 +23302,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.075391294Z",
+          "timestamp": "2026-11-27T09:24:49.876167293Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-012",
@@ -23384,7 +23384,7 @@
           "status": 500,
           "detail": "Index -1 out of bounds for length 4",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.076062586Z"
+          "timestamp": "2026-11-27T09:24:49.877509265Z"
         }
       }
     },
@@ -24031,7 +24031,7 @@
           "status": 400,
           "detail": "Parâmetro inválido [data: -0000-01-01] ",
           "instance": "/api/calculadora/simples-nacional/atividades",
-          "timestamp": "2026-11-23T02:13:30.081326461Z",
+          "timestamp": "2026-11-27T09:24:49.889494342Z",
           "errors": [
             {
               "title": "Tipo de argumento inválido",
@@ -24059,7 +24059,7 @@
           "status": 400,
           "detail": "Parâmetro inválido [data: -0000-01-01] ",
           "instance": "/api/calculadora/simples-nacional/atividades/01",
-          "timestamp": "2026-11-23T02:13:30.081979378Z",
+          "timestamp": "2026-11-27T09:24:49.890776844Z",
           "errors": [
             {
               "title": "Tipo de argumento inválido",
@@ -24087,7 +24087,7 @@
           "status": 500,
           "detail": "Index -1 out of bounds for length 4",
           "instance": "/api/calculadora/simples-nacional/atividades",
-          "timestamp": "2026-11-23T02:13:30.082658794Z"
+          "timestamp": "2026-11-27T09:24:49.892026521Z"
         }
       }
     },
@@ -24108,7 +24108,7 @@
           "status": 500,
           "detail": "Index -1 out of bounds for length 4",
           "instance": "/api/calculadora/simples-nacional/atividades/01",
-          "timestamp": "2026-11-23T02:13:30.083615003Z"
+          "timestamp": "2026-11-27T09:24:49.895006508Z"
         }
       }
     },
@@ -24129,7 +24129,7 @@
           "status": 500,
           "detail": "Index -1 out of bounds for length 4",
           "instance": "/api/calculadora/simples-nacional/atividades",
-          "timestamp": "2026-11-23T02:13:30.084547086Z"
+          "timestamp": "2026-11-27T09:24:49.897566721Z"
         }
       }
     },
@@ -24150,7 +24150,7 @@
           "status": 500,
           "detail": "Index -1 out of bounds for length 4",
           "instance": "/api/calculadora/simples-nacional/atividades/01",
-          "timestamp": "2026-11-23T02:13:30.085433878Z"
+          "timestamp": "2026-11-27T09:24:49.899978298Z"
         }
       }
     },
@@ -24171,7 +24171,7 @@
           "status": 400,
           "detail": "Parâmetro inválido [data: ９999-12-31] ",
           "instance": "/api/calculadora/simples-nacional/atividades",
-          "timestamp": "2026-11-23T02:13:30.086302919Z",
+          "timestamp": "2026-11-27T09:24:49.902344590Z",
           "errors": [
             {
               "title": "Tipo de argumento inválido",
@@ -24199,7 +24199,7 @@
           "status": 400,
           "detail": "Parâmetro inválido [data: ９999-12-31] ",
           "instance": "/api/calculadora/simples-nacional/atividades/01",
-          "timestamp": "2026-11-23T02:13:30.086905628Z",
+          "timestamp": "2026-11-27T09:24:49.903728059Z",
           "errors": [
             {
               "title": "Tipo de argumento inválido",
@@ -25004,7 +25004,7 @@
           "status": 400,
           "detail": "JSON parse error: Cannot deserialize value of type `java.lang.Boolean` from String \"sim\": only \"true\" or \"false\" recognized",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.091815211Z"
+          "timestamp": "2026-11-27T09:24:49.916345686Z"
         }
       }
     },
@@ -25204,7 +25204,7 @@
           "status": 400,
           "detail": "JSON parse error: Cannot deserialize value of type `java.lang.Boolean` from String \"sim\": only \"true\" or \"false\" recognized",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.093666919Z"
+          "timestamp": "2026-11-27T09:24:49.921172186Z"
         }
       }
     },
@@ -25242,7 +25242,7 @@
           "status": 400,
           "detail": "JSON parse error: Cannot construct instance of `br.gov.serpro.rtc.api.simplesnacional.model.input.AliquotasEfetivasInput` (although at least one Creator exists): no double/Double-argument constructor/factory method to deserialize from Number value (Infinity)",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.094258211Z"
+          "timestamp": "2026-11-27T09:24:49.922485144Z"
         }
       }
     },
@@ -25280,7 +25280,7 @@
           "status": 400,
           "detail": "JSON parse error: Cannot construct instance of `br.gov.serpro.rtc.api.simplesnacional.model.input.AliquotasEfetivasInput` (although at least one Creator exists): no double/Double-argument constructor/factory method to deserialize from Number value (0.0)",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.094817586Z"
+          "timestamp": "2026-11-27T09:24:49.923770681Z"
         }
       }
     },
@@ -25318,7 +25318,7 @@
           "status": 400,
           "detail": "JSON parse error: Cannot construct instance of `br.gov.serpro.rtc.api.simplesnacional.model.input.AliquotasEfetivasInput` (although at least one Creator exists): no double/Double-argument constructor/factory method to deserialize from Number value (0.12345678901234568)",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.095409419Z"
+          "timestamp": "2026-11-27T09:24:49.925063712Z"
         }
       }
     },
@@ -25356,7 +25356,7 @@
           "status": 400,
           "detail": "JSON parse error: Cannot construct instance of `br.gov.serpro.rtc.api.simplesnacional.model.input.AliquotasEfetivasInput` (although at least one Creator exists): no double/Double-argument constructor/factory method to deserialize from Number value (1.2345678901234568E29)",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.095993461Z"
+          "timestamp": "2026-11-27T09:24:49.926351282Z"
         }
       }
     },
@@ -25394,7 +25394,7 @@
           "status": 400,
           "detail": "JSON parse error: Cannot construct instance of `br.gov.serpro.rtc.api.simplesnacional.model.input.AliquotasEfetivasInput` (although at least one Creator exists): no double/Double-argument constructor/factory method to deserialize from Number value (4.9E-324)",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.096574878Z"
+          "timestamp": "2026-11-27T09:24:49.927657237Z"
         }
       }
     },
@@ -25432,7 +25432,7 @@
           "status": 400,
           "detail": "JSON parse error: Cannot construct instance of `br.gov.serpro.rtc.api.simplesnacional.model.input.AliquotasEfetivasInput` (although at least one Creator exists): no double/Double-argument constructor/factory method to deserialize from Number value (1.7976931348623157E308)",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.097155586Z"
+          "timestamp": "2026-11-27T09:24:49.928885658Z"
         }
       }
     },
@@ -26016,7 +26016,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.116677669Z",
+          "timestamp": "2026-11-27T09:24:49.970233334Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-015",
@@ -28309,7 +28309,7 @@
           "status": 422,
           "detail": "O cálculo contém 4 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.141652378Z",
+          "timestamp": "2026-11-27T09:24:50.040637208Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-033",
@@ -28411,7 +28411,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.142331961Z",
+          "timestamp": "2026-11-27T09:24:50.042350263Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-015",
@@ -28495,7 +28495,7 @@
           "status": 422,
           "detail": "O cálculo contém 2 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.143018669Z",
+          "timestamp": "2026-11-27T09:24:50.044054944Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-033",
@@ -28588,7 +28588,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.143757294Z",
+          "timestamp": "2026-11-27T09:24:50.045785390Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-031",
@@ -28668,7 +28668,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.144422503Z",
+          "timestamp": "2026-11-27T09:24:50.047426089Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-030",
@@ -28755,7 +28755,7 @@
           "status": 422,
           "detail": "O cálculo contém 2 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.145069169Z",
+          "timestamp": "2026-11-27T09:24:50.049121270Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-031",
@@ -28844,7 +28844,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.145765294Z",
+          "timestamp": "2026-11-27T09:24:50.050806743Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-030",
@@ -28924,7 +28924,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.146417544Z",
+          "timestamp": "2026-11-27T09:24:50.052577785Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-030",
@@ -29004,7 +29004,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.147120294Z",
+          "timestamp": "2026-11-27T09:24:50.054230256Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-030",
@@ -29084,7 +29084,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.147851669Z",
+          "timestamp": "2026-11-27T09:24:50.055857788Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-030",
@@ -37202,7 +37202,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.171885044Z",
+          "timestamp": "2026-11-27T09:24:50.172070870Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-015",
@@ -37284,7 +37284,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.172717669Z",
+          "timestamp": "2026-11-27T09:24:50.173637301Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-016",
@@ -37367,7 +37367,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.173588419Z",
+          "timestamp": "2026-11-27T09:24:50.175079480Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-033",
@@ -37452,7 +37452,7 @@
           "status": 400,
           "detail": "JSON parse error: Cannot deserialize value of type `java.lang.String` from Array value (token `JsonToken.START_ARRAY`)",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.174358419Z"
+          "timestamp": "2026-11-27T09:24:50.176307460Z"
         }
       }
     },
@@ -37526,7 +37526,7 @@
           "status": 400,
           "detail": "JSON parse error: Cannot deserialize value of type `java.lang.String` from Array value (token `JsonToken.START_ARRAY`)",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.175250794Z"
+          "timestamp": "2026-11-27T09:24:50.177447786Z"
         }
       }
     },
@@ -37720,7 +37720,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.177112919Z",
+          "timestamp": "2026-11-27T09:24:50.181214259Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-007",
@@ -37802,7 +37802,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.178046044Z",
+          "timestamp": "2026-11-27T09:24:50.183057606Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-007",
@@ -37884,7 +37884,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.178973419Z",
+          "timestamp": "2026-11-27T09:24:50.184870577Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-007",
@@ -37959,7 +37959,7 @@
           "status": 400,
           "detail": "JSON parse error: Cannot construct instance of `br.gov.serpro.rtc.api.simplesnacional.model.input.AliquotasEfetivasInput$AnexoComIssInput` (although at least one Creator exists): no int/Int-argument constructor/factory method to deserialize from Number value (1)",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.179715086Z"
+          "timestamp": "2026-11-27T09:24:50.186014780Z"
         }
       }
     },
@@ -38353,7 +38353,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.184103378Z",
+          "timestamp": "2026-11-27T09:24:50.196326507Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-012",
@@ -38436,7 +38436,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.184866919Z",
+          "timestamp": "2026-11-27T09:24:50.197480699Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-012",
@@ -38486,7 +38486,7 @@
           "status": 400,
           "detail": "JSON parse error: Cannot deserialize value of type `br.gov.serpro.rtc.api.simplesnacional.model.input.AliquotasEfetivasInput` from Array value (token `JsonToken.START_ARRAY`)",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.185540128Z"
+          "timestamp": "2026-11-27T09:24:50.198636504Z"
         }
       }
     },
@@ -38552,7 +38552,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.186357586Z",
+          "timestamp": "2026-11-27T09:24:50.200094853Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-011",
@@ -38628,7 +38628,7 @@
           "status": 400,
           "detail": "JSON parse error: Cannot deserialize value of type `java.util.ArrayList<br.gov.serpro.rtc.api.simplesnacional.model.input.ItemSimplesUnificadoInput>` from Integer value (token `JsonToken.VALUE_NUMBER_INT`)",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.187117211Z"
+          "timestamp": "2026-11-27T09:24:50.201237704Z"
         }
       }
     },
@@ -38695,7 +38695,7 @@
           "status": 400,
           "detail": "JSON parse error: Cannot deserialize value of type `java.util.ArrayList<br.gov.serpro.rtc.api.simplesnacional.model.input.ItemSimplesUnificadoInput>` from Integer value (token `JsonToken.VALUE_NUMBER_INT`)",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.187830128Z"
+          "timestamp": "2026-11-27T09:24:50.202324521Z"
         }
       }
     },
@@ -38762,7 +38762,7 @@
           "status": 400,
           "detail": "JSON parse error: Cannot deserialize value of type `java.util.ArrayList<br.gov.serpro.rtc.api.simplesnacional.model.input.ItemSimplesUnificadoInput>` from Floating-point value (token `JsonToken.VALUE_NUMBER_FLOAT`)",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.188557586Z"
+          "timestamp": "2026-11-27T09:24:50.203419550Z"
         }
       }
     },
@@ -39060,7 +39060,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.191874586Z",
+          "timestamp": "2026-11-27T09:24:50.211360249Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-005",
@@ -39255,7 +39255,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.193903169Z",
+          "timestamp": "2026-11-27T09:24:50.216221934Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-005",
@@ -39563,7 +39563,7 @@
           "status": 400,
           "detail": "JSON parse error: Cannot deserialize value of type `java.lang.String` from Array value (token `JsonToken.START_ARRAY`)",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.197036836Z"
+          "timestamp": "2026-11-27T09:24:50.223522166Z"
         }
       }
     },
@@ -40030,7 +40030,7 @@
           "status": 422,
           "detail": "O cálculo contém 5 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.202689753Z",
+          "timestamp": "2026-11-27T09:24:50.238431436Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-013",
@@ -40140,7 +40140,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.203551336Z",
+          "timestamp": "2026-11-27T09:24:50.240050615Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-015",
@@ -40222,7 +40222,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.204358836Z",
+          "timestamp": "2026-11-27T09:24:50.241682848Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-016",
@@ -40305,7 +40305,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.205173503Z",
+          "timestamp": "2026-11-27T09:24:50.243245682Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-024",
@@ -40387,7 +40387,7 @@
           "status": 422,
           "detail": "O cálculo contém 2 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.205897003Z",
+          "timestamp": "2026-11-27T09:24:50.244583827Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-024",
@@ -40589,7 +40589,7 @@
           "status": 400,
           "detail": "JSON parse error: Cannot deserialize value of type `java.lang.String` from Array value (token `JsonToken.START_ARRAY`)",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.207561461Z"
+          "timestamp": "2026-11-27T09:24:50.248362062Z"
         }
       }
     },
@@ -40793,7 +40793,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.209682169Z",
+          "timestamp": "2026-11-27T09:24:50.252794244Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-015",
@@ -40955,7 +40955,7 @@
           "status": 400,
           "detail": "JSON parse error: Cannot construct instance of `br.gov.serpro.rtc.api.simplesnacional.model.input.AliquotasEfetivasInput` (although at least one Creator exists): no int/Int-argument constructor/factory method to deserialize from Number value (-1)",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.211514419Z"
+          "timestamp": "2026-11-27T09:24:50.257081838Z"
         }
       }
     },
@@ -41139,7 +41139,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.213633544Z",
+          "timestamp": "2026-11-27T09:24:50.261747761Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-032",
@@ -41218,7 +41218,7 @@
           "status": 400,
           "detail": "JSON parse error: Cannot construct instance of `br.gov.serpro.rtc.api.simplesnacional.model.input.ItemSimplesUnificadoInput` (although at least one Creator exists): no int/Int-argument constructor/factory method to deserialize from Number value (1)",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.214452919Z"
+          "timestamp": "2026-11-27T09:24:50.262976519Z"
         }
       }
     },
@@ -41290,7 +41290,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.215244253Z",
+          "timestamp": "2026-11-27T09:24:50.264126103Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-012",
@@ -41450,7 +41450,7 @@
           "status": 400,
           "detail": "JSON parse error: Cannot construct instance of `br.gov.serpro.rtc.api.simplesnacional.model.input.AliquotasEfetivasInput` (although at least one Creator exists): no String-argument constructor/factory method to deserialize from String value ('+1')",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.217128794Z"
+          "timestamp": "2026-11-27T09:24:50.268394842Z"
         }
       }
     },
@@ -41525,7 +41525,7 @@
           "status": 400,
           "detail": "JSON parse error: Cannot deserialize value of type `java.lang.String` from Array value (token `JsonToken.START_ARRAY`)",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.217872961Z"
+          "timestamp": "2026-11-27T09:24:50.269502199Z"
         }
       }
     },
@@ -41601,7 +41601,7 @@
           "status": 422,
           "detail": "O cálculo contém 1 erro(s).",
           "instance": "/api/calculadora/observabilidade/simples-nacional/nao-assistido",
-          "timestamp": "2026-11-23T02:13:30.218751586Z",
+          "timestamp": "2026-11-27T09:24:50.271036240Z",
           "errors": [
             {
               "type": "http://127.0.0.1/calculadora/observabilidade/simples-nacional/erros?codigo=VSN-024",

@@ -2,6 +2,14 @@
 
 As notas de cada versão entram na release do GitHub. Use um título `## <versão>` por versão, da mais recente para a mais antiga.
 
+## 0.7.1
+
+Tabelas novas da Receita Federal na `cbs-ibs-simples`. O código de cálculo não mudou, mas o resultado pode mudar nos itens que as tabelas novas alcançam.
+
+- A base da skill passou da V0073 para a V0074, de 26/11/2026, montada das migrações oficiais no commit `0d4b073`.
+- Na conferência de 27/11/2026, 12.013 casos deram o mesmo JSON da calculadora oficial versão 1.0.2 rodando, em 12.013.
+- Publicada pelo robô de conferência. O GPT da skill só muda quando for republicado.
+
 ## 0.7.0
 
 Calculadora nova: `cbs-ibs-regime-regular`, a CBS, o IBS e o Imposto Seletivo no regime regular (Lucro Real e Lucro Presumido), com a mesma conta da calculadora oficial da Receita Federal.

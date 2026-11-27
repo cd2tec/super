@@ -9,15 +9,15 @@
   },
   "migracoes": {
     "repo": "ReceitaFederal/calculadora-rtc-regime-regular",
-    "commit": "f1eebd7ce3157423b1a6aaca7dc1d6c3395452c4"
+    "commit": "0d4b073da96db8d015e50736d1552bbc7623224e"
   },
   "base": {
-    "versao": "V0073",
-    "data": "2026-11-09",
-    "hash": "sha256:f510fae4078f5be78ad23583a2b2bc11bc3a28898346cc449b97d6219f9b0840"
+    "versao": "V0074",
+    "data": "2026-11-26",
+    "hash": "sha256:ad787a58bdb2a9ed54b2ebcda215a0ebafdf23dab9360a4bd5b57f2778cfda83"
   },
   "conferencia": {
-    "data": "2026-11-22",
+    "data": "2026-11-27",
     "casos": 12013,
     "iguais": 12013
   }
